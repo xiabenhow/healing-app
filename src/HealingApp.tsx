@@ -6,8 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 type EmotionKey = 'calm' | 'anxious' | 'tired' | 'warm' | 'low' | 'energized';
 type PageType = 'home' | 'diary' | 'recipe' | 'card' | 'healer';
-
-// ===== Calendar Types (from Firestore) =====
+type TaskKey = 'checkin' | 'card' | 'note' | 'breathe' | 'evening' | 'share';
 
 interface HealingRecord {
   date: string;
@@ -76,6 +75,32 @@ const MICRO_TASKS = [
   '喝一杯溫水，慢慢喝。這是今天給自己的儀式。',
   '閉上眼睛，想一個讓你感到安心的地方。停留一下。',
 ];
+
+// --- NEW: Daily Task System ---
+const TASK_LABELS: Record<TaskKey, string> = {
+  checkin: '晨間情緒打卡',
+  card: '抽一張精油卡',
+  note: '寫今日情緒筆記',
+  breathe: '做呼吸練習',
+  evening: '晚間回饋打卡',
+  share: '分享今日卡片',
+};
+
+const TASK_KEYS: TaskKey[] = ['checkin', 'card', 'note', 'breathe', 'evening', 'share'];
+
+const emptyTasks = (): Record<TaskKey, boolean> => ({
+  checkin: false, card: false, note: false, breathe: false, evening: false, share: false,
+});
+
+// --- NEW: Evening Feedback Responses ---
+const EVENING_RESPONSES: Record<string, string> = {
+  better: '很好 🌸 你今天做到了。薰衣草精油晚上可以繼續陪你入睡，好好休息。',
+  little: '一點點進步也是進步 🌿 今晚試試把肩膀放下來，讓身體好好休息。',
+  same: '沒關係，有些天就是這樣 😔 今晚不需要逼自己好起來，先讓身體休息。',
+};
+
+// --- NEW: Milestone Days ---
+const MILESTONE_DAYS = [7, 14, 30, 60];
 
 const OILS: Record<string, OilInfo> = {
   '真正薰衣草': { name: '真正薰衣草', nameEn: 'True Lavender', family: '唇形科', scent: '草本花香，溫柔安撫', mental: '安撫焦慮、放鬆緊繃的心情，帶來平靜與安心感', physical: '助眠、緩解頭痛、舒緩肌肉緊張', caution: '低血壓者留意用量' },
@@ -160,14 +185,6 @@ const formatDate = (d: Date): string => {
 
 const getToday = (): string => formatDate(new Date());
 
-
-
-const getGreeting = (): string => {
-  const h = new Date().getHours();
-  if (h < 12) return '早安';
-  if (h < 18) return '午安';
-  return '晚安';
-};
 
 const getDayOfYear = (): number => {
   const now = new Date();
@@ -291,7 +308,42 @@ const seedDemoData = (): HealingRecord[] => {
   return records;
 };
 
+// --- NEW: Daily Task Storage ---
+const loadDailyTasks = (): Record<TaskKey, boolean> => {
+  try {
+    const data = localStorage.getItem(`healing_tasks_${getToday()}`);
+    return data ? { ...emptyTasks(), ...JSON.parse(data) } : emptyTasks();
+  } catch { return emptyTasks(); }
+};
 
+const saveDailyTasks = (tasks: Record<TaskKey, boolean>): void => {
+  localStorage.setItem(`healing_tasks_${getToday()}`, JSON.stringify(tasks));
+};
+
+// --- NEW: Evening Feedback Storage ---
+const loadEveningFeedback = (): string | null => {
+  try { return localStorage.getItem(`healing_evening_${getToday()}`); }
+  catch { return null; }
+};
+
+const saveEveningFeedback = (val: string): void => {
+  localStorage.setItem(`healing_evening_${getToday()}`, val);
+};
+
+// --- NEW: Milestone Storage ---
+const loadShownMilestones = (): number[] => {
+  try {
+    const data = localStorage.getItem('healing_milestones_shown');
+    return data ? JSON.parse(data) : [];
+  } catch { return []; }
+};
+
+const addShownMilestone = (n: number): void => {
+  const existing = loadShownMilestones();
+  if (!existing.includes(n)) {
+    localStorage.setItem('healing_milestones_shown', JSON.stringify([...existing, n]));
+  }
+};
 
 const getLevel = (days: number) => {
   if (days >= 60) return { name: '穩定之心', emoji: '✨', level: 4, next: Infinity, min: 60 };
@@ -441,16 +493,285 @@ function BreathingCircle() {
   );
 }
 
+// ===================== NEW: MORNING FLOW MODAL =====================
+
+function MorningFlowModal({
+  emotion,
+  onDone,
+}: {
+  emotion: EmotionKey;
+  onDone: () => void;
+}) {
+  const emoInfo = getEmotionInfo(emotion);
+  const recipe = RECIPES[emotion];
+  const dayIndex = getDayOfYear();
+
+  return (
+    <motion.div
+      className="fixed inset-0 z-50 flex items-end justify-center"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <div className="absolute inset-0 bg-black/40" />
+      <motion.div
+        className="relative w-full max-w-md rounded-t-3xl p-6 pb-10 space-y-5"
+        style={{ backgroundColor: '#FFFEF9' }}
+        initial={{ y: '100%' }}
+        animate={{ y: 0 }}
+        exit={{ y: '100%' }}
+        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+      >
+        <div className="mx-auto mb-2 h-1 w-12 rounded-full bg-gray-300" />
+
+        {/* Checkin confirmed */}
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-100 to-emerald-50 flex items-center justify-center">
+            <span className="text-2xl">{emoInfo.emoji}</span>
+          </div>
+          <div>
+            <p className="text-base font-bold" style={{ color: '#3D3530' }}>晨間打卡完成 ✅</p>
+            <p className="text-sm" style={{ color: '#8C7B72' }}>今天感覺：{emoInfo.label}</p>
+          </div>
+        </div>
+
+        {/* Today's recipe */}
+        <div className="rounded-2xl p-4" style={{ background: 'linear-gradient(135deg, #FAF8F5, #FFF8E7)' }}>
+          <p className="text-xs font-medium mb-2" style={{ color: '#C9A96E' }}>🌿 今日香氛處方</p>
+          <p className="text-sm font-medium mb-1" style={{ color: '#3D3530' }}>
+            {recipe.oils.map(o => o.name).join(' + ')}
+          </p>
+          <p className="text-xs italic" style={{ color: '#8C7B72' }}>「{recipe.message}」</p>
+          <p className="text-xs mt-1" style={{ color: '#8FA886' }}>使用方式：{recipe.usage}</p>
+        </div>
+
+        {/* Today's micro task */}
+        <div className="rounded-2xl p-4" style={{ backgroundColor: '#FAF8F5' }}>
+          <p className="text-xs font-medium mb-2" style={{ color: '#3D3530' }}>✨ 今日微任務</p>
+          <p className="text-sm" style={{ color: '#8C7B72' }}>{MICRO_TASKS[dayIndex % MICRO_TASKS.length]}</p>
+        </div>
+
+        <motion.button
+          whileTap={{ scale: 0.96 }}
+          onClick={onDone}
+          className="w-full rounded-2xl py-3 text-white font-medium"
+          style={{ backgroundColor: '#8FA886' }}
+        >
+          開始今天 →
+        </motion.button>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// ===================== NEW: MILESTONE MODAL =====================
+
+function MilestoneModal({
+  days,
+  onClose,
+}: {
+  days: number;
+  onClose: () => void;
+}) {
+  return (
+    <motion.div
+      className="fixed inset-0 z-50 flex items-center justify-center px-6"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+    >
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <motion.div
+        className="relative w-full max-w-sm rounded-3xl p-8 text-center"
+        style={{ backgroundColor: '#FFFEF9' }}
+        initial={{ scale: 0.8, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        exit={{ scale: 0.8, opacity: 0 }}
+        transition={{ type: 'spring', damping: 20, stiffness: 300 }}
+      >
+        <motion.div
+          className="text-6xl mb-4"
+          animate={{ rotate: [0, -10, 10, -5, 5, 0] }}
+          transition={{ duration: 0.6, delay: 0.3 }}
+        >
+          🎉
+        </motion.div>
+        <h2 className="text-xl font-bold mb-2" style={{ color: '#3D3530' }}>
+          你已經連續照顧自己 {days} 天了！
+        </h2>
+        <p className="text-sm leading-relaxed mb-6" style={{ color: '#8C7B72' }}>
+          你已經開始理解自己的情緒了 🌱<br />
+          推薦你來做一堂專屬香氛體驗——<br />
+          讓香氛師根據你的情緒，調製屬於你的那瓶香。
+        </p>
+
+        <a
+          href="https://xiabenhow.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block w-full rounded-2xl py-3 text-white font-medium text-sm mb-3"
+          style={{ backgroundColor: '#C9A96E' }}
+        >
+          🌸 了解調香體驗課程
+        </a>
+        <button
+          onClick={onClose}
+          className="w-full rounded-2xl py-3 text-sm font-medium"
+          style={{ backgroundColor: '#FAF8F5', color: '#8C7B72' }}
+        >
+          繼續我的療癒旅程
+        </button>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+// ===================== NEW: DAILY TASK LIST =====================
+
+function DailyTaskList({
+  tasks,
+  onToggle,
+}: {
+  tasks: Record<TaskKey, boolean>;
+  onToggle: (key: TaskKey) => void;
+}) {
+  const completed = TASK_KEYS.filter(k => tasks[k]).length;
+  const pct = Math.round((completed / TASK_KEYS.length) * 100);
+
+  return (
+    <div className="rounded-3xl p-5 shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-base font-bold" style={{ color: '#3D3530' }}>今日任務</p>
+        <span className="text-xs font-medium" style={{ color: '#8FA886' }}>{completed}/{TASK_KEYS.length} 完成</span>
+      </div>
+      {/* Progress bar */}
+      <div className="w-full h-2 rounded-full mb-4 overflow-hidden" style={{ backgroundColor: '#FAF8F5' }}>
+        <motion.div
+          className="h-full rounded-full"
+          style={{ background: 'linear-gradient(90deg, #8FA886, #C9A96E)' }}
+          initial={{ width: 0 }}
+          animate={{ width: `${pct}%` }}
+          transition={{ duration: 0.6, ease: 'easeOut' }}
+        />
+      </div>
+      {/* Task items */}
+      <div className="space-y-2">
+        {TASK_KEYS.map((key) => (
+          <motion.button
+            key={key}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => onToggle(key)}
+            className="w-full flex items-center gap-3 rounded-xl p-2 text-left transition-opacity"
+            style={{ opacity: tasks[key] ? 0.6 : 1 }}
+          >
+            <div
+              className="w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center border-2 transition-all"
+              style={{
+                borderColor: tasks[key] ? '#8FA886' : '#D0CCC8',
+                backgroundColor: tasks[key] ? '#8FA886' : 'transparent',
+              }}
+            >
+              {tasks[key] && (
+                <motion.svg
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  width="10" height="10" viewBox="0 0 10 10" fill="none"
+                >
+                  <path d="M2 5L4 7L8 3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </motion.svg>
+              )}
+            </div>
+            <span
+              className="text-sm"
+              style={{
+                color: tasks[key] ? '#8C7B72' : '#3D3530',
+                textDecoration: tasks[key] ? 'line-through' : 'none',
+              }}
+            >
+              {TASK_LABELS[key]}
+            </span>
+          </motion.button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ===================== NEW: EVENING FEEDBACK =====================
+
+function EveningFeedback({
+  onComplete,
+}: {
+  onComplete: () => void;
+}) {
+  const [selected, setSelected] = useState<string | null>(loadEveningFeedback());
+
+  const handleSelect = (val: string) => {
+    setSelected(val);
+    saveEveningFeedback(val);
+    onComplete();
+  };
+
+  if (selected) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="rounded-3xl p-5 shadow-sm"
+        style={{ backgroundColor: '#FFFEF9' }}
+      >
+        <p className="text-sm font-bold mb-2" style={{ color: '#3D3530' }}>🌙 晚間回饋</p>
+        <p className="text-sm leading-relaxed" style={{ color: '#8C7B72' }}>{EVENING_RESPONSES[selected]}</p>
+      </motion.div>
+    );
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="rounded-3xl p-5 shadow-sm"
+      style={{ backgroundColor: '#FFFEF9' }}
+    >
+      <p className="text-sm font-bold mb-1" style={{ color: '#3D3530' }}>🌙 今天有比早上好嗎？</p>
+      <p className="text-xs mb-4" style={{ color: '#8C7B72' }}>讓我知道你今天的狀態</p>
+      <div className="flex gap-2">
+        {[
+          { val: 'better', label: '😊 有好一點' },
+          { val: 'little', label: '🌿 一點點' },
+          { val: 'same', label: '😔 還是很累' },
+        ].map(({ val, label }) => (
+          <motion.button
+            key={val}
+            whileTap={{ scale: 0.94 }}
+            onClick={() => handleSelect(val)}
+            className="flex-1 rounded-2xl py-2 text-xs font-medium"
+            style={{ backgroundColor: '#FAF8F5', color: '#3D3530' }}
+          >
+            {label}
+          </motion.button>
+        ))}
+      </div>
+    </motion.div>
+  );
+}
+
 // ===================== PAGE: HOME =====================
 
 function HomePage({
   records,
   onCheckIn,
   onGoToRecipe,
+  dailyTasks,
+  onTaskToggle,
+  onTaskComplete,
 }: {
   records: HealingRecord[];
   onCheckIn: (emotion: EmotionKey) => void;
   onGoToRecipe: () => void;
+  dailyTasks: Record<TaskKey, boolean>;
+  onTaskToggle: (key: TaskKey) => void;
+  onTaskComplete: (key: TaskKey) => void;
 }) {
   const [selectedEmotion, setSelectedEmotion] = useState<EmotionKey | null>(null);
   const todayRecord = records.find(r => r.date === getToday());
@@ -458,6 +779,8 @@ function HomePage({
   const weekCheckins = getWeekCheckins(records);
   const stabilityStars = getStabilityStars(records);
   const dayIndex = getDayOfYear();
+  const currentHour = new Date().getHours();
+  const showEvening = currentHour >= 17 && !dailyTasks.evening;
 
   const handleSelect = (key: EmotionKey) => {
     setSelectedEmotion(key);
@@ -477,25 +800,47 @@ function HomePage({
           <p className="text-xs tracking-widest" style={{ color: '#C9A96E' }}>即時共鳴</p>
           <p className="text-sm" style={{ color: '#8C7B72' }}>你的香氛療癒空間</p>
         </div>
-        <div
-          className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-200 to-orange-100 flex items-center justify-center text-xs font-bold shadow-sm"
-          style={{ color: '#3D3530' }}
-        >
-          🔥{streak}
+        <p className="text-sm" style={{ color: '#8C7B72' }}>{getDisplayDate()}</p>
+      </motion.div>
+
+      {/* 🔥 BIG STREAK CARD */}
+      <motion.div
+        variants={staggerItem}
+        className="rounded-3xl p-5 shadow-sm flex items-center gap-4"
+        style={{ background: 'linear-gradient(135deg, #FFF8E7, #FAF8F5)' }}
+      >
+        <div className="text-center">
+          <p className="text-5xl font-bold leading-none" style={{ color: '#C9A96E' }}>{streak}</p>
+          <p className="text-xs mt-1" style={{ color: '#8C7B72' }}>連續天數</p>
+        </div>
+        <div className="flex-1">
+          <div className="flex items-center gap-1 mb-2">
+            <span className="text-lg">🔥</span>
+            <p className="text-sm font-bold" style={{ color: '#3D3530' }}>持續照顧自己</p>
+          </div>
+          <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: '#E8E3DC' }}>
+            <motion.div
+              className="h-full rounded-full"
+              style={{ background: 'linear-gradient(90deg, #C9A96E, #F0C878)' }}
+              initial={{ width: 0 }}
+              animate={{ width: `${Math.min(100, (streak / 30) * 100)}%` }}
+              transition={{ duration: 0.8, ease: 'easeOut' }}
+            />
+          </div>
+          <div className="flex justify-between mt-1">
+            <p className="text-xs" style={{ color: '#8C7B72' }}>本週 {weekCheckins}/7 天</p>
+            <p className="text-xs" style={{ color: '#8FA886' }}>穩定 {renderStars(stabilityStars)}</p>
+          </div>
         </div>
       </motion.div>
 
-      {/* Greeting Card */}
+      {/* Daily Quote */}
       <motion.div
         variants={staggerItem}
-        className="rounded-3xl p-6 shadow-sm"
-        style={{ background: 'linear-gradient(135deg, #FAF8F5, #FFF8E7)' }}
+        className="rounded-3xl p-5 shadow-sm"
+        style={{ backgroundColor: '#FFFEF9' }}
       >
-        <p className="text-2xl font-bold mb-1" style={{ color: '#3D3530' }}>
-          {getGreeting()} ☀️
-        </p>
-        <p className="text-sm mb-3" style={{ color: '#8C7B72' }}>{getDisplayDate()}</p>
-        <p className="text-sm leading-relaxed italic" style={{ color: '#8C7B72' }}>
+        <p className="text-sm leading-relaxed italic text-center" style={{ color: '#8C7B72' }}>
           「{DAILY_QUOTES[dayIndex % DAILY_QUOTES.length]}」
         </p>
       </motion.div>
@@ -526,44 +871,46 @@ function HomePage({
         </AnimatePresence>
       </motion.div>
 
-      {/* Today's Aroma */}
-      <motion.div variants={staggerItem} className="rounded-3xl p-5 shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
-        <p className="text-base font-bold mb-2" style={{ color: '#3D3530' }}>🧴 今日香氛</p>
-        {todayRecord ? (
-          <div>
-            <p className="text-sm mb-2" style={{ color: '#8C7B72' }}>
-              {RECIPES[todayRecord.emotion].oils.map(o => o.name).join(' + ')}
-            </p>
-            <button
-              onClick={onGoToRecipe}
-              className="text-sm font-medium"
-              style={{ color: '#8FA886' }}
+      {/* Today's Aroma quick view */}
+      {todayRecord && (
+        <motion.div variants={staggerItem} className="rounded-3xl p-5 shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
+          <p className="text-base font-bold mb-2" style={{ color: '#3D3530' }}>🧴 今日香氛處方</p>
+          <p className="text-sm mb-1" style={{ color: '#8C7B72' }}>
+            {RECIPES[todayRecord.emotion].oils.map(o => o.name).join(' + ')}
+          </p>
+          <div className="flex gap-2 mt-3">
+            <a
+              href="https://xiabenhow.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 rounded-xl py-2 text-xs font-medium text-center border"
+              style={{ borderColor: '#8FA886', color: '#8FA886' }}
             >
-              查看完整處方 →
-            </button>
+              🛍️ 購買精油
+            </a>
+            <a
+              href="https://xiabenhow.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex-1 rounded-xl py-2 text-xs font-medium text-center text-white"
+              style={{ backgroundColor: '#8FA886' }}
+            >
+              🌿 預約體驗
+            </a>
           </div>
-        ) : (
-          <p className="text-sm" style={{ color: '#8C7B72' }}>完成打卡解鎖今日處方 🔒</p>
-        )}
-      </motion.div>
+        </motion.div>
+      )}
 
-      {/* Micro Task */}
-      <motion.div variants={staggerItem} className="rounded-3xl p-5 shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
-        <p className="text-base font-bold mb-2" style={{ color: '#3D3530' }}>✨ 今日微任務</p>
-        <p className="text-sm leading-relaxed" style={{ color: '#8C7B72' }}>
-          {MICRO_TASKS[dayIndex % MICRO_TASKS.length]}
-        </p>
-      </motion.div>
+      {/* Evening Feedback (only show after 17:00) */}
+      {showEvening && (
+        <motion.div variants={staggerItem}>
+          <EveningFeedback onComplete={() => onTaskComplete('evening')} />
+        </motion.div>
+      )}
 
-      {/* Streak Bar */}
-      <motion.div
-        variants={staggerItem}
-        className="rounded-2xl px-4 py-3 flex items-center justify-between text-xs"
-        style={{ backgroundColor: '#FFFEF9', color: '#8C7B72' }}
-      >
-        <span>🔥 連續 {streak} 天</span>
-        <span>本週 {weekCheckins}/7</span>
-        <span>穩定 {renderStars(stabilityStars)}</span>
+      {/* Daily Task List */}
+      <motion.div variants={staggerItem}>
+        <DailyTaskList tasks={dailyTasks} onToggle={onTaskToggle} />
       </motion.div>
     </motion.div>
   );
@@ -709,9 +1056,11 @@ function DiaryPage({ records }: { records: HealingRecord[] }) {
 function RecipePage({
   records,
   onCheckIn,
+  onTaskComplete,
 }: {
   records: HealingRecord[];
   onCheckIn: (emotion: EmotionKey) => void;
+  onTaskComplete: (key: TaskKey) => void;
 }) {
   const todayRecord = records.find(r => r.date === getToday());
   const [selectedOil, setSelectedOil] = useState<string | null>(null);
@@ -729,8 +1078,9 @@ function RecipePage({
     );
     saveRecords(updated);
     setNoteSaved(true);
+    onTaskComplete('note');
     setTimeout(() => setNoteSaved(false), 2000);
-  }, [emotion, note]);
+  }, [emotion, note, onTaskComplete]);
 
   useEffect(() => {
     if (todayRecord?.note) setNote(todayRecord.note);
@@ -791,18 +1141,33 @@ function RecipePage({
               onClick={() => setSelectedOil(oil.name)}
               className="flex flex-col items-center rounded-2xl p-3 bg-gradient-to-br from-stone-50 to-amber-50"
             >
-              <span
-                className="text-lg font-bold mb-1"
-                style={{ color: '#C9A96E' }}
-              >
-                {oil.drops}
-              </span>
-              <span className="text-xs font-medium mb-1" style={{ color: '#3D3530' }}>
-                {oil.name}
-              </span>
+              <span className="text-lg font-bold mb-1" style={{ color: '#C9A96E' }}>{oil.drops}</span>
+              <span className="text-xs font-medium mb-1" style={{ color: '#3D3530' }}>{oil.name}</span>
               <span className="text-xs" style={{ color: '#8C7B72' }}>{oil.role}</span>
             </motion.button>
           ))}
+        </div>
+
+        {/* --- NEW: CTA Buttons --- */}
+        <div className="flex gap-2 mt-4 pt-4" style={{ borderTop: '1px solid #F0EDE8' }}>
+          <a
+            href="https://xiabenhow.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 rounded-xl py-2.5 text-xs font-medium text-center border"
+            style={{ borderColor: '#C9A96E', color: '#C9A96E' }}
+          >
+            🛍️ 購買精油組合
+          </a>
+          <a
+            href="https://xiabenhow.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 rounded-xl py-2.5 text-xs font-medium text-center text-white"
+            style={{ backgroundColor: '#8FA886' }}
+          >
+            🌿 預約調香體驗
+          </a>
         </div>
       </div>
 
@@ -810,6 +1175,13 @@ function RecipePage({
       <div className="rounded-3xl p-6 shadow-sm text-center" style={{ backgroundColor: '#FFFEF9' }}>
         <p className="text-sm font-bold mb-4" style={{ color: '#3D3530' }}>🫧 呼吸引導</p>
         <BreathingCircle />
+        <button
+          onClick={() => onTaskComplete('breathe')}
+          className="mt-4 text-xs font-medium px-4 py-1.5 rounded-xl"
+          style={{ backgroundColor: '#FAF8F5', color: '#8FA886' }}
+        >
+          ✅ 完成呼吸練習
+        </button>
       </div>
 
       {/* Notes */}
@@ -838,7 +1210,7 @@ function RecipePage({
 
 // ===================== PAGE: CARD =====================
 
-function CardPage() {
+function CardPage({ onTaskComplete }: { onTaskComplete: (key: TaskKey) => void }) {
   const [drawnCard, setDrawnCard] = useState<CardInfo | null>(null);
   const [isFlipped, setIsFlipped] = useState(false);
   const [savedCards, setSavedCards] = useState<number[]>(loadSavedCards);
@@ -847,7 +1219,10 @@ function CardPage() {
     const randomIndex = Math.floor(Math.random() * CARDS.length);
     setDrawnCard(CARDS[randomIndex]);
     setIsFlipped(false);
-    setTimeout(() => setIsFlipped(true), 300);
+    setTimeout(() => {
+      setIsFlipped(true);
+      onTaskComplete('card');
+    }, 300);
   };
 
   const redraw = () => {
@@ -865,6 +1240,16 @@ function CardPage() {
       const updated = [...savedCards, drawnCard.id];
       setSavedCards(updated);
       saveSavedCards(updated);
+    }
+  };
+
+  const shareCard = () => {
+    onTaskComplete('share');
+    if (navigator.share && drawnCard) {
+      navigator.share({
+        title: `今日香氛籤：${drawnCard.name}`,
+        text: `「${drawnCard.ritual}」\n精油：${drawnCard.recipe}\n#下班隨手作 #香氛療癒`,
+      }).catch(() => {});
     }
   };
 
@@ -902,10 +1287,7 @@ function CardPage() {
               >
                 <p className="text-sm font-bold mb-2" style={{ color: '#3D3530' }}>{drawnCard.name}</p>
                 <p className="text-6xl mb-3">{drawnCard.emoji}</p>
-                <p
-                  className="text-xs italic text-center leading-relaxed mb-3 px-2"
-                  style={{ color: '#3D3530' }}
-                >
+                <p className="text-xs italic text-center leading-relaxed mb-3 px-2" style={{ color: '#3D3530' }}>
                   「{drawnCard.ritual}」
                 </p>
                 <p className="text-xs text-center" style={{ color: '#8C7B72' }}>
@@ -928,22 +1310,32 @@ function CardPage() {
           ✨ 抽出今日香氛
         </motion.button>
       ) : isFlipped ? (
-        <div className="flex gap-3">
+        <div className="flex flex-col gap-2">
+          <div className="flex gap-3">
+            <motion.button
+              whileTap={{ scale: 0.96 }}
+              onClick={redraw}
+              className="flex-1 rounded-2xl py-3 font-medium text-sm"
+              style={{ backgroundColor: '#FFFEF9', color: '#3D3530' }}
+            >
+              🔄 再抽一次
+            </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.96 }}
+              onClick={saveCard}
+              className="flex-1 rounded-2xl py-3 text-white font-medium text-sm"
+              style={{ backgroundColor: savedCards.includes(drawnCard?.id ?? -1) ? '#C9A96E' : '#8FA886' }}
+            >
+              {savedCards.includes(drawnCard?.id ?? -1) ? '已收藏 ✓' : '💾 收藏這張'}
+            </motion.button>
+          </div>
           <motion.button
             whileTap={{ scale: 0.96 }}
-            onClick={redraw}
-            className="flex-1 rounded-2xl py-3 font-medium text-sm"
-            style={{ backgroundColor: '#FFFEF9', color: '#3D3530' }}
+            onClick={shareCard}
+            className="w-full rounded-2xl py-2.5 text-sm font-medium"
+            style={{ backgroundColor: '#FAF8F5', color: '#8C7B72' }}
           >
-            🔄 再抽一次
-          </motion.button>
-          <motion.button
-            whileTap={{ scale: 0.96 }}
-            onClick={saveCard}
-            className="flex-1 rounded-2xl py-3 text-white font-medium text-sm"
-            style={{ backgroundColor: savedCards.includes(drawnCard.id) ? '#C9A96E' : '#8FA886' }}
-          >
-            {savedCards.includes(drawnCard.id) ? '已收藏 ✓' : '💾 收藏這張'}
+            📤 分享今日卡片
           </motion.button>
         </div>
       ) : null}
@@ -1155,13 +1547,15 @@ function HealerPage({ records }: { records: HealingRecord[] }) {
         <p className="text-base font-bold mb-1" style={{ color: '#3D3530' }}>{courseRecommendation.title}</p>
         <p className="text-sm mb-1" style={{ color: '#8C7B72' }}>{courseRecommendation.desc}</p>
         <p className="text-xs mb-3" style={{ color: '#8C7B72' }}>📍 下班隨手作 · 漢口街2段121號</p>
-        <motion.button
-          whileTap={{ scale: 0.96 }}
-          className="w-full rounded-2xl py-3 text-white font-medium text-sm"
+        <a
+          href="https://xiabenhow.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block w-full rounded-2xl py-3 text-white font-medium text-sm text-center"
           style={{ backgroundColor: '#C9A96E' }}
         >
           立即預約
-        </motion.button>
+        </a>
       </motion.div>
     </motion.div>
   );
@@ -1225,6 +1619,29 @@ export default function HealingApp() {
     return existing;
   });
 
+  // --- NEW STATE ---
+  const [dailyTasks, setDailyTasks] = useState<Record<TaskKey, boolean>>(loadDailyTasks);
+  const [showMorningFlow, setShowMorningFlow] = useState(false);
+  const [morningFlowEmotion, setMorningFlowEmotion] = useState<EmotionKey | null>(null);
+  const [showMilestone, setShowMilestone] = useState<number | null>(null);
+
+  const completeTask = useCallback((key: TaskKey) => {
+    setDailyTasks(prev => {
+      if (prev[key]) return prev;
+      const updated = { ...prev, [key]: true };
+      saveDailyTasks(updated);
+      return updated;
+    });
+  }, []);
+
+  const toggleTask = useCallback((key: TaskKey) => {
+    setDailyTasks(prev => {
+      const updated = { ...prev, [key]: !prev[key] };
+      saveDailyTasks(updated);
+      return updated;
+    });
+  }, []);
+
   const handleCheckIn = useCallback((emotion: EmotionKey) => {
     const today = getToday();
     setRecords(prev => {
@@ -1233,7 +1650,24 @@ export default function HealingApp() {
       saveRecords(updated);
       return updated;
     });
-  }, []);
+    completeTask('checkin');
+    setMorningFlowEmotion(emotion);
+    setShowMorningFlow(true);
+  }, [completeTask]);
+
+  const handleMorningFlowDone = useCallback(() => {
+    setShowMorningFlow(false);
+    // Check for milestone
+    const streak = getStreak(records);
+    const shown = loadShownMilestones();
+    for (const m of MILESTONE_DAYS) {
+      if (streak >= m && !shown.includes(m)) {
+        addShownMilestone(m);
+        setTimeout(() => setShowMilestone(m), 400);
+        break;
+      }
+    }
+  }, [records]);
 
   const goToRecipe = useCallback(() => setPage('recipe'), []);
 
@@ -1253,18 +1687,45 @@ export default function HealingApp() {
                 records={records}
                 onCheckIn={handleCheckIn}
                 onGoToRecipe={goToRecipe}
+                dailyTasks={dailyTasks}
+                onTaskToggle={toggleTask}
+                onTaskComplete={completeTask}
               />
             )}
             {page === 'diary' && <DiaryPage records={records} />}
             {page === 'recipe' && (
-              <RecipePage records={records} onCheckIn={handleCheckIn} />
+              <RecipePage
+                records={records}
+                onCheckIn={handleCheckIn}
+                onTaskComplete={completeTask}
+              />
             )}
-            {page === 'card' && <CardPage />}
+            {page === 'card' && <CardPage onTaskComplete={completeTask} />}
             {page === 'healer' && <HealerPage records={records} />}
           </motion.div>
         </AnimatePresence>
       </div>
       <BottomNav active={page} onChange={setPage} />
+
+      {/* Morning Flow Modal */}
+      <AnimatePresence>
+        {showMorningFlow && morningFlowEmotion && (
+          <MorningFlowModal
+            emotion={morningFlowEmotion}
+            onDone={handleMorningFlowDone}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Milestone Modal */}
+      <AnimatePresence>
+        {showMilestone && (
+          <MilestoneModal
+            days={showMilestone}
+            onClose={() => setShowMilestone(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
