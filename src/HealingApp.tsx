@@ -1,11 +1,15 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
+import type { User } from 'firebase/auth';
+import { auth, googleProvider } from './lib/firebase';
+import { OIL_LIBRARY, FAMILY_EMOJI, type OilLibraryItem } from './oilLibraryData';
 
 
 // ===================== TYPES =====================
 
 type EmotionKey = 'calm' | 'anxious' | 'tired' | 'warm' | 'low' | 'energized';
-type PageType = 'home' | 'diary' | 'recipe' | 'card' | 'healer';
+type PageType = 'home' | 'diary' | 'recipe' | 'card' | 'healer' | 'library' | 'calendar';
 type TaskKey = 'checkin' | 'card' | 'note' | 'breathe' | 'evening' | 'share';
 
 interface HealingRecord {
@@ -1569,37 +1573,477 @@ const NAV_ITEMS: { key: PageType; emoji: string; label: string }[] = [
   { key: 'recipe', emoji: '🧴', label: '配方' },
   { key: 'card', emoji: '🃏', label: '抽卡' },
   { key: 'healer', emoji: '🌱', label: '療癒師' },
+  { key: 'library', emoji: '📚', label: '精油庫' },
+  { key: 'calendar', emoji: '🗓️', label: '日曆' },
 ];
 
+// ===================== PAGE: OIL LIBRARY =====================
+
+function OilLibraryPage() {
+  const [search, setSearch] = useState('');
+  const [selected, setSelected] = useState<OilLibraryItem | null>(null);
+  const [filterTag, setFilterTag] = useState<string | null>(null);
+
+  const allTags = useMemo(() => {
+    const set = new Set<string>();
+    OIL_LIBRARY.forEach(o => o.tags.forEach(t => set.add(t)));
+    return [...set];
+  }, []);
+
+  const filtered = useMemo(() => {
+    return OIL_LIBRARY.filter(o => {
+      const q = search.toLowerCase();
+      const matchSearch = !q || o.name.includes(q) || o.en.toLowerCase().includes(q) || o.family.includes(q);
+      const matchTag = !filterTag || o.tags.includes(filterTag);
+      return matchSearch && matchTag;
+    });
+  }, [search, filterTag]);
+
+  return (
+    <motion.div className="space-y-4" {...fadeInUp}>
+      {/* Header */}
+      <div>
+        <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>📚 精油圖書館</h2>
+        <p className="text-sm mt-0.5" style={{ color: '#8C7B72' }}>認識每一滴的力量</p>
+      </div>
+
+      {/* Search */}
+      <div
+        className="flex items-center gap-2 rounded-2xl px-4 py-2.5"
+        style={{ backgroundColor: '#FFFEF9' }}
+      >
+        <span style={{ color: '#8C7B72' }}>🔍</span>
+        <input
+          type="text"
+          placeholder="搜尋精油名稱或科別..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="flex-1 text-sm bg-transparent outline-none border-0"
+          style={{ color: '#3D3530' }}
+        />
+        {search && (
+          <button onClick={() => setSearch('')} style={{ color: '#8C7B72' }}>✕</button>
+        )}
+      </div>
+
+      {/* Tag Filters */}
+      <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+        <button
+          onClick={() => setFilterTag(null)}
+          className="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium"
+          style={!filterTag ? { backgroundColor: '#8FA886', color: '#fff' } : { backgroundColor: '#FFFEF9', color: '#8C7B72' }}
+        >
+          全部
+        </button>
+        {allTags.slice(0, 12).map(tag => (
+          <button
+            key={tag}
+            onClick={() => setFilterTag(filterTag === tag ? null : tag)}
+            className="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium"
+            style={filterTag === tag ? { backgroundColor: '#C9A96E', color: '#fff' } : { backgroundColor: '#FFFEF9', color: '#8C7B72' }}
+          >
+            {tag}
+          </button>
+        ))}
+      </div>
+
+      {/* Count */}
+      <p className="text-xs" style={{ color: '#8C7B72' }}>共 {filtered.length} 支精油</p>
+
+      {/* Oil Grid */}
+      <div className="grid grid-cols-2 gap-3">
+        {filtered.map((oil, i) => (
+          <motion.button
+            key={oil.name}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.03 }}
+            whileTap={{ scale: 0.96 }}
+            onClick={() => setSelected(oil)}
+            className="rounded-2xl p-4 text-left shadow-sm"
+            style={{ backgroundColor: '#FFFEF9' }}
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-2xl">{oil.emoji}</span>
+              <span className="text-xs px-2 py-0.5 rounded-lg" style={{ backgroundColor: '#FAF8F5', color: '#8C7B72' }}>
+                {FAMILY_EMOJI[oil.family] || '🌿'} {oil.family}
+              </span>
+            </div>
+            <p className="text-sm font-bold mb-0.5" style={{ color: '#3D3530' }}>{oil.name}</p>
+            <p className="text-xs mb-2" style={{ color: '#8C7B72' }}>{oil.en}</p>
+            <p className="text-xs" style={{ color: '#8C7B72' }}>萃取：{oil.part}</p>
+            {oil.tags.slice(0, 2).map(tag => (
+              <span
+                key={tag}
+                className="inline-block mr-1 mt-1 px-2 py-0.5 rounded-lg text-xs"
+                style={{ backgroundColor: '#F0EDE8', color: '#8C7B72' }}
+              >
+                {tag}
+              </span>
+            ))}
+          </motion.button>
+        ))}
+      </div>
+
+      {/* Detail Drawer */}
+      <AnimatePresence>
+        {selected && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-end justify-center"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <div className="absolute inset-0 bg-black/40" onClick={() => setSelected(null)} />
+            <motion.div
+              className="relative w-full max-w-md rounded-t-3xl p-6 pb-10 overflow-y-auto"
+              style={{ backgroundColor: '#FFFEF9', maxHeight: '85vh' }}
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            >
+              <div className="mx-auto mb-4 h-1 w-12 rounded-full bg-gray-300" />
+
+              <div className="flex items-center gap-3 mb-4">
+                <span className="text-4xl">{selected.emoji}</span>
+                <div>
+                  <h3 className="text-xl font-bold" style={{ color: '#3D3530' }}>{selected.name}</h3>
+                  <p className="text-sm" style={{ color: '#8C7B72' }}>{selected.en} · {selected.family}</p>
+                  <p className="text-xs mt-0.5" style={{ color: '#8C7B72' }}>萃取部位：{selected.part}</p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-1.5 mb-4">
+                {selected.tags.map(tag => (
+                  <span
+                    key={tag}
+                    className="px-2.5 py-1 rounded-xl text-xs font-medium"
+                    style={{ backgroundColor: '#F0EDE8', color: '#8C7B72' }}
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
+
+              <div className="space-y-3">
+                {selected.use && (
+                  <div className="rounded-2xl p-4" style={{ backgroundColor: '#FAF8F5' }}>
+                    <p className="text-sm font-bold mb-2" style={{ color: '#3D3530' }}>💊 臨床應用</p>
+                    <p className="text-sm whitespace-pre-line leading-relaxed" style={{ color: '#8C7B72' }}>{selected.use}</p>
+                  </div>
+                )}
+                {selected.physical && (
+                  <div className="rounded-2xl p-4" style={{ backgroundColor: '#FAF8F5' }}>
+                    <p className="text-sm font-bold mb-2" style={{ color: '#3D3530' }}>🫀 生理功效</p>
+                    <p className="text-sm whitespace-pre-line leading-relaxed" style={{ color: '#8C7B72' }}>{selected.physical}</p>
+                  </div>
+                )}
+                {selected.mental && (
+                  <div className="rounded-2xl p-4" style={{ backgroundColor: '#FAF8F5' }}>
+                    <p className="text-sm font-bold mb-2" style={{ color: '#3D3530' }}>🧠 心靈功效</p>
+                    <p className="text-sm whitespace-pre-line leading-relaxed" style={{ color: '#8C7B72' }}>{selected.mental}</p>
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={() => setSelected(null)}
+                className="mt-5 w-full rounded-2xl py-3 text-white font-medium"
+                style={{ backgroundColor: '#8FA886' }}
+              >
+                關閉
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
+// ===================== PAGE: FRAGRANCE CALENDAR =====================
+
+// Authorized Google accounts (add Martin's email here)
+const AUTHORIZED_EMAILS: string[] = [
+  // Add authorized emails here, e.g.:
+  // 'martin@gmail.com',
+];
+
+function FragranceCalendarPage() {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [signingIn, setSigningIn] = useState(false);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setLoading(false);
+    });
+    return unsub;
+  }, []);
+
+  const handleSignIn = async () => {
+    setSigningIn(true);
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (e) {
+      console.error(e);
+    }
+    setSigningIn(false);
+  };
+
+  const handleSignOut = async () => {
+    await signOut(auth);
+  };
+
+  const isAuthorized = user && (
+    AUTHORIZED_EMAILS.length === 0 || // if no list = everyone who signed in (demo mode)
+    AUTHORIZED_EMAILS.includes(user.email || '')
+  );
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#8FA886', borderTopColor: 'transparent' }} />
+      </div>
+    );
+  }
+
+  // Not signed in
+  if (!user) {
+    return (
+      <motion.div className="space-y-6" {...fadeInUp}>
+        <div>
+          <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>🗓️ 調香日曆 2027</h2>
+          <p className="text-sm mt-1" style={{ color: '#8C7B72' }}>52週·即時共鳴·香氛日曆</p>
+        </div>
+
+        {/* Coming Soon Preview */}
+        <div className="rounded-3xl overflow-hidden shadow-sm relative">
+          <img
+            src="/coming-soon.jpg"
+            alt="2027 Fragrance Calendar Coming Soon"
+            className="w-full object-cover"
+            style={{ maxHeight: '280px' }}
+          />
+          <div
+            className="absolute inset-0 flex flex-col items-center justify-end pb-6"
+            style={{ background: 'linear-gradient(transparent 30%, rgba(61,53,48,0.85))' }}
+          >
+            <p className="text-white text-xl font-bold">2027 Fragrance Calendar</p>
+            <p className="text-white text-sm opacity-80 mt-1">Coming Soon ✨</p>
+          </div>
+        </div>
+
+        <div className="rounded-3xl p-5 shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
+          <p className="text-sm font-bold mb-2" style={{ color: '#3D3530' }}>🔒 此內容僅限購買者使用</p>
+          <p className="text-sm leading-relaxed mb-4" style={{ color: '#8C7B72' }}>
+            購買 2027 香氛日曆後，使用你的 Google 帳號登入即可解鎖完整電子版。
+          </p>
+
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            onClick={handleSignIn}
+            disabled={signingIn}
+            className="w-full rounded-2xl py-3 font-medium text-sm flex items-center justify-center gap-2"
+            style={{ backgroundColor: '#4285F4', color: '#fff' }}
+          >
+            {signingIn ? (
+              <span>登入中...</span>
+            ) : (
+              <>
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+                  <path d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z" fill="#fff"/>
+                  <path d="M9 18c2.43 0 4.467-.806 5.956-2.184l-2.908-2.258c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 009 18z" fill="#fff"/>
+                  <path d="M3.964 10.707A5.41 5.41 0 013.682 9c0-.593.102-1.17.282-1.707V4.961H.957A8.996 8.996 0 000 9c0 1.452.348 2.827.957 4.039l3.007-2.332z" fill="#fff"/>
+                  <path d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 00.957 4.961L3.964 7.293C4.672 5.163 6.656 3.58 9 3.58z" fill="#fff"/>
+                </svg>
+                使用 Google 帳號登入
+              </>
+            )}
+          </motion.button>
+
+          <a
+            href="https://xiabenhow.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block mt-3 w-full rounded-2xl py-3 text-center font-medium text-sm"
+            style={{ backgroundColor: '#FAF8F5', color: '#C9A96E' }}
+          >
+            🛍️ 購買 2027 調香日曆
+          </a>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // Signed in but not authorized
+  if (!isAuthorized) {
+    return (
+      <motion.div className="space-y-5" {...fadeInUp}>
+        <div>
+          <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>🗓️ 調香日曆 2027</h2>
+        </div>
+
+        <div className="rounded-3xl overflow-hidden shadow-sm relative">
+          <img
+            src="/coming-soon.jpg"
+            alt="2027 Fragrance Calendar Coming Soon"
+            className="w-full object-cover"
+            style={{ maxHeight: '280px' }}
+          />
+          <div
+            className="absolute inset-0 flex flex-col items-center justify-end pb-6"
+            style={{ background: 'linear-gradient(transparent 30%, rgba(61,53,48,0.85))' }}
+          >
+            <p className="text-white text-xl font-bold">2027 Fragrance Calendar</p>
+            <p className="text-white text-sm opacity-80 mt-1">Coming Soon ✨</p>
+          </div>
+        </div>
+
+        <div className="rounded-3xl p-5 shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
+          <div className="flex items-center gap-2 mb-3">
+            {user.photoURL && (
+              <img src={user.photoURL} alt="" className="w-8 h-8 rounded-full" />
+            )}
+            <div>
+              <p className="text-sm font-medium" style={{ color: '#3D3530' }}>{user.displayName || user.email}</p>
+              <p className="text-xs" style={{ color: '#8C7B72' }}>{user.email}</p>
+            </div>
+          </div>
+          <p className="text-sm leading-relaxed mb-4" style={{ color: '#8C7B72' }}>
+            此帳號尚未購買 2027 香氛日曆，或尚在審核中。購買後請聯繫客服開通帳號。
+          </p>
+          <a
+            href="https://xiabenhow.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block w-full rounded-2xl py-3 text-center text-white font-medium text-sm mb-2"
+            style={{ backgroundColor: '#C9A96E' }}
+          >
+            🛍️ 購買 2027 調香日曆
+          </a>
+          <button
+            onClick={handleSignOut}
+            className="w-full rounded-2xl py-2.5 text-sm font-medium"
+            style={{ backgroundColor: '#FAF8F5', color: '#8C7B72' }}
+          >
+            登出
+          </button>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // Authorized user — show content
+  return (
+    <motion.div className="space-y-5" {...fadeInUp}>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>🗓️ 調香日曆 2027</h2>
+          <p className="text-sm" style={{ color: '#8C7B72' }}>52週·即時共鳴</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {user.photoURL && (
+            <img src={user.photoURL} alt="" className="w-8 h-8 rounded-full" />
+          )}
+          <button onClick={handleSignOut} className="text-xs" style={{ color: '#8C7B72' }}>登出</button>
+        </div>
+      </div>
+
+      {/* Main Coming Soon */}
+      <div className="rounded-3xl overflow-hidden shadow-sm relative">
+        <img
+          src="/coming-soon.jpg"
+          alt="2027 Fragrance Calendar Coming Soon"
+          className="w-full object-cover"
+        />
+        <div
+          className="absolute inset-0 flex flex-col items-center justify-center"
+          style={{ background: 'rgba(61,53,48,0.5)' }}
+        >
+          <p className="text-white text-2xl font-bold mb-2">2027 Fragrance Calendar</p>
+          <p className="text-white text-base mb-1">Coming Soon ✨</p>
+          <p className="text-white text-sm opacity-80">敬請期待，即將上線</p>
+        </div>
+      </div>
+
+      <div className="rounded-3xl p-5 shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
+        <p className="text-sm font-bold mb-2" style={{ color: '#3D3530' }}>✅ 帳號已驗證</p>
+        <p className="text-sm" style={{ color: '#8C7B72' }}>
+          嗨，{user.displayName}！你的帳號已開通 2027 調香日曆。<br />
+          電子版正在最後製作階段，完成後將立即通知你 🌸
+        </p>
+      </div>
+    </motion.div>
+  );
+}
+
+// ===================== BOTTOM NAV =====================
+
 function BottomNav({ active, onChange }: { active: PageType; onChange: (p: PageType) => void }) {
+  // Split nav into two rows: main 5 + extra 2
+  const mainNav = NAV_ITEMS.slice(0, 5);
+  const extraNav = NAV_ITEMS.slice(5);
+
   return (
     <div
       className="fixed bottom-0 left-0 right-0 z-40"
       style={{ backgroundColor: '#FFFEF9', borderTop: '1px solid #F0EDE8' }}
     >
-      <div className="max-w-md mx-auto flex justify-around items-center h-16">
-        {NAV_ITEMS.map(item => (
-          <button
-            key={item.key}
-            onClick={() => onChange(item.key)}
-            className="flex flex-col items-center gap-0.5 relative py-1 px-3"
-          >
-            <span className="text-lg">{item.emoji}</span>
-            <span
-              className="text-xs font-medium"
-              style={{ color: active === item.key ? '#8FA886' : '#8C7B72' }}
+      <div className="max-w-md mx-auto">
+        {/* Main nav */}
+        <div className="flex justify-around items-center h-16">
+          {mainNav.map(item => (
+            <button
+              key={item.key}
+              onClick={() => onChange(item.key)}
+              className="flex flex-col items-center gap-0.5 relative py-1 px-3"
             >
-              {item.label}
-            </span>
-            {active === item.key && (
-              <motion.div
-                layoutId="nav-indicator"
-                className="absolute -bottom-0.5 w-6 h-0.5 rounded-full"
-                style={{ backgroundColor: '#8FA886' }}
-              />
-            )}
-          </button>
-        ))}
+              <span className="text-lg">{item.emoji}</span>
+              <span
+                className="text-xs font-medium"
+                style={{ color: active === item.key ? '#8FA886' : '#8C7B72' }}
+              >
+                {item.label}
+              </span>
+              {active === item.key && (
+                <motion.div
+                  layoutId="nav-indicator"
+                  className="absolute -bottom-0.5 w-6 h-0.5 rounded-full"
+                  style={{ backgroundColor: '#8FA886' }}
+                />
+              )}
+            </button>
+          ))}
+        </div>
+        {/* Extra nav */}
+        <div
+          className="flex justify-around items-center h-12 border-t"
+          style={{ borderColor: '#F0EDE8' }}
+        >
+          {extraNav.map(item => (
+            <button
+              key={item.key}
+              onClick={() => onChange(item.key)}
+              className="flex items-center gap-1.5 px-5 py-1 rounded-xl text-sm font-medium transition-colors relative"
+              style={active === item.key
+                ? { backgroundColor: '#8FA886', color: '#fff' }
+                : { color: '#8C7B72' }}
+            >
+              <span>{item.emoji}</span>
+              <span>{item.label}</span>
+              {active === item.key && (
+                <motion.div
+                  layoutId="nav-indicator-extra"
+                  className="absolute -top-0.5 w-6 h-0.5 rounded-full left-1/2 -translate-x-1/2"
+                  style={{ backgroundColor: '#8FA886' }}
+                />
+              )}
+            </button>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -1673,7 +2117,7 @@ export default function HealingApp() {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#FAF8F5' }}>
-      <div className="max-w-md mx-auto px-4 pt-6 pb-24">
+      <div className="max-w-md mx-auto px-4 pt-6 pb-36">
         <AnimatePresence mode="wait">
           <motion.div
             key={page}
@@ -1702,6 +2146,8 @@ export default function HealingApp() {
             )}
             {page === 'card' && <CardPage onTaskComplete={completeTask} />}
             {page === 'healer' && <HealerPage records={records} />}
+            {page === 'library' && <OilLibraryPage />}
+            {page === 'calendar' && <FragranceCalendarPage />}
           </motion.div>
         </AnimatePresence>
       </div>
