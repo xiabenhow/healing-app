@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import type { User } from 'firebase/auth';
-import { auth, googleProvider } from './lib/firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { auth, googleProvider, db } from './lib/firebase';
 import { OIL_LIBRARY, FAMILY_EMOJI, type OilLibraryItem } from './oilLibraryData';
 
 
@@ -1764,20 +1765,37 @@ function OilLibraryPage() {
 
 // ===================== PAGE: FRAGRANCE CALENDAR =====================
 
-// Authorized Google accounts (add Martin's email here)
-const AUTHORIZED_EMAILS: string[] = [
-  // Add authorized emails here, e.g.:
-  // 'martin@gmail.com',
-];
-
 function FragranceCalendarPage() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [signingIn, setSigningIn] = useState(false);
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(false);
+
+  // Check Firestore authorized list
+  const checkAuthorized = async (u: User) => {
+    if (!u.email) return false;
+    setCheckingAuth(true);
+    try {
+      const ref = doc(db, 'calendar_authorized', u.email.replace(/\./g, '_'));
+      const snap = await getDoc(ref);
+      return snap.exists() && snap.data()?.active === true;
+    } catch {
+      return false;
+    } finally {
+      setCheckingAuth(false);
+    }
+  };
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
+    const unsub = onAuthStateChanged(auth, async (u) => {
       setUser(u);
+      if (u) {
+        const ok = await checkAuthorized(u);
+        setIsAuthorized(ok);
+      } else {
+        setIsAuthorized(false);
+      }
       setLoading(false);
     });
     return unsub;
@@ -1786,7 +1804,9 @@ function FragranceCalendarPage() {
   const handleSignIn = async () => {
     setSigningIn(true);
     try {
-      await signInWithPopup(auth, googleProvider);
+      const result = await signInWithPopup(auth, googleProvider);
+      const ok = await checkAuthorized(result.user);
+      setIsAuthorized(ok);
     } catch (e) {
       console.error(e);
     }
@@ -1795,17 +1815,14 @@ function FragranceCalendarPage() {
 
   const handleSignOut = async () => {
     await signOut(auth);
+    setIsAuthorized(false);
   };
 
-  const isAuthorized = user && (
-    AUTHORIZED_EMAILS.length === 0 || // if no list = everyone who signed in (demo mode)
-    AUTHORIZED_EMAILS.includes(user.email || '')
-  );
-
-  if (loading) {
+  if (loading || checkingAuth) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: '#8FA886', borderTopColor: 'transparent' }} />
+      <div className="flex flex-col items-center justify-center py-20 gap-3">
+        <div className="w-8 h-8 border-2 rounded-full animate-spin" style={{ borderColor: '#8FA886', borderTopColor: 'transparent' }} />
+        <p className="text-sm" style={{ color: '#8C7B72' }}>驗證中...</p>
       </div>
     );
   }
