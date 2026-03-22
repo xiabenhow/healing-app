@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import type { User } from 'firebase/auth';
@@ -10,7 +10,7 @@ import { OIL_LIBRARY, FAMILY_EMOJI, type OilLibraryItem } from './oilLibraryData
 // ===================== TYPES =====================
 
 type EmotionKey = 'calm' | 'anxious' | 'tired' | 'warm' | 'low' | 'energized';
-type PageType = 'home' | 'diary' | 'recipe' | 'card' | 'healer' | 'library' | 'calendar';
+type PageType = 'home' | 'diary' | 'recipe' | 'card' | 'healer' | 'library' | 'calendar' | 'sound';
 type TaskKey = 'checkin' | 'card' | 'note' | 'breathe' | 'evening' | 'share';
 
 interface HealingRecord {
@@ -1056,6 +1056,421 @@ function DiaryPage({ records }: { records: HealingRecord[] }) {
   );
 }
 
+// ===================== PAGE: SOUND =====================
+
+// ===================== WEB AUDIO GENERATOR =====================
+
+class SoundGenerator {
+  private ctx: AudioContext | null = null;
+  private nodes: Map<string, { bufferSource: AudioBufferSourceNode; gain: GainNode }> = new Map();
+
+  getContext(): AudioContext {
+    if (!this.ctx || this.ctx.state === 'closed') {
+      this.ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+    if (this.ctx.state === 'suspended') {
+      this.ctx.resume();
+    }
+    return this.ctx;
+  }
+
+  private createNoiseBuffer(generator: (data: Float32Array, sampleRate: number) => void, seconds: number = 4, channels: number = 1): { source: AudioBufferSourceNode; output: AudioNode } {
+    const ctx = this.getContext();
+    const bufferSize = seconds * ctx.sampleRate;
+    const buffer = ctx.createBuffer(channels, bufferSize, ctx.sampleRate);
+    for (let ch = 0; ch < channels; ch++) {
+      generator(buffer.getChannelData(ch), ctx.sampleRate);
+    }
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+    return { source, output: source };
+  }
+
+  createWhiteNoise() {
+    return this.createNoiseBuffer((data) => {
+      for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+    }, 2);
+  }
+
+  createBrownNoise() {
+    return this.createNoiseBuffer((data) => {
+      let last = 0;
+      for (let i = 0; i < data.length; i++) {
+        const w = Math.random() * 2 - 1;
+        data[i] = (last + 0.02 * w) / 1.02;
+        last = data[i];
+        data[i] *= 3.5;
+      }
+    }, 2);
+  }
+
+  createPinkNoise() {
+    return this.createNoiseBuffer((data) => {
+      let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
+      for (let i = 0; i < data.length; i++) {
+        const w = Math.random() * 2 - 1;
+        b0 = 0.99886*b0 + w*0.0555179;
+        b1 = 0.99332*b1 + w*0.0750759;
+        b2 = 0.96900*b2 + w*0.1538520;
+        b3 = 0.86650*b3 + w*0.3104856;
+        b4 = 0.55000*b4 + w*0.5329522;
+        b5 = -0.7616*b5 - w*0.0168980;
+        data[i] = (b0+b1+b2+b3+b4+b5+b6+w*0.5362)*0.11;
+        b6 = w * 0.115926;
+      }
+    }, 2);
+  }
+
+  createRain() {
+    const { source, output } = this.createNoiseBuffer((data) => {
+      for (let i = 0; i < data.length; i++) {
+        const base = Math.random() * 2 - 1;
+        const droplet = Math.random() > 0.997 ? Math.random() * 0.5 : 0;
+        data[i] = base * 0.3 + droplet;
+      }
+    }, 4, 2);
+    const ctx = this.getContext();
+    const bpf = ctx.createBiquadFilter();
+    bpf.type = 'bandpass'; bpf.frequency.value = 8000; bpf.Q.value = 0.5;
+    const lpf = ctx.createBiquadFilter();
+    lpf.type = 'lowpass'; lpf.frequency.value = 12000;
+    source.connect(bpf); bpf.connect(lpf);
+    return { source, output: lpf };
+  }
+
+  createOcean() {
+    const { source, output } = this.createNoiseBuffer((data, sr) => {
+      for (let i = 0; i < data.length; i++) {
+        const t = i / sr;
+        const wave = Math.sin(t*Math.PI*2/8)*0.5+0.5;
+        const wave2 = Math.sin(t*Math.PI*2/13+1)*0.3+0.5;
+        data[i] = (Math.random()*2-1)*(wave*0.6+wave2*0.4)*0.5;
+      }
+    }, 8, 2);
+    const ctx = this.getContext();
+    const lpf = ctx.createBiquadFilter();
+    lpf.type = 'lowpass'; lpf.frequency.value = 2000;
+    source.connect(lpf);
+    return { source, output: lpf };
+  }
+
+  createForest() {
+    const { source, output } = this.createNoiseBuffer((data, sr) => {
+      for (let i = 0; i < data.length; i++) {
+        const t = i / sr;
+        const wind = (Math.random()*2-1)*0.08*(Math.sin(t*0.3)*0.5+0.5);
+        const rustle = (Math.random()*2-1)*0.03*(Math.sin(t*1.2)*0.5+0.5);
+        data[i] = wind + rustle;
+        if (Math.random() > 0.9997) {
+          const freq = 2000+Math.random()*4000;
+          const dur = Math.floor((0.05+Math.random()*0.1)*sr);
+          for (let j = 0; j < dur && (i+j) < data.length; j++) {
+            data[i+j] += Math.sin(2*Math.PI*freq*j/sr)*Math.sin(Math.PI*j/dur)*0.15;
+          }
+        }
+      }
+    }, 10, 2);
+    const ctx = this.getContext();
+    const hpf = ctx.createBiquadFilter();
+    hpf.type = 'highpass'; hpf.frequency.value = 200;
+    source.connect(hpf);
+    return { source, output: hpf };
+  }
+
+  createFireplace() {
+    const { source, output } = this.createNoiseBuffer((data, sr) => {
+      for (let i = 0; i < data.length; i++) {
+        const t = i / sr;
+        const rumble = (Math.random()*2-1)*0.1*(Math.sin(t*0.5)*0.3+0.7);
+        const crackle = Math.random() > 0.995 ? (Math.random()-0.5)*0.8 : 0;
+        const pop = Math.random() > 0.9998 ? (Math.random()-0.5)*1.2 : 0;
+        data[i] = rumble + crackle*0.4 + pop*0.3;
+      }
+    }, 6, 2);
+    const ctx = this.getContext();
+    const lpf = ctx.createBiquadFilter();
+    lpf.type = 'lowpass'; lpf.frequency.value = 4000;
+    source.connect(lpf);
+    return { source, output: lpf };
+  }
+
+  createStream() {
+    const { source, output } = this.createNoiseBuffer((data, sr) => {
+      for (let i = 0; i < data.length; i++) {
+        const t = i / sr;
+        const flow = (Math.random()*2-1)*0.2;
+        const bubble = Math.random() > 0.998 ? Math.sin(2*Math.PI*(800+Math.random()*2000)*t)*0.15*Math.exp(-((i%1000)/200)) : 0;
+        data[i] = (flow + bubble) * (Math.sin(t*0.7)*0.3+0.7);
+      }
+    }, 6, 2);
+    const ctx = this.getContext();
+    const bpf = ctx.createBiquadFilter();
+    bpf.type = 'bandpass'; bpf.frequency.value = 3000; bpf.Q.value = 0.3;
+    source.connect(bpf);
+    return { source, output: bpf };
+  }
+
+  play(key: string, type: string, volume: number): void {
+    this.stop(key);
+    const ctx = this.getContext();
+    let result: { source: AudioBufferSourceNode; output: AudioNode };
+    switch (type) {
+      case 'white': result = this.createWhiteNoise(); break;
+      case 'brown': result = this.createBrownNoise(); break;
+      case 'pink': result = this.createPinkNoise(); break;
+      case 'rain': result = this.createRain(); break;
+      case 'ocean': result = this.createOcean(); break;
+      case 'forest': result = this.createForest(); break;
+      case 'fireplace': result = this.createFireplace(); break;
+      case 'stream': result = this.createStream(); break;
+      default: result = this.createWhiteNoise();
+    }
+    const gain = ctx.createGain();
+    gain.gain.value = volume;
+    result.output.connect(gain);
+    gain.connect(ctx.destination);
+    result.source.start(0);
+    this.nodes.set(key, { bufferSource: result.source, gain });
+  }
+
+  stop(key: string): void {
+    const node = this.nodes.get(key);
+    if (node) {
+      try { node.bufferSource.stop(); } catch {}
+      try { node.gain.disconnect(); } catch {}
+      this.nodes.delete(key);
+    }
+  }
+
+  setVolume(key: string, vol: number): void {
+    const node = this.nodes.get(key);
+    if (node) node.gain.gain.setValueAtTime(vol, this.getContext().currentTime);
+  }
+
+  stopAll(): void {
+    this.nodes.forEach((_, key) => this.stop(key));
+  }
+}
+
+const soundGen = new SoundGenerator();
+
+interface SoundItem {
+  key: string;
+  type: string;
+  emoji: string;
+  label: string;
+  desc: string;
+  color: string;
+}
+
+const SOUND_LIST: SoundItem[] = [
+  { key: 'white', type: 'white', emoji: '⚪', label: '白噪音', desc: '純淨的聲音毯子，覆蓋所有雜音', color: '#F5F5F5' },
+  { key: 'brown', type: 'brown', emoji: '🟤', label: '棕噪音', desc: '深沉低頻，像雷聲遠處滾動', color: '#F0E6D8' },
+  { key: 'pink', type: 'pink', emoji: '🩷', label: '粉紅噪音', desc: '延長深度睡眠的柔和頻率', color: '#FDE8E8' },
+  { key: 'rain', type: 'rain', emoji: '🌧️', label: '細雨聲', desc: '讓紛亂的思緒隨雨滴慢慢沉澱', color: '#E8EFF5' },
+  { key: 'ocean', type: 'ocean', emoji: '🌊', label: '海浪聲', desc: '像被大海的節奏溫柔地搖著', color: '#E3F0F8' },
+  { key: 'forest', type: 'forest', emoji: '🌲', label: '森林鳥鳴', desc: '回到最原始的寧靜', color: '#E8F5E8' },
+  { key: 'fireplace', type: 'fireplace', emoji: '🔥', label: '壁爐柴火', desc: '溫暖的火光陪你度過安靜的夜晚', color: '#FFF0E0' },
+  { key: 'stream', type: 'stream', emoji: '💧', label: '溪流聲', desc: '讓心跟著水流慢慢放鬆', color: '#E0F5F5' },
+];
+
+function SoundPage() {
+  const [playing, setPlaying] = useState<Record<string, boolean>>({});
+  const [volumes, setVolumes] = useState<Record<string, number>>(() => {
+    const init: Record<string, number> = {};
+    SOUND_LIST.forEach(s => { init[s.key] = 0.5; });
+    return init;
+  });
+  const [timer, setTimer] = useState<number>(0);
+  const [timerLeft, setTimerLeft] = useState<number>(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const activeCount = Object.values(playing).filter(Boolean).length;
+
+  useEffect(() => {
+    if (timer > 0) {
+      setTimerLeft(timer * 60);
+      timerRef.current = setInterval(() => {
+        setTimerLeft(prev => {
+          if (prev <= 1) {
+            soundGen.stopAll();
+            setPlaying({});
+            setTimer(0);
+            if (timerRef.current) clearInterval(timerRef.current);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+    } else {
+      if (timerRef.current) clearInterval(timerRef.current);
+      setTimerLeft(0);
+    }
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [timer]);
+
+  useEffect(() => {
+    return () => { soundGen.stopAll(); };
+  }, []);
+
+  const toggleSound = (item: SoundItem) => {
+    if (playing[item.key]) {
+      soundGen.stop(item.key);
+      setPlaying(prev => ({ ...prev, [item.key]: false }));
+    } else {
+      soundGen.play(item.key, item.type, volumes[item.key]);
+      setPlaying(prev => ({ ...prev, [item.key]: true }));
+    }
+  };
+
+  const handleVolume = (key: string, vol: number) => {
+    setVolumes(prev => ({ ...prev, [key]: vol }));
+    if (playing[key]) soundGen.setVolume(key, vol);
+  };
+
+  const stopAll = () => {
+    soundGen.stopAll();
+    setPlaying({});
+    setTimer(0);
+  };
+
+  const formatTime = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m}:${sec.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <motion.div className="space-y-5" {...fadeInUp}>
+      {/* Header */}
+      <div>
+        <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>🎵 療癒音景</h2>
+        <p className="text-sm mt-1" style={{ color: '#8C7B72' }}>
+          可以同時播放多個音景，混合出你最舒服的聲音
+        </p>
+      </div>
+
+      {/* Active indicator & controls */}
+      {activeCount > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-2xl p-4"
+          style={{ backgroundColor: '#F0EDE8', border: '1px solid #E0DCD5' }}
+        >
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <p className="text-sm font-medium" style={{ color: '#3D3530' }}>
+                🎧 正在播放 {activeCount} 個音景
+              </p>
+              {timerLeft > 0 && (
+                <p className="text-xs mt-1" style={{ color: '#8FA886' }}>
+                  ⏱️ 剩餘 {formatTime(timerLeft)}
+                </p>
+              )}
+            </div>
+            <button
+              onClick={stopAll}
+              className="px-3 py-1.5 rounded-full text-xs font-medium"
+              style={{ backgroundColor: '#E8D5D0', color: '#8B5E3C' }}
+            >
+              全部停止
+            </button>
+          </div>
+
+          {/* Timer buttons */}
+          <div className="flex gap-2">
+            <p className="text-xs self-center" style={{ color: '#8C7B72' }}>計時：</p>
+            {[15, 30, 60, 0].map(m => (
+              <button
+                key={m}
+                onClick={() => setTimer(m)}
+                className="px-2.5 py-1 rounded-full text-xs"
+                style={{
+                  backgroundColor: timer === m ? '#8FA886' : '#FFFEF9',
+                  color: timer === m ? '#fff' : '#8C7B72',
+                  border: `1px solid ${timer === m ? '#8FA886' : '#E0DCD5'}`
+                }}
+              >
+                {m === 0 ? '不限' : `${m}分`}
+              </button>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Sound cards grid */}
+      <div className="grid grid-cols-2 gap-3">
+        {SOUND_LIST.map(item => {
+          const isActive = !!playing[item.key];
+          return (
+            <motion.div
+              key={item.key}
+              whileTap={{ scale: 0.97 }}
+              className="rounded-2xl p-4 cursor-pointer transition-all"
+              style={{
+                backgroundColor: isActive ? item.color : '#FFFEF9',
+                border: isActive ? '2px solid #8FA886' : '1px solid #F0EDE8',
+                boxShadow: isActive ? '0 4px 12px rgba(143,168,134,0.2)' : 'none'
+              }}
+              onClick={() => toggleSound(item)}
+            >
+              <div className="text-2xl mb-2">{item.emoji}</div>
+              <p className="text-sm font-medium" style={{ color: '#3D3530' }}>{item.label}</p>
+              <p className="text-xs mt-1" style={{ color: '#8C7B72' }}>{item.desc}</p>
+
+              {isActive && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  className="mt-3"
+                  onClick={e => e.stopPropagation()}
+                >
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={volumes[item.key]}
+                    onChange={e => handleVolume(item.key, parseFloat(e.target.value))}
+                    className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
+                    style={{ accentColor: '#8FA886' }}
+                  />
+                  <div className="flex justify-between mt-1">
+                    <span className="text-xs" style={{ color: '#8C7B72' }}>🔈</span>
+                    <span className="text-xs" style={{ color: '#8C7B72' }}>🔊</span>
+                  </div>
+                </motion.div>
+              )}
+
+              {isActive && (
+                <motion.div
+                  className="mt-2 flex justify-center"
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                >
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: '#8FA886' }} />
+                </motion.div>
+              )}
+            </motion.div>
+          );
+        })}
+      </div>
+
+      {/* Tips */}
+      <div className="rounded-2xl p-4" style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}>
+        <p className="text-sm font-medium mb-2" style={{ color: '#3D3530' }}>💡 混音小秘訣</p>
+        <div className="space-y-1">
+          <p className="text-xs" style={{ color: '#8C7B72' }}>· 雨聲 + 壁爐 = 溫暖雨夜</p>
+          <p className="text-xs" style={{ color: '#8C7B72' }}>· 海浪 + 粉紅噪音 = 深度睡眠</p>
+          <p className="text-xs" style={{ color: '#8C7B72' }}>· 森林 + 溪流 = 大自然散步</p>
+          <p className="text-xs" style={{ color: '#8C7B72' }}>· 棕噪音 + 白噪音 = 完美專注</p>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 // ===================== PAGE: RECIPE =====================
 
 function RecipePage({
@@ -1571,7 +1986,7 @@ function HealerPage({ records }: { records: HealingRecord[] }) {
 const NAV_ITEMS: { key: PageType; emoji: string; label: string }[] = [
   { key: 'home', emoji: '🏠', label: '首頁' },
   { key: 'diary', emoji: '📊', label: '情緒' },
-  { key: 'recipe', emoji: '🧴', label: '配方' },
+  { key: 'sound', emoji: '🎵', label: '白噪音' },
   { key: 'card', emoji: '🃏', label: '抽卡' },
   { key: 'healer', emoji: '🌱', label: '療癒師' },
   { key: 'library', emoji: '📚', label: '精油庫' },
@@ -2154,6 +2569,7 @@ export default function HealingApp() {
               />
             )}
             {page === 'diary' && <DiaryPage records={records} />}
+            {page === 'sound' && <SoundPage />}
             {page === 'recipe' && (
               <RecipePage
                 records={records}
