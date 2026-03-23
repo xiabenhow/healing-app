@@ -1,4 +1,4 @@
-import * as functions from "firebase-functions";
+// firebase-functions imported in index.ts
 import * as admin from "firebase-admin";
 import { Router } from "express";
 import * as crypto from "crypto";
@@ -81,7 +81,7 @@ router.post("/request", async (req, res) => {
 
     const requestBody: LinePayRequestBody = {
       amount: totalAmount,
-      currency: "JPY", // 可改為 TWD 如果 LINE Pay 支援
+      currency: "TWD",
       orderId: orderId,
       packages: [
         {

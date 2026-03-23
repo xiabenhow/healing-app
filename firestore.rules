@@ -1,0 +1,49 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 心情日記：只有登入的使用者可以讀寫自己的日記
+    match /diary/{userId}/records/{date} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // 會員資料：Cloud Functions 可以寫入（admin SDK 跳過規則），使用者只能讀取自己的
+    match /members/{email} {
+      allow read: if request.auth != null && request.auth.token.email == email;
+      allow write: if false; // 只允許 Cloud Functions（admin SDK）寫入
+    }
+
+    // 點數歷史：使用者只能讀取自己的
+    match /points_history/{docId} {
+      allow read: if request.auth != null && request.auth.token.email == resource.data.email;
+      allow write: if false; // 只允許 Cloud Functions 寫入
+    }
+
+    // ECPay 回調記錄：只有 Cloud Functions 可以寫入
+    match /ecpay_callbacks/{docId} {
+      allow read, write: if false; // 只允許 Cloud Functions（admin SDK）
+    }
+
+    // LINE Pay 請求記錄
+    match /linepay_requests/{docId} {
+      allow read, write: if false; // 只允許 Cloud Functions（admin SDK）
+    }
+
+    // LINE Pay 確認記錄
+    match /linepay_confirmations/{docId} {
+      allow read, write: if false; // 只允許 Cloud Functions（admin SDK）
+    }
+
+    // 發票記錄
+    match /invoices/{docId} {
+      allow read: if request.auth != null && request.auth.token.email == resource.data.buyerEmail;
+      allow write: if false; // 只允許 Cloud Functions（admin SDK）
+    }
+
+    // 預設拒絕所有其他存取
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

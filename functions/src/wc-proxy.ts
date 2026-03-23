@@ -1,4 +1,4 @@
-import * as functions from "firebase-functions";
+// firebase-functions imported in index.ts
 import * as admin from "firebase-admin";
 import axios, { AxiosError } from "axios";
 import { Router } from "express";

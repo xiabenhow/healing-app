@@ -1,12 +1,16 @@
-import * as functions from "firebase-functions";
+import * as functions from "firebase-functions/v1";
 import * as admin from "firebase-admin";
 import express, { Express } from "express";
 import cors from "cors";
-import { wcProxyRouter } from "./wc-proxy.js";
-import { ecpayRouter } from "./ecpay.js";
-import { linePayRouter } from "./linepay.js";
-import { invoiceRouter } from "./invoice.js";
-import { memberRouter } from "./member.js";
+import * as dotenv from "dotenv";
+import { wcProxyRouter } from "./wc-proxy";
+import { ecpayRouter } from "./ecpay";
+import { linePayRouter } from "./linepay";
+import { invoiceRouter } from "./invoice";
+import { memberRouter } from "./member";
+
+// 載入環境變數
+dotenv.config();
 
 // 初始化 Firebase Admin SDK
 admin.initializeApp();
@@ -22,6 +26,7 @@ app.use(express.urlencoded({ limit: "10mb", extended: true }));
 const corsOptions = {
   origin: [
     "https://healing-6b425.web.app",
+    "https://healing-6b425.firebaseapp.com",
     "http://localhost:3000",
     "http://localhost:5173",
   ],
@@ -78,12 +83,10 @@ app.use((req, res) => {
   });
 });
 
-// 匯出 Cloud Function
+// 匯出 Cloud Function (v1 1st gen)
 export const api = functions.https.onRequest(app);
 
-// 可選：定義其他 Cloud Functions（如定時任務等）
-
-// 例如：定時清理過期的 ecpay 回調記錄（使用 HTTP Cloud Function 搭配 Cloud Scheduler）
+// 定時清理過期的 ecpay 回調記錄
 export const cleanupOldCallbacks = functions.https.onRequest(
   async (req, res) => {
     if (req.method !== "POST") {

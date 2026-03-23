@@ -1,12 +1,19 @@
-import axios from "axios";
-import { Router } from "express";
-const router = Router();
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.wcProxyRouter = void 0;
+const axios_1 = __importDefault(require("axios"));
+const express_1 = require("express");
+const router = (0, express_1.Router)();
+exports.wcProxyRouter = router;
 // WooCommerce API 配置
 const WC_URL = process.env.WC_URL || "https://www.xiabenhow.com";
 const WC_CONSUMER_KEY = process.env.WC_CONSUMER_KEY || "";
 const WC_CONSUMER_SECRET = process.env.WC_CONSUMER_SECRET || "";
 // 建立 WooCommerce API 客戶端
-const wcApi = axios.create({
+const wcApi = axios_1.default.create({
     baseURL: `${WC_URL}/wp-json/wc/v3`,
     auth: {
         username: WC_CONSUMER_KEY,
@@ -166,5 +173,4 @@ router.get("/customers", async (req, res) => {
         });
     }
 });
-export { router as wcProxyRouter };
 //# sourceMappingURL=wc-proxy.js.map
