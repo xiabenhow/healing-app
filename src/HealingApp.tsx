@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { signInWithPopup, signInWithRedirect, signOut, onAuthStateChanged } from 'firebase/auth';
 import type { User } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, getDocs, query, orderBy, Timestamp } from 'firebase/firestore';
 import { auth, googleProvider, db } from './lib/firebase';
 import { OIL_LIBRARY, FAMILY_EMOJI, type OilLibraryItem } from './oilLibraryData';
 
@@ -12,6 +12,21 @@ import { OIL_LIBRARY, FAMILY_EMOJI, type OilLibraryItem } from './oilLibraryData
 type EmotionKey = 'calm' | 'anxious' | 'tired' | 'warm' | 'low' | 'energized';
 type PageType = 'home' | 'diary' | 'recipe' | 'card' | 'healer' | 'library' | 'calendar' | 'sound' | 'booking' | 'member';
 type TaskKey = 'checkin' | 'card' | 'note' | 'breathe' | 'evening' | 'share';
+
+interface CartItem {
+  id: string;
+  productId: number;
+  variationId?: number;
+  name: string;
+  specs: string;
+  price: number;
+  quantity: number;
+  isVirtual: boolean;
+  image?: string;
+  bookingDate?: string;
+  bookingTime?: string;
+  persons?: number;
+}
 
 interface HealingRecord {
   date: string;
@@ -51,6 +66,13 @@ interface CardInfo {
   recipe: string;
   ritual: string;
   gradient: string;
+}
+
+interface OrderItem {
+  id: number;
+  date: string;
+  status: string;
+  total: number;
 }
 
 // ===================== CONSTANTS =====================
@@ -106,6 +128,18 @@ const EVENING_RESPONSES: Record<string, string> = {
 
 // --- NEW: Milestone Days ---
 const MILESTONE_DAYS = [7, 14, 30, 60];
+
+// --- Order Status Mapping ---
+const ORDER_STATUS_MAP: Record<string, string> = {
+  'processing': '處理中',
+  'completed': '已完成',
+  'on-hold': '待確認',
+  'pending': '待付款',
+  'cancelled': '已取消',
+  'refunded': '已退款',
+};
+
+const API_BASE = 'https://us-central1-fragrance-calendar-2027.cloudfunctions.net/api';
 
 const OILS: Record<string, OilInfo> = {
   '真正薰衣草': { name: '真正薰衣草', nameEn: 'True Lavender', family: '唇形科', scent: '草本花香，溫柔安撫', mental: '安撫焦慮、放鬆緊繃的心情，帶來平靜與安心感', physical: '助眠、緩解頭痛、舒緩肌肉緊張', caution: '低血壓者留意用量' },
@@ -216,6 +250,37 @@ const loadRecords = (): HealingRecord[] => {
 
 const saveRecords = (records: HealingRecord[]): void => {
   localStorage.setItem('healing_records', JSON.stringify(records));
+};
+
+// Firestore-enabled versions for async operations
+const loadRecordsFromFirestore = async (userId: string): Promise<HealingRecord[]> => {
+  try {
+    const recordsRef = collection(db, `diary/${userId}/records`);
+    const q = query(recordsRef, orderBy('date', 'desc'));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => ({
+      date: doc.data().date,
+      emotion: doc.data().emotion,
+      note: doc.data().note,
+    })) as HealingRecord[];
+  } catch (error) {
+    console.error('Error loading records from Firestore:', error);
+    return [];
+  }
+};
+
+const saveRecordToFirestore = async (userId: string, record: HealingRecord): Promise<void> => {
+  try {
+    const docRef = doc(db, `diary/${userId}/records`, record.date);
+    await setDoc(docRef, {
+      date: record.date,
+      emotion: record.emotion,
+      note: record.note || null,
+      createdAt: Timestamp.now(),
+    });
+  } catch (error) {
+    console.error('Error saving record to Firestore:', error);
+  }
 };
 
 const loadSavedCards = (): number[] => {
@@ -1471,128 +1536,686 @@ function SoundPage() {
   );
 }
 
-// ===================== PAGE: BOOKING =====================
+// ===================== PAGE: SHOP (COMMERCE) =====================
 
-function BookingPage() {
-  const [personCount, setPersonCount] = useState(1);
-  const pricePerPerson = 899;
-  const totalPrice = personCount * pricePerPerson;
+function ShopPage() {
+  const [view, setView] = useState<'menu' | 'crystal' | 'fragrance' | 'material' | 'cart' | 'checkout'>('menu');
+  const [cart, setCart] = useState<CartItem[]>([]);
 
-  const handlePayment = () => {
-    alert(`準備前往付款\n人數: ${personCount}\n金額: NT$${totalPrice}\n\n（綠界付款整合需要後端支援）`);
+  const addToCart = (item: CartItem) => {
+    const existingItem = cart.find(c => c.id === item.id);
+    if (existingItem) {
+      setCart(cart.map(c => c.id === item.id ? { ...c, quantity: c.quantity + item.quantity } : c));
+    } else {
+      setCart([...cart, item]);
+    }
+    setView('menu');
+  };
+
+  const removeFromCart = (itemId: string) => {
+    setCart(cart.filter(c => c.id !== itemId));
+  };
+
+  const updateCartQuantity = (itemId: string, quantity: number) => {
+    if (quantity <= 0) {
+      removeFromCart(itemId);
+    } else {
+      setCart(cart.map(c => c.id === itemId ? { ...c, quantity } : c));
+    }
   };
 
   return (
     <motion.div className="space-y-5" {...fadeInUp}>
-      {/* Header */}
-      <div>
-        <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>🛍️ 體驗預約</h2>
-        <p className="text-sm mt-0.5" style={{ color: '#8C7B72' }}>預約芳療調香體驗</p>
+      {view === 'menu' && <ShopMenuView onNavigate={setView} cartCount={cart.length} />}
+      {view === 'crystal' && <CrystalBookingView onBack={() => setView('menu')} onAddToCart={addToCart} />}
+      {view === 'fragrance' && <FragranceCourseView onBack={() => setView('menu')} onAddToCart={addToCart} />}
+      {view === 'material' && <MaterialKitView onBack={() => setView('menu')} onAddToCart={addToCart} />}
+      {view === 'cart' && <CartView cart={cart} onUpdateQuantity={updateCartQuantity} onRemove={removeFromCart} onCheckout={() => setView('checkout')} onBack={() => setView('menu')} />}
+      {view === 'checkout' && <CheckoutView cart={cart} onBack={() => setView('cart')} />}
+    </motion.div>
+  );
+}
+
+function ShopMenuView({ onNavigate, cartCount }: { onNavigate: (view: any) => void; cartCount: number }) {
+  const menuItems = [
+    { emoji: '💎', title: '水晶手鍊體驗', desc: '選日期預約', action: 'crystal' },
+    { emoji: '🌿', title: '精油調香課程', desc: '選場次報名', action: 'fragrance' },
+    { emoji: '📦', title: '手作材料包', desc: '選款式訂購', action: 'material' },
+  ];
+
+  return (
+    <motion.div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>🛍️ 商城</h2>
+          <p className="text-sm mt-0.5" style={{ color: '#8C7B72' }}>探索精油體驗與手作商品</p>
+        </div>
+        <motion.button
+          whileTap={{ scale: 0.9 }}
+          onClick={() => onNavigate('cart')}
+          className="relative px-4 py-2 rounded-xl text-2xl"
+          style={{ backgroundColor: '#FAF8F5' }}
+        >
+          🛒
+          {cartCount > 0 && (
+            <span className="absolute top-0 right-0 w-5 h-5 rounded-full text-xs font-bold flex items-center justify-center" style={{ backgroundColor: '#8FA886', color: '#fff' }}>
+              {cartCount}
+            </span>
+          )}
+        </motion.button>
       </div>
 
-      {/* Experience Package Card */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="rounded-2xl p-5"
-        style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}
-      >
-        <div className="space-y-4">
-          <div>
-            <h3 className="text-base font-bold mb-1" style={{ color: '#3D3530' }}>
-              🧪 調香體驗工作坊
-            </h3>
-            <p className="text-sm" style={{ color: '#8C7B72' }}>
-              跟著專業芳療師調配你的專屬精油香氛
-            </p>
+      {menuItems.map((item, i) => (
+        <motion.button
+          key={item.action}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: i * 0.1 }}
+          whileTap={{ scale: 0.96 }}
+          onClick={() => onNavigate(item.action)}
+          className="w-full rounded-2xl p-5 text-left transition-all"
+          style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}
+        >
+          <div className="flex items-center gap-4">
+            <div className="text-4xl">{item.emoji}</div>
+            <div className="flex-1">
+              <h3 className="font-bold" style={{ color: '#3D3530' }}>{item.title}</h3>
+              <p className="text-sm" style={{ color: '#8C7B72' }}>{item.desc}</p>
+            </div>
+            <div className="text-xl">→</div>
           </div>
+        </motion.button>
+      ))}
+    </motion.div>
+  );
+}
 
-          {/* Package Details */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="rounded-xl p-3 text-center" style={{ backgroundColor: '#FAF8F5' }}>
-              <p className="text-xs font-medium mb-1" style={{ color: '#8C7B72' }}>單價</p>
-              <p className="text-lg font-bold" style={{ color: '#8FA886' }}>NT$899</p>
-            </div>
-            <div className="rounded-xl p-3 text-center" style={{ backgroundColor: '#FAF8F5' }}>
-              <p className="text-xs font-medium mb-1" style={{ color: '#8C7B72' }}>時長</p>
-              <p className="text-lg font-bold" style={{ color: '#8FA886' }}>90分鐘</p>
-            </div>
-            <div className="rounded-xl p-3 text-center" style={{ backgroundColor: '#FAF8F5' }}>
-              <p className="text-xs font-medium mb-1" style={{ color: '#8C7B72' }}>方案數</p>
-              <p className="text-lg font-bold" style={{ color: '#8FA886' }}>1套</p>
-            </div>
-          </div>
+function CrystalBookingView({ onBack, onAddToCart }: { onBack: () => void; onAddToCart: (item: CartItem) => void }) {
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [selectedTime, setSelectedTime] = useState<string | null>(null);
+  const [persons, setPersons] = useState(1);
 
-          {/* What's Included */}
-          <div className="space-y-2">
-            <p className="text-xs font-medium" style={{ color: '#8C7B72' }}>✨ 包含內容</p>
-            <ul className="space-y-1 text-xs" style={{ color: '#8C7B72' }}>
-              <li>✓ 專業芳療師一對一引導</li>
-              <li>✓ 調配你的專屬精油香氛</li>
-              <li>✓ 帶走調配成品（10ml 滾珠瓶）</li>
-            </ul>
-          </div>
+  const currentDate = new Date();
+  const month = currentDate.getMonth();
+  const year = currentDate.getFullYear();
+  const firstDay = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const days = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+
+  const availableTimes = ['13:00', '14:00', '15:00', '16:00', '17:00', '18:00', '19:00'];
+  const price = 899;
+  const total = price * persons;
+
+  const handleAddToCart = () => {
+    if (!selectedDate || !selectedTime) {
+      alert('請選擇日期和時段');
+      return;
+    }
+    const dateStr = `${year}/${month + 1}/${selectedDate}`;
+    const item: CartItem = {
+      id: `crystal-${dateStr}-${selectedTime}-${persons}`,
+      productId: 48980,
+      name: '手飾自己做 | 輕寶石水晶手鍊',
+      specs: `${dateStr} ${selectedTime} 共${persons}人`,
+      price,
+      quantity: persons,
+      isVirtual: true,
+      bookingDate: dateStr,
+      bookingTime: selectedTime,
+      persons,
+    };
+    onAddToCart(item);
+  };
+
+  return (
+    <motion.div className="space-y-5">
+      <div className="flex items-center gap-3">
+        <motion.button whileTap={{ scale: 0.9 }} onClick={onBack} className="text-xl">←</motion.button>
+        <div>
+          <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>💎 水晶手鍊體驗</h2>
+          <p className="text-sm" style={{ color: '#8C7B72' }}>NT$899/人</p>
         </div>
-      </motion.div>
+      </div>
 
-      {/* Person Count Selector */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="rounded-2xl p-5"
-        style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}
-      >
-        <p className="text-sm font-medium mb-4" style={{ color: '#3D3530' }}>👥 選擇參加人數</p>
-        <div className="flex gap-2 justify-between">
-          {[1, 2, 3, 4, 5, 6].map(num => (
+      {/* Calendar */}
+      <motion.div className="rounded-2xl p-5" style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}>
+        <p className="text-sm font-bold mb-4" style={{ color: '#3D3530' }}>📅 選擇日期</p>
+        <div className="grid grid-cols-7 gap-1 text-center text-xs mb-3" style={{ color: '#8C7B72' }}>
+          {['日', '一', '二', '三', '四', '五', '六'].map(d => <div key={d} className="font-bold py-1">{d}</div>)}
+        </div>
+        <div className="grid grid-cols-7 gap-1">
+          {Array(firstDay).fill(null).map((_, i) => <div key={`empty-${i}`} />)}
+          {days.map(d => (
             <motion.button
-              key={num}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setPersonCount(num)}
-              className="flex-1 py-2.5 rounded-xl font-medium text-sm transition-all"
-              style={
-                personCount === num
-                  ? { backgroundColor: '#8FA886', color: '#fff' }
-                  : { backgroundColor: '#FAF8F5', color: '#8C7B72', border: '1px solid #F0EDE8' }
-              }
+              key={d}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setSelectedDate(String(d))}
+              className="aspect-square rounded-lg text-sm font-medium transition-all"
+              style={{
+                backgroundColor: selectedDate === String(d) ? '#8FA886' : '#FAF8F5',
+                color: selectedDate === String(d) ? '#fff' : '#3D3530',
+                border: selectedDate === String(d) ? '2px solid #8FA886' : '1px solid #F0EDE8',
+              }}
             >
-              {num}
+              {d}
             </motion.button>
           ))}
         </div>
       </motion.div>
 
-      {/* Price Display */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.15 }}
-        className="rounded-2xl p-4 text-center"
-        style={{ backgroundColor: '#FAF8F5' }}
-      >
-        <p className="text-sm mb-1" style={{ color: '#8C7B72' }}>本次預訂金額</p>
-        <p className="text-xl font-bold" style={{ color: '#8FA886' }}>
-          👥 {personCount}人 × NT$899 = NT${totalPrice.toLocaleString()}
-        </p>
+      {/* Time Selection */}
+      {selectedDate && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl p-5" style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}>
+          <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>🕐 選擇時段</p>
+          <div className="grid grid-cols-4 gap-2">
+            {availableTimes.map(time => (
+              <motion.button
+                key={time}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setSelectedTime(time)}
+                className="py-2.5 rounded-lg text-xs font-medium transition-all"
+                style={{
+                  backgroundColor: selectedTime === time ? '#8FA886' : '#FAF8F5',
+                  color: selectedTime === time ? '#fff' : '#3D3530',
+                  border: selectedTime === time ? '2px solid #8FA886' : '1px solid #F0EDE8',
+                }}
+              >
+                {time}
+              </motion.button>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Person Count */}
+      {selectedTime && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl p-5" style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}>
+          <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>👥 選擇人數</p>
+          <div className="flex gap-2">
+            {Array.from({ length: 8 }, (_, i) => i + 1).map(n => (
+              <motion.button
+                key={n}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setPersons(n)}
+                className="flex-1 py-2.5 rounded-lg text-sm font-medium transition-all"
+                style={{
+                  backgroundColor: persons === n ? '#8FA886' : '#FAF8F5',
+                  color: persons === n ? '#fff' : '#3D3530',
+                  border: persons === n ? '2px solid #8FA886' : '1px solid #F0EDE8',
+                }}
+              >
+                {n}
+              </motion.button>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Price */}
+      <motion.div className="rounded-2xl p-4 text-center" style={{ backgroundColor: '#FAF8F5' }}>
+        <p className="text-sm mb-1" style={{ color: '#8C7B72' }}>合計金額</p>
+        <p className="text-lg font-bold" style={{ color: '#8FA886' }}>👥 {persons}人 × NT$899 = NT${total.toLocaleString()}</p>
       </motion.div>
 
-      {/* Payment Button */}
+      {/* Add to Cart Button */}
       <motion.button
         whileTap={{ scale: 0.96 }}
-        onClick={handlePayment}
+        onClick={handleAddToCart}
         className="w-full py-3 rounded-xl font-bold text-white transition-all"
         style={{ backgroundColor: '#8FA886' }}
       >
-        前往付款
+        加入購物車
       </motion.button>
+    </motion.div>
+  );
+}
 
-      {/* Info Footer */}
-      <div className="rounded-xl p-3 text-center" style={{ backgroundColor: '#FAF8F5' }}>
-        <p className="text-xs" style={{ color: '#8C7B72' }}>
-          🌸 體驗地點：台北市內湖區洲子街 60 號
-        </p>
+function FragranceCourseView({ onBack, onAddToCart }: { onBack: () => void; onAddToCart: (item: CartItem) => void }) {
+  const [selectedSession, setSelectedSession] = useState<string | null>(null);
+  const [selectedTicket, setSelectedTicket] = useState<string | null>(null);
+  const [quantity, setQuantity] = useState(1);
+
+  const sessions = [
+    { id: '02-07', label: '02/07 (六) 1000-1200', variations: { single: 83682, dual: 83681 } },
+    { id: '03-02', label: '03/02 (一) 1530-1730', variations: { single: 37746, dual: 37747 } },
+    { id: '04-11', label: '04/11 (六) 1530-1730', variations: { single: 37748, dual: 37749 } },
+    { id: '05-17', label: '05/17 (日) 1530-1730', variations: { single: 37750, dual: 37753 } },
+  ];
+
+  const tickets = [
+    { id: 'single', label: '單人優待票', price: 1180 },
+    { id: 'dual', label: '雙人特惠票', price: 2300 },
+  ];
+
+  const selectedSessionData = sessions.find(s => s.id === selectedSession);
+  const selectedTicketData = tickets.find(t => t.id === selectedTicket);
+  const variationId = selectedSessionData && selectedTicket ? selectedSessionData.variations[selectedTicket as 'single' | 'dual'] : undefined;
+  const total = selectedTicketData ? selectedTicketData.price * quantity : 0;
+
+  const handleAddToCart = () => {
+    if (!selectedSession || !selectedTicket) {
+      alert('請選擇場次和票價');
+      return;
+    }
+    const sessionLabel = sessions.find(s => s.id === selectedSession)?.label || '';
+    const ticketLabel = tickets.find(t => t.id === selectedTicket)?.label || '';
+    const item: CartItem = {
+      id: `fragrance-${selectedSession}-${selectedTicket}-${quantity}`,
+      productId: 25200,
+      variationId,
+      name: '手作課程 | 法式香水精油調香',
+      specs: `${sessionLabel} / ${ticketLabel}`,
+      price: selectedTicketData!.price,
+      quantity,
+      isVirtual: true,
+      image: undefined,
+    };
+    onAddToCart(item);
+  };
+
+  return (
+    <motion.div className="space-y-5">
+      <div className="flex items-center gap-3">
+        <motion.button whileTap={{ scale: 0.9 }} onClick={onBack} className="text-xl">←</motion.button>
+        <div>
+          <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>🌿 精油調香課程</h2>
+          <p className="text-sm" style={{ color: '#8C7B72' }}>法式香水精油調香</p>
+        </div>
       </div>
+
+      {/* Session Selection */}
+      <motion.div className="rounded-2xl p-5" style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}>
+        <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>📅 選擇場次</p>
+        <div className="space-y-2">
+          {sessions.map(session => (
+            <motion.button
+              key={session.id}
+              whileTap={{ scale: 0.96 }}
+              onClick={() => setSelectedSession(session.id)}
+              className="w-full p-3 rounded-lg text-left text-sm transition-all"
+              style={{
+                backgroundColor: selectedSession === session.id ? '#8FA886' : '#FAF8F5',
+                color: selectedSession === session.id ? '#fff' : '#3D3530',
+                border: selectedSession === session.id ? '2px solid #8FA886' : '1px solid #F0EDE8',
+              }}
+            >
+              {session.label}
+            </motion.button>
+          ))}
+        </div>
+      </motion.div>
+
+      {/* Ticket Selection */}
+      {selectedSession && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl p-5" style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}>
+          <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>🎫 選擇票價</p>
+          <div className="space-y-2">
+            {tickets.map(ticket => (
+              <motion.button
+                key={ticket.id}
+                whileTap={{ scale: 0.96 }}
+                onClick={() => setSelectedTicket(ticket.id)}
+                className="w-full p-3 rounded-lg text-left text-sm transition-all flex items-center justify-between"
+                style={{
+                  backgroundColor: selectedTicket === ticket.id ? '#8FA886' : '#FAF8F5',
+                  color: selectedTicket === ticket.id ? '#fff' : '#3D3530',
+                  border: selectedTicket === ticket.id ? '2px solid #8FA886' : '1px solid #F0EDE8',
+                }}
+              >
+                <span>{ticket.label}</span>
+                <span className="font-bold">NT${ticket.price}</span>
+              </motion.button>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Quantity */}
+      {selectedTicket && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl p-5" style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}>
+          <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>📦 數量</p>
+          <div className="flex items-center justify-center gap-4">
+            <motion.button whileTap={{ scale: 0.85 }} onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#FAF8F5', color: '#3D3530', border: '1px solid #F0EDE8' }}>−</motion.button>
+            <span className="text-lg font-bold" style={{ color: '#3D3530' }}>{quantity}</span>
+            <motion.button whileTap={{ scale: 0.85 }} onClick={() => setQuantity(quantity + 1)} className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#FAF8F5', color: '#3D3530', border: '1px solid #F0EDE8' }}>+</motion.button>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Price */}
+      <motion.div className="rounded-2xl p-4 text-center" style={{ backgroundColor: '#FAF8F5' }}>
+        <p className="text-sm mb-1" style={{ color: '#8C7B72' }}>合計金額</p>
+        <p className="text-lg font-bold" style={{ color: '#8FA886' }}>NT${total.toLocaleString()}</p>
+      </motion.div>
+
+      {/* Add to Cart Button */}
+      <motion.button
+        whileTap={{ scale: 0.96 }}
+        onClick={handleAddToCart}
+        disabled={!selectedSession || !selectedTicket}
+        className="w-full py-3 rounded-xl font-bold text-white transition-all disabled:opacity-50"
+        style={{ backgroundColor: '#8FA886' }}
+      >
+        加入購物車
+      </motion.button>
+    </motion.div>
+  );
+}
+
+function MaterialKitView({ onBack, onAddToCart }: { onBack: () => void; onAddToCart: (item: CartItem) => void }) {
+  const [selectedEnergy, setSelectedEnergy] = useState<string | null>(null);
+  const [selectedSize, setSelectedSize] = useState<string | null>(null);
+  const [quantity, setQuantity] = useState(1);
+
+  const energies = ['招財守護鍊', '平安守護鍊', '人緣守護鍊', '貴人守護鍊', '事業守護鍊'];
+  const sizes = ['13cm', '14cm', '15cm', '16cm', '17cm'];
+  const price = 890;
+  const total = price * quantity;
+
+  const handleAddToCart = () => {
+    if (!selectedEnergy || !selectedSize) {
+      alert('請選擇能量類型和尺寸');
+      return;
+    }
+    const item: CartItem = {
+      id: `material-${selectedEnergy}-${selectedSize}-${quantity}`,
+      productId: 99550,
+      name: '手作DIY材料包 | 能量水晶手鍊系列',
+      specs: `${selectedEnergy} / ${selectedSize}`,
+      price,
+      quantity,
+      isVirtual: false,
+      image: 'https://i0.wp.com/www.xiabenhow.com/wp-content/uploads/2025/10/931818_0.jpg?fit=1280%2C1280&ssl=1',
+    };
+    onAddToCart(item);
+  };
+
+  return (
+    <motion.div className="space-y-5">
+      <div className="flex items-center gap-3">
+        <motion.button whileTap={{ scale: 0.9 }} onClick={onBack} className="text-xl">←</motion.button>
+        <div>
+          <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>📦 手作材料包</h2>
+          <p className="text-sm" style={{ color: '#8C7B72' }}>NT$890/套</p>
+        </div>
+      </div>
+
+      {/* Energy Selection */}
+      <motion.div className="rounded-2xl p-5" style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}>
+        <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>✨ 能量類型</p>
+        <div className="space-y-2">
+          {energies.map(energy => (
+            <motion.button
+              key={energy}
+              whileTap={{ scale: 0.96 }}
+              onClick={() => setSelectedEnergy(energy)}
+              className="w-full p-3 rounded-lg text-left text-sm font-medium transition-all"
+              style={{
+                backgroundColor: selectedEnergy === energy ? '#8FA886' : '#FAF8F5',
+                color: selectedEnergy === energy ? '#fff' : '#3D3530',
+                border: selectedEnergy === energy ? '2px solid #8FA886' : '1px solid #F0EDE8',
+              }}
+            >
+              {energy}
+            </motion.button>
+          ))}
+        </div>
+      </motion.div>
+
+      {/* Size Selection */}
+      {selectedEnergy && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl p-5" style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}>
+          <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>📏 選擇尺寸</p>
+          <div className="grid grid-cols-5 gap-2">
+            {sizes.map(size => (
+              <motion.button
+                key={size}
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setSelectedSize(size)}
+                className="p-2.5 rounded-lg text-sm font-medium transition-all"
+                style={{
+                  backgroundColor: selectedSize === size ? '#8FA886' : '#FAF8F5',
+                  color: selectedSize === size ? '#fff' : '#3D3530',
+                  border: selectedSize === size ? '2px solid #8FA886' : '1px solid #F0EDE8',
+                }}
+              >
+                {size}
+              </motion.button>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      {/* Quantity */}
+      {selectedSize && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl p-5" style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}>
+          <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>📦 數量</p>
+          <div className="flex items-center justify-center gap-4">
+            <motion.button whileTap={{ scale: 0.85 }} onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#FAF8F5', color: '#3D3530', border: '1px solid #F0EDE8' }}>−</motion.button>
+            <span className="text-lg font-bold" style={{ color: '#3D3530' }}>{quantity}</span>
+            <motion.button whileTap={{ scale: 0.85 }} onClick={() => setQuantity(quantity + 1)} className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ backgroundColor: '#FAF8F5', color: '#3D3530', border: '1px solid #F0EDE8' }}>+</motion.button>
+          </div>
+        </motion.div>
+      )}
+
+      {/* Price */}
+      <motion.div className="rounded-2xl p-4 text-center" style={{ backgroundColor: '#FAF8F5' }}>
+        <p className="text-sm mb-1" style={{ color: '#8C7B72' }}>合計金額</p>
+        <p className="text-lg font-bold" style={{ color: '#8FA886' }}>NT${total.toLocaleString()}</p>
+      </motion.div>
+
+      {/* Add to Cart Button */}
+      <motion.button
+        whileTap={{ scale: 0.96 }}
+        onClick={handleAddToCart}
+        disabled={!selectedEnergy || !selectedSize}
+        className="w-full py-3 rounded-xl font-bold text-white transition-all disabled:opacity-50"
+        style={{ backgroundColor: '#8FA886' }}
+      >
+        加入購物車
+      </motion.button>
+    </motion.div>
+  );
+}
+
+function CartView({ cart, onUpdateQuantity, onRemove, onCheckout, onBack }: { cart: CartItem[]; onUpdateQuantity: (id: string, qty: number) => void; onRemove: (id: string) => void; onCheckout: () => void; onBack: () => void }) {
+  const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+  return (
+    <motion.div className="space-y-5">
+      <div className="flex items-center gap-3">
+        <motion.button whileTap={{ scale: 0.9 }} onClick={onBack} className="text-xl">←</motion.button>
+        <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>🛒 購物車</h2>
+      </div>
+
+      {cart.length === 0 ? (
+        <motion.div className="rounded-2xl p-8 text-center" style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}>
+          <p className="text-lg" style={{ color: '#8C7B72' }}>購物車是空的</p>
+          <p className="text-sm mt-2" style={{ color: '#8FA886' }}>開始購物吧 →</p>
+        </motion.div>
+      ) : (
+        <>
+          <div className="space-y-3">
+            {cart.map(item => (
+              <motion.div key={item.id} className="rounded-2xl p-4" style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}>
+                <div className="space-y-3">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <p className="font-bold text-sm" style={{ color: '#3D3530' }}>{item.name}</p>
+                      <p className="text-xs mt-1" style={{ color: '#8C7B72' }}>{item.specs}</p>
+                    </div>
+                    <motion.button whileTap={{ scale: 0.8 }} onClick={() => onRemove(item.id)} className="text-lg">🗑️</motion.button>
+                  </div>
+                  <div className="flex items-center justify-between pt-2 border-t" style={{ borderColor: '#F0EDE8' }}>
+                    <p className="font-bold" style={{ color: '#8FA886' }}>NT${(item.price * item.quantity).toLocaleString()}</p>
+                    <div className="flex items-center gap-2">
+                      <motion.button whileTap={{ scale: 0.85 }} onClick={() => onUpdateQuantity(item.id, item.quantity - 1)} className="w-7 h-7 rounded text-xs flex items-center justify-center" style={{ backgroundColor: '#FAF8F5', color: '#3D3530' }}>−</motion.button>
+                      <span className="w-6 text-center text-sm" style={{ color: '#3D3530' }}>{item.quantity}</span>
+                      <motion.button whileTap={{ scale: 0.85 }} onClick={() => onUpdateQuantity(item.id, item.quantity + 1)} className="w-7 h-7 rounded text-xs flex items-center justify-center" style={{ backgroundColor: '#FAF8F5', color: '#3D3530' }}>+</motion.button>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+
+          <motion.div className="rounded-2xl p-5 text-center" style={{ backgroundColor: '#FAF8F5' }}>
+            <p className="text-sm mb-2" style={{ color: '#8C7B72' }}>訂單小計</p>
+            <p className="text-2xl font-bold" style={{ color: '#8FA886' }}>NT${total.toLocaleString()}</p>
+          </motion.div>
+
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            onClick={onCheckout}
+            className="w-full py-3 rounded-xl font-bold text-white transition-all"
+            style={{ backgroundColor: '#8FA886' }}
+          >
+            前往結帳
+          </motion.button>
+        </>
+      )}
+    </motion.div>
+  );
+}
+
+function CheckoutView({ cart, onBack }: { cart: CartItem[]; onBack: () => void }) {
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [address, setAddress] = useState('');
+  const [city, setCity] = useState('');
+  const [shippingMethod, setShippingMethod] = useState('7-eleven');
+  const [paymentMethod, setPaymentMethod] = useState('credit');
+  const [invoiceType, setInvoiceType] = useState('personal');
+  const [carrierType, setCarrierType] = useState('cloud');
+  const [carrierNumber, setCarrierNumber] = useState('');
+
+  const hasPhysical = cart.some(item => !item.isVirtual);
+  const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+  const handleCheckout = async () => {
+    if (!name || !phone || !email) {
+      alert('請填寫必填欄位');
+      return;
+    }
+    if (hasPhysical && !address) {
+      alert('請填寫配送地址');
+      return;
+    }
+    alert(`準備結帳\n訂單金額: NT$${total.toLocaleString()}\n\n（結帳後將導向付款頁面）`);
+  };
+
+  return (
+    <motion.div className="space-y-5">
+      <div className="flex items-center gap-3">
+        <motion.button whileTap={{ scale: 0.9 }} onClick={onBack} className="text-xl">←</motion.button>
+        <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>💳 結帳</h2>
+      </div>
+
+      {/* Customer Info */}
+      <motion.div className="rounded-2xl p-5 space-y-3" style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}>
+        <p className="text-sm font-bold" style={{ color: '#3D3530' }}>📝 基本資訊</p>
+        <div>
+          <label className="text-xs" style={{ color: '#8C7B72' }}>姓名 *</label>
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="請輸入姓名" className="w-full mt-1 p-2.5 rounded-lg text-sm" style={{ backgroundColor: '#FAF8F5', border: '1px solid #F0EDE8', color: '#3D3530' }} />
+        </div>
+        <div>
+          <label className="text-xs" style={{ color: '#8C7B72' }}>聯絡電話 *</label>
+          <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="請輸入電話" className="w-full mt-1 p-2.5 rounded-lg text-sm" style={{ backgroundColor: '#FAF8F5', border: '1px solid #F0EDE8', color: '#3D3530' }} />
+        </div>
+        <div>
+          <label className="text-xs" style={{ color: '#8C7B72' }}>電子郵件 *</label>
+          <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="請輸入電子郵件" className="w-full mt-1 p-2.5 rounded-lg text-sm" style={{ backgroundColor: '#FAF8F5', border: '1px solid #F0EDE8', color: '#3D3530' }} />
+        </div>
+      </motion.div>
+
+      {/* Shipping Info (if physical items) */}
+      {hasPhysical && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl p-5 space-y-3" style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}>
+          <p className="text-sm font-bold" style={{ color: '#3D3530' }}>🚚 配送資訊</p>
+          <div>
+            <label className="text-xs" style={{ color: '#8C7B72' }}>運送方式</label>
+            <div className="space-y-2 mt-2">
+              {[
+                { id: '7-eleven', label: '7-ELEVEN 超商取貨' },
+                { id: 'family', label: '全家便利店 超商取貨' },
+                { id: 'delivery', label: '中華郵政 宅配' },
+              ].map(method => (
+                <label key={method.id} className="flex items-center gap-2 p-2 rounded-lg cursor-pointer" style={{ backgroundColor: shippingMethod === method.id ? '#E8F0E8' : '#FAF8F5' }}>
+                  <input type="radio" name="shipping" checked={shippingMethod === method.id} onChange={() => setShippingMethod(method.id)} />
+                  <span className="text-sm" style={{ color: '#3D3530' }}>{method.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+          {shippingMethod === 'delivery' && (
+            <>
+              <div>
+                <label className="text-xs" style={{ color: '#8C7B72' }}>街道地址 *</label>
+                <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="請輸入街道地址" className="w-full mt-1 p-2.5 rounded-lg text-sm" style={{ backgroundColor: '#FAF8F5', border: '1px solid #F0EDE8', color: '#3D3530' }} />
+              </div>
+              <div>
+                <label className="text-xs" style={{ color: '#8C7B72' }}>鄉鎮市 *</label>
+                <input value={city} onChange={(e) => setCity(e.target.value)} placeholder="請輸入鄉鎮市" className="w-full mt-1 p-2.5 rounded-lg text-sm" style={{ backgroundColor: '#FAF8F5', border: '1px solid #F0EDE8', color: '#3D3530' }} />
+              </div>
+            </>
+          )}
+        </motion.div>
+      )}
+
+      {/* Invoice */}
+      <motion.div className="rounded-2xl p-5 space-y-3" style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}>
+        <p className="text-sm font-bold" style={{ color: '#3D3530' }}>📋 發票資訊（選填）</p>
+        <div>
+          <label className="text-xs" style={{ color: '#8C7B72' }}>發票類型</label>
+          <div className="space-y-2 mt-2">
+            {[
+              { id: 'personal', label: '個人' },
+              { id: 'donate', label: '捐贈' },
+              { id: 'company', label: '公司' },
+            ].map(type => (
+              <label key={type.id} className="flex items-center gap-2 p-2 rounded-lg cursor-pointer" style={{ backgroundColor: invoiceType === type.id ? '#E8F0E8' : '#FAF8F5' }}>
+                <input type="radio" name="invoice" checked={invoiceType === type.id} onChange={() => setInvoiceType(type.id)} />
+                <span className="text-sm" style={{ color: '#3D3530' }}>{type.label}</span>
+              </label>
+            ))}
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Payment Method */}
+      <motion.div className="rounded-2xl p-5 space-y-3" style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}>
+        <p className="text-sm font-bold" style={{ color: '#3D3530' }}>💳 付款方式</p>
+        <div className="space-y-2">
+          {[
+            { id: 'credit', label: '信用卡 (VISA/Master/JCB)' },
+            { id: 'bank', label: '匯款/ATM 轉帳' },
+            { id: 'convenience', label: '超商代碼' },
+            { id: 'line', label: 'LINE Pay' },
+          ].map(method => (
+            <label key={method.id} className="flex items-center gap-2 p-2 rounded-lg cursor-pointer" style={{ backgroundColor: paymentMethod === method.id ? '#E8F0E8' : '#FAF8F5' }}>
+              <input type="radio" name="payment" checked={paymentMethod === method.id} onChange={() => setPaymentMethod(method.id)} />
+              <span className="text-sm" style={{ color: '#3D3530' }}>{method.label}</span>
+            </label>
+          ))}
+        </div>
+      </motion.div>
+
+      {/* Order Summary */}
+      <motion.div className="rounded-2xl p-5 text-center" style={{ backgroundColor: '#FAF8F5' }}>
+        <p className="text-sm mb-2" style={{ color: '#8C7B72' }}>訂單金額</p>
+        <p className="text-2xl font-bold" style={{ color: '#8FA886' }}>NT${total.toLocaleString()}</p>
+      </motion.div>
+
+      {/* Checkout Button */}
+      <motion.button
+        whileTap={{ scale: 0.96 }}
+        onClick={handleCheckout}
+        className="w-full py-3 rounded-xl font-bold text-white transition-all"
+        style={{ backgroundColor: '#8FA886' }}
+      >
+        完成結帳
+      </motion.button>
     </motion.div>
   );
 }
@@ -1602,6 +2225,12 @@ function BookingPage() {
 function MemberPage() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [orders, setOrders] = useState<OrderItem[]>([]);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [points, setPoints] = useState<number>(0);
+  const [pointsLoading, setPointsLoading] = useState(false);
+  const [ordersError, setOrdersError] = useState<string | null>(null);
+  const [pointsError, setPointsError] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -1610,6 +2239,52 @@ function MemberPage() {
     });
     return unsubscribe;
   }, []);
+
+  // Load orders and points when user changes
+  useEffect(() => {
+    if (user?.email) {
+      loadOrders(user.email);
+      loadPoints(user.email);
+    }
+  }, [user?.email]);
+
+  const loadOrders = async (email: string) => {
+    setOrdersLoading(true);
+    setOrdersError(null);
+    try {
+      const response = await fetch(`${API_BASE}/wc/orders?email=${encodeURIComponent(email)}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch orders');
+      }
+      const data = await response.json();
+      setOrders(data || []);
+    } catch (error) {
+      console.error('Error loading orders:', error);
+      setOrdersError('目前無法取得訂單資料');
+      setOrders([]);
+    } finally {
+      setOrdersLoading(false);
+    }
+  };
+
+  const loadPoints = async (email: string) => {
+    setPointsLoading(true);
+    setPointsError(null);
+    try {
+      const response = await fetch(`${API_BASE}/member/points?email=${encodeURIComponent(email)}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch points');
+      }
+      const data = await response.json();
+      setPoints(data?.points || 0);
+    } catch (error) {
+      console.error('Error loading points:', error);
+      setPointsError('目前無法取得紅利點數');
+      setPoints(0);
+    } finally {
+      setPointsLoading(false);
+    }
+  };
 
   const handleGoogleLogin = async () => {
     try {
@@ -1628,6 +2303,8 @@ function MemberPage() {
   const handleLogout = async () => {
     try {
       await signOut(auth);
+      setOrders([]);
+      setPoints(0);
     } catch (error) {
       console.error('登出失敗:', error);
     }
@@ -1742,10 +2419,88 @@ function MemberPage() {
         style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}
       >
         <p className="font-bold mb-4" style={{ color: '#3D3530' }}>📋 我的訂單</p>
-        <div className="text-center py-6">
-          <p className="text-sm" style={{ color: '#8C7B72' }}>暫無訂單記錄</p>
-          <p className="text-xs mt-2" style={{ color: '#8FA886' }}>預約體驗後，訂單將在此顯示</p>
-        </div>
+        {ordersLoading ? (
+          <div className="text-center py-4">
+            <p className="text-sm" style={{ color: '#8C7B72' }}>載入中...</p>
+          </div>
+        ) : ordersError ? (
+          <div className="text-center py-4">
+            <p className="text-sm" style={{ color: '#8C7B72' }}>{ordersError}</p>
+          </div>
+        ) : orders.length === 0 ? (
+          <div className="text-center py-6">
+            <p className="text-sm" style={{ color: '#8C7B72' }}>暫無訂單記錄</p>
+            <p className="text-xs mt-2" style={{ color: '#8FA886' }}>預約體驗後，訂單將在此顯示</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {orders.map((order) => (
+              <div
+                key={order.id}
+                className="p-3 rounded-lg"
+                style={{ backgroundColor: '#FAF8F5' }}
+              >
+                <div className="flex justify-between items-start mb-2">
+                  <p className="text-sm font-medium" style={{ color: '#3D3530' }}>
+                    訂單 #{order.id}
+                  </p>
+                  <span
+                    className="text-xs px-2 py-1 rounded-full"
+                    style={{
+                      backgroundColor: '#E8F5E9',
+                      color: '#2E7D32',
+                    }}
+                  >
+                    {ORDER_STATUS_MAP[order.status] || order.status}
+                  </span>
+                </div>
+                <p className="text-xs mb-1" style={{ color: '#8C7B72' }}>
+                  {order.date}
+                </p>
+                <p className="text-sm font-bold" style={{ color: '#8FA886' }}>
+                  NT${order.total.toLocaleString()}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </motion.div>
+
+      {/* My Points */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.12 }}
+        className="rounded-2xl p-5"
+        style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}
+      >
+        <p className="font-bold mb-4" style={{ color: '#3D3530' }}>⭐ 我的紅利點數</p>
+        {pointsLoading ? (
+          <div className="text-center py-4">
+            <p className="text-sm" style={{ color: '#8C7B72' }}>載入中...</p>
+          </div>
+        ) : pointsError ? (
+          <div className="text-center py-4">
+            <p className="text-sm" style={{ color: '#8C7B72' }}>{pointsError}</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="p-4 rounded-lg text-center" style={{ backgroundColor: '#FAF8F5' }}>
+              <p className="text-3xl font-bold" style={{ color: '#8FA886' }}>
+                {points}
+              </p>
+              <p className="text-xs mt-2" style={{ color: '#8C7B72' }}>
+                可用點數（每1點 = NT$1）
+              </p>
+            </div>
+            <div className="p-3 rounded-lg" style={{ backgroundColor: '#FAF8F5' }}>
+              <p className="text-xs font-medium mb-2" style={{ color: '#3D3530' }}>💡 點數說明</p>
+              <p className="text-xs" style={{ color: '#8C7B72' }}>
+                消費金額的 2% 累積為紅利點數，可於下次購物時折抵現金使用。
+              </p>
+            </div>
+          </div>
+        )}
       </motion.div>
 
       {/* Member Benefits */}
@@ -1773,10 +2528,12 @@ function RecipePage({
   records,
   onCheckIn,
   onTaskComplete,
+  user,
 }: {
   records: HealingRecord[];
   onCheckIn: (emotion: EmotionKey) => void;
   onTaskComplete: (key: TaskKey) => void;
+  user: User | null;
 }) {
   const todayRecord = records.find(r => r.date === getToday());
   const [selectedOil, setSelectedOil] = useState<string | null>(null);
@@ -1789,14 +2546,22 @@ function RecipePage({
 
   const handleSaveNote = useCallback(() => {
     if (!emotion || !note.trim()) return;
+    const today = getToday();
     const updated = loadRecords().map(r =>
-      r.date === getToday() ? { ...r, note: note.trim() } : r
+      r.date === today ? { ...r, note: note.trim() } : r
     );
     saveRecords(updated);
+    // Also save to Firestore if logged in
+    if (user) {
+      const record = updated.find(r => r.date === today);
+      if (record) {
+        saveRecordToFirestore(user.uid, record);
+      }
+    }
     setNoteSaved(true);
     onTaskComplete('note');
     setTimeout(() => setNoteSaved(false), 2000);
-  }, [emotion, note, onTaskComplete]);
+  }, [emotion, note, onTaskComplete, user]);
 
   useEffect(() => {
     if (todayRecord?.note) setNote(todayRecord.note);
@@ -2793,6 +3558,7 @@ function BottomNav({ active, onChange }: { active: PageType; onChange: (p: PageT
 
 export default function HealingApp() {
   const [page, setPage] = useState<PageType>('home');
+  const [user, setUser] = useState<User | null>(null);
   const [records, setRecords] = useState<HealingRecord[]>(() => {
     const existing = loadRecords();
     if (existing.length === 0) {
@@ -2808,6 +3574,21 @@ export default function HealingApp() {
   const [showMorningFlow, setShowMorningFlow] = useState(false);
   const [morningFlowEmotion, setMorningFlowEmotion] = useState<EmotionKey | null>(null);
   const [showMilestone, setShowMilestone] = useState<number | null>(null);
+
+  // Listen for auth changes and load Firestore records if logged in
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        // Load from Firestore if logged in
+        const firestoreRecords = await loadRecordsFromFirestore(currentUser.uid);
+        if (firestoreRecords.length > 0) {
+          setRecords(firestoreRecords);
+        }
+      }
+    });
+    return unsubscribe;
+  }, []);
 
   const completeTask = useCallback((key: TaskKey) => {
     setDailyTasks(prev => {
@@ -2832,12 +3613,16 @@ export default function HealingApp() {
       const filtered = prev.filter(r => r.date !== today);
       const updated = [...filtered, { date: today, emotion }];
       saveRecords(updated);
+      // Also save to Firestore if logged in
+      if (user) {
+        saveRecordToFirestore(user.uid, { date: today, emotion });
+      }
       return updated;
     });
     completeTask('checkin');
     setMorningFlowEmotion(emotion);
     setShowMorningFlow(true);
-  }, [completeTask]);
+  }, [completeTask, user]);
 
   const handleMorningFlowDone = useCallback(() => {
     setShowMorningFlow(false);
@@ -2883,11 +3668,12 @@ export default function HealingApp() {
                 records={records}
                 onCheckIn={handleCheckIn}
                 onTaskComplete={completeTask}
+                user={user}
               />
             )}
             {page === 'card' && <CardPage onTaskComplete={completeTask} />}
             {page === 'healer' && <HealerPage records={records} />}
-            {page === 'booking' && <BookingPage />}
+            {page === 'booking' && <ShopPage />}
             {page === 'library' && <OilLibraryPage />}
             {page === 'calendar' && <FragranceCalendarPage />}
             {page === 'member' && <MemberPage />}
