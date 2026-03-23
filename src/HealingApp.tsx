@@ -1682,8 +1682,8 @@ function ShopProductsView({
       setError(null);
       try {
         const url = categoryId === 130
-          ? `${API_BASE}/wc/products?featured=true`
-          : `${API_BASE}/wc/products?category=${categoryId}`;
+          ? `${API_BASE}/api/wc/products?featured=true`
+          : `${API_BASE}/api/wc/products?category=${categoryId}`;
 
         const response = await fetch(url);
         if (!response.ok) {
@@ -2094,7 +2094,7 @@ function CheckoutView({ cart, onBack }: { cart: CartItem[]; onBack: () => void }
         set_paid: false,
       };
 
-      const orderResponse = await fetch(`${API_BASE}/wc/orders`, {
+      const orderResponse = await fetch(`${API_BASE}/api/wc/orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(orderData),
@@ -2113,7 +2113,7 @@ function CheckoutView({ cart, onBack }: { cart: CartItem[]; onBack: () => void }
         // ECPay付款
         console.log('導向ECPay付款...');
         const ecpayWindow = window.open(
-          `${API_BASE}/ecpay/create?order_id=${orderId}`,
+          `${API_BASE}/api/ecpay/create?order_id=${orderId}`,
           '付款',
           'width=800,height=600'
         );
@@ -2123,7 +2123,7 @@ function CheckoutView({ cart, onBack }: { cart: CartItem[]; onBack: () => void }
       } else if (paymentMethod === 'line') {
         // LINE Pay付款
         console.log('導向LINE Pay付款...');
-        const linePayResponse = await fetch(`${API_BASE}/linepay/request`, {
+        const linePayResponse = await fetch(`${API_BASE}/api/linepay/request`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ order_id: orderId, amount: total }),
