@@ -4590,87 +4590,75 @@ function CardPage({ onTaskComplete }: { onTaskComplete: (key: TaskKey) => void }
       {drawnCard && (
         <>
           <div className="flex justify-center">
-            <div style={{ perspective: 1200 }} className="w-64">
+            <div style={{ perspective: 1200 }} className="w-72">
               <motion.div
-                className="relative w-64 h-96 card-flip-inner"
+                className="relative w-72 card-flip-inner"
+                style={{ aspectRatio: '3/4' }}
                 animate={{ rotateY: isFlipped ? 180 : 0 }}
                 transition={{ duration: 0.9, ease: 'easeInOut' }}
               >
                 {/* 卡背 */}
                 <div
                   className="absolute inset-0 rounded-3xl shadow-lg flex flex-col items-center justify-center card-face"
-                  style={{ backgroundColor: '#FFFEF9' }}
+                  style={{ background: `linear-gradient(135deg, ${colorConfig?.hex || '#8FA886'}22, ${colorConfig?.hex || '#8FA886'}08)`, border: '1px solid #E8E2D8' }}
                 >
-                  <div className="border-2 border-dashed rounded-2xl px-8 py-12 text-center" style={{ borderColor: '#C9A96E' }}>
+                  <div className="border-2 border-dashed rounded-2xl px-8 py-14 text-center" style={{ borderColor: '#C9A96E' }}>
                     <p className="text-lg font-bold mb-3" style={{ color: '#C9A96E' }}>療癒卡牌</p>
-                    <p className="text-4xl mb-3">✦</p>
-                    <p className="text-xs" style={{ color: '#8C7B72' }}>讓一張卡接住你</p>
+                    <p className="text-5xl mb-3">✦</p>
+                    <p className="text-xs mt-2" style={{ color: '#8C7B72' }}>讓一張卡接住你</p>
                   </div>
                 </div>
 
-                {/* 卡面 */}
+                {/* 卡面 — 整張都是圖片 */}
                 <div
                   className="absolute inset-0 rounded-3xl shadow-lg overflow-hidden card-face-back"
-                  style={{ backgroundColor: colorConfig?.bgLight || '#FFFEF9' }}
+                  style={{ background: colorConfig?.gradient || colorConfig?.bgLight || '#FFFEF9' }}
                 >
-                  {/* 卡片圖片 */}
-                  <div className="relative w-full h-48 overflow-hidden">
-                    <img
-                      src={drawnCard.image}
-                      alt={drawnCard.title}
-                      className="w-full h-full object-cover"
-                      onLoad={() => setImgLoaded(true)}
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                        setImgLoaded(true);
-                      }}
-                      style={{ opacity: imgLoaded ? 1 : 0, transition: 'opacity 0.3s' }}
-                    />
-                    {!imgLoaded && (
-                      <div
-                        className="absolute inset-0 flex items-center justify-center"
-                        style={{ backgroundColor: colorConfig?.hex + '30' }}
-                      >
-                        <span className="text-4xl">✦</span>
-                      </div>
-                    )}
-                    {/* 顏色標籤 */}
+                  {/* 圖片填滿整張卡 */}
+                  <img
+                    src={drawnCard.image}
+                    alt={drawnCard.title}
+                    className="absolute inset-0 w-full h-full object-cover"
+                    onLoad={() => setImgLoaded(true)}
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                      setImgLoaded(true);
+                    }}
+                    style={{ opacity: imgLoaded ? 1 : 0, transition: 'opacity 0.5s' }}
+                  />
+                  {/* 漸層底圖（圖片載入前或失敗時顯示） */}
+                  {!imgLoaded && (
                     <div
-                      className="absolute top-3 left-3 px-2.5 py-1 rounded-full text-xs font-medium text-white"
-                      style={{ backgroundColor: colorConfig?.hex || '#8FA886' }}
+                      className="absolute inset-0 flex items-center justify-center"
+                      style={{ background: colorConfig?.gradient || `linear-gradient(135deg, ${colorConfig?.hex}55, ${colorConfig?.hex}22)` }}
+                    >
+                      <span className="text-6xl opacity-40">✦</span>
+                    </div>
+                  )}
+                  {/* 底部漸層遮罩 + 標題 */}
+                  <div
+                    className="absolute bottom-0 left-0 right-0 p-4 flex flex-col justify-end"
+                    style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.2) 60%, transparent 100%)', minHeight: '35%' }}
+                  >
+                    <div
+                      className="inline-flex self-start px-2.5 py-1 rounded-full text-xs font-medium text-white mb-2"
+                      style={{ backgroundColor: colorConfig?.hex || '#8FA886', opacity: 0.9 }}
                     >
                       {colorConfig?.label} · {colorConfig?.emotion.split('/')[0].trim()}
                     </div>
-                  </div>
-                  {/* 卡片文字 */}
-                  <div className="p-4 flex flex-col items-center text-center">
-                    <p className="text-base font-bold mb-1.5" style={{ color: '#3D3530' }}>
+                    <p className="text-lg font-bold text-white drop-shadow-md">
                       {drawnCard.title}
                     </p>
-                    <p className="text-sm leading-relaxed mb-1" style={{ color: colorConfig?.hex }}>
+                    <p className="text-sm text-white/90 mt-1 drop-shadow-sm leading-relaxed">
                       「{drawnCard.message}」
                     </p>
-                    <p className="text-xs leading-relaxed" style={{ color: '#8C7B72' }}>
-                      {drawnCard.extendedMessage}
-                    </p>
-                    <div className="flex gap-1.5 mt-2 flex-wrap justify-center">
-                      {drawnCard.emotionTags.map(tag => (
-                        <span
-                          key={tag}
-                          className="px-2 py-0.5 rounded-full text-xs"
-                          style={{ backgroundColor: colorConfig?.hex + '15', color: colorConfig?.hex }}
-                        >
-                          #{tag}
-                        </span>
-                      ))}
-                    </div>
                   </div>
                 </div>
               </motion.div>
             </div>
           </div>
 
-          {/* 展開詳情 */}
+          {/* 卡片下方內容 */}
           {isFlipped && (
             <motion.div
               initial={{ opacity: 0, y: 10 }}
@@ -4678,25 +4666,50 @@ function CardPage({ onTaskComplete }: { onTaskComplete: (key: TaskKey) => void }
               transition={{ delay: 0.3 }}
               className="space-y-3"
             >
+              {/* 延伸訊息 + Hashtags */}
+              <div className="rounded-2xl p-4" style={{ backgroundColor: '#FFFEF9' }}>
+                <p className="text-sm leading-relaxed" style={{ color: '#5C534C' }}>
+                  {drawnCard.extendedMessage}
+                </p>
+                <div className="flex gap-1.5 mt-3 flex-wrap">
+                  {drawnCard.emotionTags.map(tag => (
+                    <span
+                      key={tag}
+                      className="px-2.5 py-1 rounded-full text-xs font-medium"
+                      style={{ backgroundColor: colorConfig?.hex + '15', color: colorConfig?.hex }}
+                    >
+                      #{tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
               {/* 小儀式 */}
               <div
-                className="rounded-2xl p-4 text-center"
+                className="rounded-2xl p-4"
                 style={{ backgroundColor: colorConfig?.hex + '10' }}
               >
-                <p className="text-xs mb-1" style={{ color: '#8C7B72' }}>小儀式</p>
-                <p className="text-sm font-medium" style={{ color: '#3D3530' }}>
-                  🕯️ {drawnCard.ritual}
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-base">🕯️</span>
+                  <p className="text-sm font-bold" style={{ color: '#3D3530' }}>今日小儀式</p>
+                </div>
+                <p className="text-sm font-medium mb-2" style={{ color: colorConfig?.hex }}>
+                  {drawnCard.ritual}
+                </p>
+                <p className="text-xs leading-relaxed" style={{ color: '#6B5F56' }}>
+                  {drawnCard.ritualDetail}
                 </p>
               </div>
 
-              {/* 展開/收起配對 */}
+              {/* 展開/收起療癒配對 */}
               <motion.button
                 whileTap={{ scale: 0.98 }}
                 onClick={() => setShowDetail(!showDetail)}
-                className="w-full rounded-2xl p-3 text-sm font-medium text-center"
-                style={{ backgroundColor: '#FFFEF9', color: '#3D3530' }}
+                className="w-full rounded-2xl p-3.5 text-sm font-medium text-center flex items-center justify-center gap-2"
+                style={{ backgroundColor: '#FFFEF9', color: '#3D3530', border: `1px solid ${colorConfig?.hex}30` }}
               >
-                {showDetail ? '收起療癒配對 ▲' : '查看療癒配對 ▼'}
+                <span>{showDetail ? '收起療癒配對' : '查看療癒配對'}</span>
+                <motion.span animate={{ rotate: showDetail ? 180 : 0 }} transition={{ duration: 0.3 }}>▼</motion.span>
               </motion.button>
 
               <AnimatePresence>
@@ -4705,29 +4718,41 @@ function CardPage({ onTaskComplete }: { onTaskComplete: (key: TaskKey) => void }
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
-                    className="rounded-2xl p-4 space-y-3"
+                    className="rounded-2xl p-4 space-y-4 overflow-hidden"
                     style={{ backgroundColor: '#FFFEF9' }}
                   >
-                    <div className="flex items-center gap-3">
-                      <span className="text-lg">🌿</span>
-                      <div>
-                        <p className="text-xs" style={{ color: '#8C7B72' }}>推薦精油</p>
-                        <p className="text-sm font-medium" style={{ color: '#3D3530' }}>{drawnCard.pairing.oil}</p>
+                    {/* 精油 */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="text-lg">🌿</span>
+                        <div>
+                          <p className="text-xs" style={{ color: '#8C7B72' }}>推薦精油</p>
+                          <p className="text-sm font-bold" style={{ color: '#3D3530' }}>{drawnCard.pairing.oil}</p>
+                        </div>
                       </div>
+                      <p className="text-xs leading-relaxed ml-8" style={{ color: '#6B5F56' }}>{drawnCard.pairing.oilDesc}</p>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-lg">🎵</span>
-                      <div>
-                        <p className="text-xs" style={{ color: '#8C7B72' }}>推薦音景</p>
-                        <p className="text-sm font-medium" style={{ color: '#3D3530' }}>{drawnCard.pairing.sound}</p>
+                    {/* 音景 */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="text-lg">🎵</span>
+                        <div>
+                          <p className="text-xs" style={{ color: '#8C7B72' }}>推薦音景</p>
+                          <p className="text-sm font-bold" style={{ color: '#3D3530' }}>{drawnCard.pairing.sound}</p>
+                        </div>
                       </div>
+                      <p className="text-xs leading-relaxed ml-8" style={{ color: '#6B5F56' }}>{drawnCard.pairing.soundDesc}</p>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-lg">💎</span>
-                      <div>
-                        <p className="text-xs" style={{ color: '#8C7B72' }}>推薦水晶</p>
-                        <p className="text-sm font-medium" style={{ color: '#3D3530' }}>{drawnCard.pairing.crystal}</p>
+                    {/* 水晶 */}
+                    <div>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="text-lg">💎</span>
+                        <div>
+                          <p className="text-xs" style={{ color: '#8C7B72' }}>推薦水晶</p>
+                          <p className="text-sm font-bold" style={{ color: '#3D3530' }}>{drawnCard.pairing.crystal}</p>
+                        </div>
                       </div>
+                      <p className="text-xs leading-relaxed ml-8" style={{ color: '#6B5F56' }}>{drawnCard.pairing.crystalDesc}</p>
                     </div>
                   </motion.div>
                 )}
@@ -4801,7 +4826,7 @@ function CardPage({ onTaskComplete }: { onTaskComplete: (key: TaskKey) => void }
                     setImgLoaded(false);
                   }}
                 >
-                  <div className="w-full h-16 overflow-hidden">
+                  <div className="w-full h-20 overflow-hidden relative">
                     <img
                       src={card.image}
                       alt={card.title}
@@ -4810,6 +4835,7 @@ function CardPage({ onTaskComplete }: { onTaskComplete: (key: TaskKey) => void }
                         (e.target as HTMLImageElement).style.display = 'none';
                       }}
                     />
+                    <div className="absolute inset-0" style={{ background: cfg.gradient || `linear-gradient(135deg, ${cfg.hex}44, ${cfg.hex}11)` }} />
                   </div>
                   <div className="p-2 text-center">
                     <div
