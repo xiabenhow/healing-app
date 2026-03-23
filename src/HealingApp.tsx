@@ -1681,9 +1681,7 @@ function ShopProductsView({
       setLoading(true);
       setError(null);
       try {
-        const url = categoryId === 130
-          ? `${API_BASE}/api/wc/products?featured=true`
-          : `${API_BASE}/api/wc/products?category=${categoryId}`;
+        const url = `${API_BASE}/api/wc/products?category=${categoryId}`;
 
         const response = await fetch(url);
         if (!response.ok) {
