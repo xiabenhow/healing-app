@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
+import { signInWithPopup, signInWithRedirect, signOut, onAuthStateChanged } from 'firebase/auth';
 import type { User } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, googleProvider, db } from './lib/firebase';
@@ -10,7 +10,7 @@ import { OIL_LIBRARY, FAMILY_EMOJI, type OilLibraryItem } from './oilLibraryData
 // ===================== TYPES =====================
 
 type EmotionKey = 'calm' | 'anxious' | 'tired' | 'warm' | 'low' | 'energized';
-type PageType = 'home' | 'diary' | 'recipe' | 'card' | 'healer' | 'library' | 'calendar' | 'sound';
+type PageType = 'home' | 'diary' | 'recipe' | 'card' | 'healer' | 'library' | 'calendar' | 'sound' | 'booking' | 'member';
 type TaskKey = 'checkin' | 'card' | 'note' | 'breathe' | 'evening' | 'share';
 
 interface HealingRecord {
@@ -1123,7 +1123,7 @@ class SoundGenerator {
   }
 
   createRain() {
-    const { source, output } = this.createNoiseBuffer((data) => {
+    const { source } = this.createNoiseBuffer((data) => {
       for (let i = 0; i < data.length; i++) {
         const base = Math.random() * 2 - 1;
         const droplet = Math.random() > 0.997 ? Math.random() * 0.5 : 0;
@@ -1140,7 +1140,7 @@ class SoundGenerator {
   }
 
   createOcean() {
-    const { source, output } = this.createNoiseBuffer((data, sr) => {
+    const { source } = this.createNoiseBuffer((data, sr) => {
       for (let i = 0; i < data.length; i++) {
         const t = i / sr;
         const wave = Math.sin(t*Math.PI*2/8)*0.5+0.5;
@@ -1156,7 +1156,7 @@ class SoundGenerator {
   }
 
   createForest() {
-    const { source, output } = this.createNoiseBuffer((data, sr) => {
+    const { source } = this.createNoiseBuffer((data, sr) => {
       for (let i = 0; i < data.length; i++) {
         const t = i / sr;
         const wind = (Math.random()*2-1)*0.08*(Math.sin(t*0.3)*0.5+0.5);
@@ -1179,7 +1179,7 @@ class SoundGenerator {
   }
 
   createFireplace() {
-    const { source, output } = this.createNoiseBuffer((data, sr) => {
+    const { source } = this.createNoiseBuffer((data, sr) => {
       for (let i = 0; i < data.length; i++) {
         const t = i / sr;
         const rumble = (Math.random()*2-1)*0.1*(Math.sin(t*0.5)*0.3+0.7);
@@ -1196,7 +1196,7 @@ class SoundGenerator {
   }
 
   createStream() {
-    const { source, output } = this.createNoiseBuffer((data, sr) => {
+    const { source } = this.createNoiseBuffer((data, sr) => {
       for (let i = 0; i < data.length; i++) {
         const t = i / sr;
         const flow = (Math.random()*2-1)*0.2;
@@ -1467,6 +1467,302 @@ function SoundPage() {
           <p className="text-xs" style={{ color: '#8C7B72' }}>· 棕噪音 + 白噪音 = 完美專注</p>
         </div>
       </div>
+    </motion.div>
+  );
+}
+
+// ===================== PAGE: BOOKING =====================
+
+function BookingPage() {
+  const [personCount, setPersonCount] = useState(1);
+  const pricePerPerson = 899;
+  const totalPrice = personCount * pricePerPerson;
+
+  const handlePayment = () => {
+    alert(`準備前往付款\n人數: ${personCount}\n金額: NT$${totalPrice}\n\n（綠界付款整合需要後端支援）`);
+  };
+
+  return (
+    <motion.div className="space-y-5" {...fadeInUp}>
+      {/* Header */}
+      <div>
+        <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>🛍️ 體驗預約</h2>
+        <p className="text-sm mt-0.5" style={{ color: '#8C7B72' }}>預約芳療調香體驗</p>
+      </div>
+
+      {/* Experience Package Card */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="rounded-2xl p-5"
+        style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}
+      >
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-base font-bold mb-1" style={{ color: '#3D3530' }}>
+              🧪 調香體驗工作坊
+            </h3>
+            <p className="text-sm" style={{ color: '#8C7B72' }}>
+              跟著專業芳療師調配你的專屬精油香氛
+            </p>
+          </div>
+
+          {/* Package Details */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-xl p-3 text-center" style={{ backgroundColor: '#FAF8F5' }}>
+              <p className="text-xs font-medium mb-1" style={{ color: '#8C7B72' }}>單價</p>
+              <p className="text-lg font-bold" style={{ color: '#8FA886' }}>NT$899</p>
+            </div>
+            <div className="rounded-xl p-3 text-center" style={{ backgroundColor: '#FAF8F5' }}>
+              <p className="text-xs font-medium mb-1" style={{ color: '#8C7B72' }}>時長</p>
+              <p className="text-lg font-bold" style={{ color: '#8FA886' }}>90分鐘</p>
+            </div>
+            <div className="rounded-xl p-3 text-center" style={{ backgroundColor: '#FAF8F5' }}>
+              <p className="text-xs font-medium mb-1" style={{ color: '#8C7B72' }}>方案數</p>
+              <p className="text-lg font-bold" style={{ color: '#8FA886' }}>1套</p>
+            </div>
+          </div>
+
+          {/* What's Included */}
+          <div className="space-y-2">
+            <p className="text-xs font-medium" style={{ color: '#8C7B72' }}>✨ 包含內容</p>
+            <ul className="space-y-1 text-xs" style={{ color: '#8C7B72' }}>
+              <li>✓ 專業芳療師一對一引導</li>
+              <li>✓ 調配你的專屬精油香氛</li>
+              <li>✓ 帶走調配成品（10ml 滾珠瓶）</li>
+            </ul>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Person Count Selector */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="rounded-2xl p-5"
+        style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}
+      >
+        <p className="text-sm font-medium mb-4" style={{ color: '#3D3530' }}>👥 選擇參加人數</p>
+        <div className="flex gap-2 justify-between">
+          {[1, 2, 3, 4, 5, 6].map(num => (
+            <motion.button
+              key={num}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setPersonCount(num)}
+              className="flex-1 py-2.5 rounded-xl font-medium text-sm transition-all"
+              style={
+                personCount === num
+                  ? { backgroundColor: '#8FA886', color: '#fff' }
+                  : { backgroundColor: '#FAF8F5', color: '#8C7B72', border: '1px solid #F0EDE8' }
+              }
+            >
+              {num}
+            </motion.button>
+          ))}
+        </div>
+      </motion.div>
+
+      {/* Price Display */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.15 }}
+        className="rounded-2xl p-4 text-center"
+        style={{ backgroundColor: '#FAF8F5' }}
+      >
+        <p className="text-sm mb-1" style={{ color: '#8C7B72' }}>本次預訂金額</p>
+        <p className="text-xl font-bold" style={{ color: '#8FA886' }}>
+          👥 {personCount}人 × NT$899 = NT${totalPrice.toLocaleString()}
+        </p>
+      </motion.div>
+
+      {/* Payment Button */}
+      <motion.button
+        whileTap={{ scale: 0.96 }}
+        onClick={handlePayment}
+        className="w-full py-3 rounded-xl font-bold text-white transition-all"
+        style={{ backgroundColor: '#8FA886' }}
+      >
+        前往付款
+      </motion.button>
+
+      {/* Info Footer */}
+      <div className="rounded-xl p-3 text-center" style={{ backgroundColor: '#FAF8F5' }}>
+        <p className="text-xs" style={{ color: '#8C7B72' }}>
+          🌸 體驗地點：台北市內湖區洲子街 60 號
+        </p>
+      </div>
+    </motion.div>
+  );
+}
+
+// ===================== PAGE: MEMBER =====================
+
+function MemberPage() {
+  const [user, setUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setLoading(false);
+    });
+    return unsubscribe;
+  }, []);
+
+  const handleGoogleLogin = async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (error: any) {
+      console.error('Google 登入失敗:', error);
+      // Fallback to redirect
+      try {
+        await signInWithRedirect(auth, googleProvider);
+      } catch (redirectError) {
+        console.error('Redirect 登入也失敗:', redirectError);
+      }
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      console.error('登出失敗:', error);
+    }
+  };
+
+  if (loading) {
+    return (
+      <motion.div className="flex items-center justify-center py-12" {...fadeInUp}>
+        <p style={{ color: '#8C7B72' }}>正在載入...</p>
+      </motion.div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <motion.div className="space-y-5" {...fadeInUp}>
+        {/* Header */}
+        <div>
+          <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>👤 會員中心</h2>
+          <p className="text-sm mt-0.5" style={{ color: '#8C7B72' }}>登入以查看你的訂單和會員資訊</p>
+        </div>
+
+        {/* Login Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-2xl p-8 text-center space-y-4"
+          style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}
+        >
+          <div className="text-5xl mb-4">👤</div>
+          <p className="text-sm" style={{ color: '#8C7B72' }}>
+            使用 Google 帳號登入，查看你的訂單和會員福利
+          </p>
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            onClick={handleGoogleLogin}
+            className="w-full py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2"
+            style={{ backgroundColor: '#8FA886', color: '#fff' }}
+          >
+            <span>🔐</span>
+            <span>使用 Google 帳號登入</span>
+          </motion.button>
+        </motion.div>
+
+        {/* Benefits Preview */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="rounded-2xl p-4"
+          style={{ backgroundColor: '#FAF8F5' }}
+        >
+          <p className="text-xs font-medium mb-3" style={{ color: '#3D3530' }}>🎁 會員獨享</p>
+          <ul className="space-y-2 text-xs" style={{ color: '#8C7B72' }}>
+            <li>✓ 訂單管理與追蹤</li>
+            <li>✓ 會員專屬優惠</li>
+            <li>✓ 體驗紀錄保存</li>
+          </ul>
+        </motion.div>
+      </motion.div>
+    );
+  }
+
+  return (
+    <motion.div className="space-y-5" {...fadeInUp}>
+      {/* Header */}
+      <div>
+        <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>👤 會員中心</h2>
+        <p className="text-sm mt-0.5" style={{ color: '#8C7B72' }}>歡迎回來</p>
+      </div>
+
+      {/* User Profile Card */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="rounded-2xl p-5"
+        style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}
+      >
+        <div className="flex items-center gap-4 mb-4">
+          {user.photoURL && (
+            <img
+              src={user.photoURL}
+              alt={user.displayName || 'User'}
+              className="w-16 h-16 rounded-full"
+            />
+          )}
+          <div className="flex-1">
+            <p className="font-bold" style={{ color: '#3D3530' }}>
+              {user.displayName || '使用者'}
+            </p>
+            <p className="text-sm" style={{ color: '#8C7B72' }}>
+              {user.email}
+            </p>
+          </div>
+        </div>
+        <motion.button
+          whileTap={{ scale: 0.96 }}
+          onClick={handleLogout}
+          className="w-full py-2 rounded-xl text-sm font-medium transition-all"
+          style={{ backgroundColor: '#FAF8F5', color: '#8B5E3C' }}
+        >
+          登出
+        </motion.button>
+      </motion.div>
+
+      {/* My Orders */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="rounded-2xl p-5"
+        style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}
+      >
+        <p className="font-bold mb-4" style={{ color: '#3D3530' }}>📋 我的訂單</p>
+        <div className="text-center py-6">
+          <p className="text-sm" style={{ color: '#8C7B72' }}>暫無訂單記錄</p>
+          <p className="text-xs mt-2" style={{ color: '#8FA886' }}>預約體驗後，訂單將在此顯示</p>
+        </div>
+      </motion.div>
+
+      {/* Member Benefits */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15 }}
+        className="rounded-2xl p-4"
+        style={{ backgroundColor: '#FAF8F5' }}
+      >
+        <p className="text-xs font-medium mb-3" style={{ color: '#3D3530' }}>🎁 你的會員福利</p>
+        <ul className="space-y-2 text-xs" style={{ color: '#8C7B72' }}>
+          <li>✓ 訂單歷史查詢</li>
+          <li>✓ 會員專屬優惠與最新資訊</li>
+          <li>✓ 體驗記錄與評分</li>
+        </ul>
+      </motion.div>
     </motion.div>
   );
 }
@@ -1985,12 +2281,14 @@ function HealerPage({ records }: { records: HealingRecord[] }) {
 
 const NAV_ITEMS: { key: PageType; emoji: string; label: string }[] = [
   { key: 'home', emoji: '🏠', label: '首頁' },
-  { key: 'diary', emoji: '📊', label: '情緒' },
+  { key: 'diary', emoji: '📊', label: '心情' },
   { key: 'sound', emoji: '🎵', label: '白噪音' },
   { key: 'card', emoji: '🃏', label: '抽卡' },
   { key: 'healer', emoji: '🌱', label: '療癒師' },
+  { key: 'booking', emoji: '🛍️', label: '體驗預約' },
   { key: 'library', emoji: '📚', label: '精油庫' },
   { key: 'calendar', emoji: '🗓️', label: '日曆' },
+  { key: 'member', emoji: '👤', label: '會員' },
 ];
 
 // ===================== PAGE: OIL LIBRARY =====================
@@ -2415,7 +2713,7 @@ function FragranceCalendarPage() {
 // ===================== BOTTOM NAV =====================
 
 function BottomNav({ active, onChange }: { active: PageType; onChange: (p: PageType) => void }) {
-  // Split nav into two rows: main 5 + extra 2
+  // Split nav into two rows: main 5 + extra 4
   const mainNav = NAV_ITEMS.slice(0, 5);
   const extraNav = NAV_ITEMS.slice(5);
 
@@ -2475,6 +2773,16 @@ function BottomNav({ active, onChange }: { active: PageType; onChange: (p: PageT
               )}
             </button>
           ))}
+          <a
+            href="https://page.line.me/296yrpvh?openQrModal=true"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-5 py-1 rounded-xl text-sm font-medium"
+            style={{ color: '#8C7B72' }}
+          >
+            <span>💬</span>
+            <span>客服</span>
+          </a>
         </div>
       </div>
     </div>
@@ -2579,8 +2887,10 @@ export default function HealingApp() {
             )}
             {page === 'card' && <CardPage onTaskComplete={completeTask} />}
             {page === 'healer' && <HealerPage records={records} />}
+            {page === 'booking' && <BookingPage />}
             {page === 'library' && <OilLibraryPage />}
             {page === 'calendar' && <FragranceCalendarPage />}
+            {page === 'member' && <MemberPage />}
           </motion.div>
         </AnimatePresence>
       </div>
