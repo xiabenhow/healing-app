@@ -28,6 +28,28 @@ interface WCErrorResponse {
   };
 }
 
+// GET /api/categories - 列出商品類別
+router.get("/categories", async (req, res) => {
+  try {
+    const params: Record<string, unknown> = {
+      per_page: 100,
+      orderby: "count",
+      order: "desc",
+    };
+    if (req.query.parent) {
+      params.parent = req.query.parent;
+    }
+    const response = await wcApi.get("/products/categories", { params });
+    res.json(response.data);
+  } catch (error) {
+    const err = error as AxiosError<WCErrorResponse>;
+    console.error("WC Categories Error:", err.message);
+    res.status(err.response?.status || 500).json({
+      error: err.response?.data?.message || "Failed to fetch categories",
+    });
+  }
+});
+
 // GET /api/products - 列出商品（支援 category filter）
 router.get("/products", async (req, res) => {
   try {
@@ -163,15 +185,35 @@ router.get("/orders", async (req, res) => {
     const { email } = req.query;
 
     const params: Record<string, unknown> = {
-      per_page: 100,
+      per_page: 50,
+      orderby: "date",
+      order: "desc",
     };
 
     if (email) {
-      params.customer = email;
+      // WC REST API 的 search 參數可以用 email 搜尋
+      params.search = email as string;
     }
 
     const response = await wcApi.get("/orders", { params });
-    res.json(response.data);
+
+    // 過濾確保只回傳該 email 的訂單
+    const filtered = email
+      ? (response.data as any[]).filter((o: any) =>
+          o.billing?.email?.toLowerCase() === (email as string).toLowerCase()
+        )
+      : response.data;
+
+    // 簡化回傳資料
+    const simplified = (filtered as any[]).map((o: any) => ({
+      id: o.id,
+      date: o.date_created,
+      status: o.status,
+      total: parseFloat(o.total) || 0,
+      items: (o.line_items || []).map((li: any) => li.name).join(', '),
+    }));
+
+    res.json(simplified);
   } catch (error) {
     const err = error as AxiosError<WCErrorResponse>;
     console.error("WC Orders Query Error:", err.message);
