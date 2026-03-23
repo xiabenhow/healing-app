@@ -303,37 +303,58 @@ export const SCAPE_PRESETS: ScapePreset[] = [
     key: 'aux-fire',
     category: 'night',
     label: '柴火溫度',
-    subtitle: '一點溫暖，陪你到天亮',
+    subtitle: '劈哩啪啦的柴火聲，溫暖又真實',
     emoji: '🔥',
     color: '#D4956B',
-    defaultGain: 0.18,
-    lpfCutoff: 3000,
+    defaultGain: 0.28,
+    lpfCutoff: 5000,
     breathCycle: [20, 30],
-    breathDepth: 0.08,
-    microInterval: [10, 30],
+    breathDepth: 0.05,
+    microInterval: [5, 15],
     isMain: false,
-    microEventType: 'whoosh',
+    microEventType: 'twig-snap',
     layers: [
-      { type: 'custom', gain: 0.5, bufferSec: 8, generator: 'fireplace', filters: [{ type: 'lowpass', frequency: 3000 }], stereoWidth: 0.65 },
+      { type: 'custom', gain: 0.7, bufferSec: 10, generator: 'fireplace', filters: [{ type: 'lowpass', frequency: 5000 }], stereoWidth: 0.75 },
+      { type: 'custom', gain: 0.4, bufferSec: 7, generator: 'fireplace', filters: [{ type: 'highpass', frequency: 800 }, { type: 'lowpass', frequency: 4000 }], stereoWidth: 0.85 },
     ],
   },
   {
     key: 'aux-stream',
     category: 'forest',
     label: '溪流低語',
-    subtitle: '水聲很輕，像在說沒事的',
+    subtitle: '小溪嘩嘩流過石頭的水聲',
     emoji: '💧',
     color: '#7BB5B0',
-    defaultGain: 0.18,
-    lpfCutoff: 3500,
-    breathCycle: [12, 18],
-    breathDepth: 0.12,
-    microInterval: [20, 50],
+    defaultGain: 0.30,
+    lpfCutoff: 5000,
+    breathCycle: [10, 16],
+    breathDepth: 0.08,
+    microInterval: [10, 25],
     isMain: false,
     microEventType: 'bird-call',
     layers: [
-      { type: 'custom' as const, gain: 0.4, bufferSec: 14, generator: 'stream', filters: [{ type: 'bandpass' as BiquadFilterType, frequency: 2000, Q: 0.3 }], stereoWidth: 0.9 },
-      { type: 'pink' as const, gain: 0.15, bufferSec: 8, filters: [{ type: 'bandpass' as BiquadFilterType, frequency: 3500, Q: 0.4 }], stereoWidth: 0.7 },
+      { type: 'custom' as const, gain: 0.65, bufferSec: 14, generator: 'stream', filters: [{ type: 'bandpass' as BiquadFilterType, frequency: 2500, Q: 0.25 }], stereoWidth: 0.9 },
+      { type: 'custom' as const, gain: 0.35, bufferSec: 9, generator: 'stream', filters: [{ type: 'highpass' as BiquadFilterType, frequency: 1200 }, { type: 'lowpass' as BiquadFilterType, frequency: 5000 }], stereoWidth: 0.8 },
+      { type: 'pink' as const, gain: 0.12, bufferSec: 6, filters: [{ type: 'bandpass' as BiquadFilterType, frequency: 4000, Q: 0.35 }], stereoWidth: 0.7 },
+    ],
+  },
+  {
+    key: 'aux-raindrop',
+    category: 'rain',
+    label: '水滴雨聲',
+    subtitle: '清脆密集的水滴落下，像窗外的小雨',
+    emoji: '🫧',
+    color: '#8AAED6',
+    defaultGain: 0.25,
+    lpfCutoff: 6000,
+    breathCycle: [15, 22],
+    breathDepth: 0.06,
+    microInterval: [15, 35],
+    isMain: false,
+    microEventType: 'rain-gust',
+    layers: [
+      { type: 'custom' as const, gain: 0.7, bufferSec: 12, generator: 'raindrop-dense', filters: [{ type: 'highpass' as BiquadFilterType, frequency: 600 }, { type: 'lowpass' as BiquadFilterType, frequency: 6000 }], stereoWidth: 0.95 },
+      { type: 'custom' as const, gain: 0.25, bufferSec: 8, generator: 'raindrop-dense', filters: [{ type: 'bandpass' as BiquadFilterType, frequency: 3500, Q: 0.3 }], stereoWidth: 0.8 },
     ],
   },
   {
@@ -882,88 +903,144 @@ function fillCrickets(data: Float32Array, sr: number) {
   }
 }
 
-// 真實柴火：低頻基底嗡嗡 + 中頻噼啪 + 偶爾大聲爆裂 + 木頭結構聲
+// 真實柴火：密集劈哩啪啦 + 木頭爆裂 + 低頻火焰呼吸 + 樹脂嘶嘶聲
 function fillFireplace(data: Float32Array, sr: number) {
+  const totalSec = data.length / sr;
+
+  // 先填入持續的火焰基底
   for (let i = 0; i < data.length; i++) {
     const t = i / sr;
 
-    // 層 1：持續的低頻燃燒嗡嗡聲（像爐火的持續低音）
-    const baseRumble = (Math.random() * 2 - 1) * 0.06;
-    const rumbleEnv = Math.sin(t * Math.PI * 2 / 3.5) * 0.2 + 0.8; // 慢慢起伏
-    const rumble2 = Math.sin(t * Math.PI * 2 / 7.3 + 1.5) * 0.15 + 0.85;
+    // 層 1：低頻火焰呼吸聲（很輕，只是底色）
+    const baseBreath = (Math.random() * 2 - 1) * 0.04;
+    const breathEnv = Math.sin(t * Math.PI * 2 / 4.2) * 0.25 + 0.75;
 
-    // 層 2：中頻噼啪聲（密集的小爆裂，像木頭纖維在燒）
+    // 層 2：密集的小噼啪（劈哩啪啦 — 每秒會出現很多次的小爆裂）
     const crackleChance = Math.random();
-    const crackle = crackleChance > 0.992
-      ? (Math.random() - 0.5) * (0.3 + Math.random() * 0.4) * Math.exp(-((i % Math.floor(sr * 0.01)) / (sr * 0.002)))
-      : 0;
+    let crackle = 0;
+    if (crackleChance > 0.96) {
+      // 高頻小爆裂，非常密集
+      const intensity = 0.15 + Math.random() * 0.35;
+      const decayLen = Math.floor(sr * (0.002 + Math.random() * 0.006));
+      const phase = i % decayLen;
+      crackle = (Math.random() - 0.5) * intensity * Math.exp(-phase / (decayLen * 0.25));
+    }
 
-    // 層 3：偶爾的大聲 pop（木頭爆開的聲音）
-    const popChance = Math.random();
-    const pop = popChance > 0.9998
-      ? (Math.random() - 0.5) * 0.8 * Math.exp(-((i % Math.floor(sr * 0.02)) / (sr * 0.003)))
-      : 0;
+    // 層 3：中等噼啪（稍大聲的劈啪，每秒幾次）
+    const midCrackle = Math.random();
+    let midSnap = 0;
+    if (midCrackle > 0.985) {
+      const snapAmp = 0.25 + Math.random() * 0.45;
+      const snapDecay = Math.floor(sr * (0.004 + Math.random() * 0.012));
+      const snapPhase = i % snapDecay;
+      midSnap = (Math.random() - 0.5) * snapAmp * Math.exp(-snapPhase / (snapDecay * 0.2));
+    }
 
-    // 層 4：木頭嘎吱聲（偶爾的低頻吱嘎）
-    const creakChance = Math.random();
-    const creak = creakChance > 0.9995
-      ? Math.sin(t * Math.PI * 2 * (200 + Math.random() * 100)) * 0.04 * Math.exp(-((i % Math.floor(sr * 0.1)) / (sr * 0.02)))
-      : 0;
+    // 層 4：樹脂嘶嘶聲（高頻的持續嘶嘶）
+    const hiss = (Math.random() * 2 - 1) * 0.02 * (Math.sin(t * Math.PI * 2 / 6.7) * 0.3 + 0.5);
 
-    // 層 5：空氣流動感（火焰搖曳造成的氣流）
-    const airFlow = (Math.random() * 2 - 1) * 0.015 * (Math.sin(t * Math.PI * 2 / 2.1) * 0.3 + 0.7);
+    data[i] = baseBreath * breathEnv + crackle + midSnap + hiss;
+  }
 
-    data[i] = (baseRumble * rumbleEnv * rumble2 + crackle * 0.4 + pop * 0.3 + creak + airFlow);
+  // 疊加大聲爆裂（木頭爆開 pop — 非常有存在感的劈啪聲）
+  const popCount = Math.floor(totalSec * 1.5); // 每秒 1~2 次大爆裂
+  for (let p = 0; p < popCount; p++) {
+    const startSec = Math.random() * totalSec;
+    const startIdx = Math.floor(startSec * sr);
+    const popDur = Math.floor((0.008 + Math.random() * 0.025) * sr);
+    const popAmp = 0.4 + Math.random() * 0.5;
+    const popFreq = 800 + Math.random() * 3000;
+    for (let j = 0; j < popDur && (startIdx + j) < data.length; j++) {
+      const env = Math.exp(-j / (popDur * 0.15));
+      const noise = (Math.random() - 0.5) * popAmp;
+      const tone = Math.sin(2 * Math.PI * popFreq * j / sr) * popAmp * 0.3;
+      data[startIdx + j] += (noise + tone) * env;
+    }
+  }
+
+  // 疊加木頭嘎吱裂開聲（中頻，像木頭在火中裂開）
+  const creakCount = Math.floor(totalSec * 0.4);
+  for (let c = 0; c < creakCount; c++) {
+    const startSec = Math.random() * totalSec;
+    const startIdx = Math.floor(startSec * sr);
+    const dur = Math.floor((0.05 + Math.random() * 0.15) * sr);
+    const freq = 150 + Math.random() * 250;
+    const amp = 0.06 + Math.random() * 0.08;
+    for (let j = 0; j < dur && (startIdx + j) < data.length; j++) {
+      const env = Math.sin(Math.PI * j / dur);
+      const vibrato = Math.sin(2 * Math.PI * (freq + Math.sin(j / sr * 30) * 40) * j / sr);
+      data[startIdx + j] += vibrato * env * amp;
+    }
   }
 }
 
-// 真實溪流：多層水流 + 石頭湍流 + 小瀑布 + 隨機氣泡
+// 真實溪流：強烈的水流聲 + 石頭濺水 + 連續湍流 + 氣泡 + 小瀑布
 function fillStream(data: Float32Array, sr: number) {
   const totalSec = data.length / sr;
 
   for (let i = 0; i < data.length; i++) {
     const t = i / sr;
 
-    // 層 1：主水流（持續的中頻噪音，帶有慢波動模擬水量變化）
-    const flowMod1 = Math.sin(t * Math.PI * 2 / 5.5) * 0.2 + 0.8;
-    const flowMod2 = Math.sin(t * Math.PI * 2 / 13 + 2.3) * 0.15 + 0.85;
-    const mainFlow = (Math.random() * 2 - 1) * 0.12 * flowMod1 * flowMod2;
+    // 層 1：厚實的主水流（明顯的嘩嘩水聲，用帶通噪音模擬）
+    const flowMod1 = Math.sin(t * Math.PI * 2 / 4.0) * 0.15 + 0.85;
+    const flowMod2 = Math.sin(t * Math.PI * 2 / 9.5 + 1.7) * 0.12 + 0.88;
+    const flowMod3 = Math.sin(t * Math.PI * 2 / 2.3 + 0.5) * 0.08 + 0.92; // 快速的水流起伏
+    const mainFlow = (Math.random() * 2 - 1) * 0.22 * flowMod1 * flowMod2 * flowMod3;
 
-    // 層 2：高頻水花（像水打到石頭飛濺）
-    const splashMod = Math.sin(t * Math.PI * 2 / 3.2) * 0.3 + 0.5;
-    const splash = (Math.random() * 2 - 1) * 0.04 * splashMod;
+    // 層 2：高頻湍流（水經過石頭的嘩啦啦聲 — 非常明顯）
+    const turbMod = Math.sin(t * Math.PI * 2 / 1.8 + 3.1) * 0.25 + 0.75;
+    const turbulence = (Math.random() * 2 - 1) * 0.12 * turbMod;
 
-    // 層 3：低頻水流厚度（河底的嗡嗡聲）
-    const deepFlow = (Math.random() * 2 - 1) * 0.03 * (Math.sin(t * Math.PI * 2 / 8) * 0.2 + 0.8);
+    // 層 3：中頻水流連續感（像河水穩定流過的聲音）
+    const midFlow = (Math.random() * 2 - 1) * 0.08 * (Math.sin(t * Math.PI * 2 / 6.2) * 0.2 + 0.8);
 
-    // 層 4：小湍流（水經過石頭的漩渦聲）
-    const eddy = Math.sin(t * Math.PI * 2 * (60 + Math.sin(t * 0.5) * 20)) * 0.02 * (Math.sin(t * Math.PI * 2 / 4.5) * 0.4 + 0.6);
+    // 層 4：水打石頭的濺水聲（快速的高頻突發）
+    const splashChance = Math.random();
+    let splash = 0;
+    if (splashChance > 0.975) {
+      splash = (Math.random() - 0.5) * 0.18 * Math.exp(-((i % Math.floor(sr * 0.008)) / (sr * 0.002)));
+    }
 
-    data[i] = mainFlow + splash + deepFlow + eddy;
+    // 層 5：低頻河底水壓聲（厚度）
+    const deepRumble = (Math.random() * 2 - 1) * 0.04 * (Math.sin(t * Math.PI * 2 / 7.8) * 0.25 + 0.75);
+
+    data[i] = mainFlow + turbulence + midFlow + splash + deepRumble;
   }
 
-  // 疊加隨機氣泡聲（像水裡冒出的泡泡）
-  const bubbleCount = Math.floor(totalSec * 3);
+  // 疊加密集氣泡聲（水裡冒出的泡泡 — 增加數量）
+  const bubbleCount = Math.floor(totalSec * 8);
   for (let b = 0; b < bubbleCount; b++) {
     const pos = Math.floor(Math.random() * data.length);
-    const freq = 600 + Math.random() * 2500;
-    const dur = Math.floor((0.01 + Math.random() * 0.03) * sr);
-    const amp = 0.03 + Math.random() * 0.06;
+    const freq = 500 + Math.random() * 3000;
+    const dur = Math.floor((0.008 + Math.random() * 0.025) * sr);
+    const amp = 0.04 + Math.random() * 0.08;
     for (let j = 0; j < dur && (pos + j) < data.length; j++) {
-      // 泡泡聲：頻率快速上升然後衰減
-      const fUp = freq + (j / dur) * freq * 0.5;
-      data[pos + j] += Math.sin(2 * Math.PI * fUp * j / sr) * Math.exp(-j / (dur * 0.2)) * amp;
+      const fUp = freq + (j / dur) * freq * 0.6;
+      data[pos + j] += Math.sin(2 * Math.PI * fUp * j / sr) * Math.exp(-j / (dur * 0.18)) * amp;
     }
   }
 
-  // 疊加偶爾的小瀑布聲（短暫的白噪音 burst）
-  const miniWaterfall = Math.floor(totalSec / 5);
-  for (let w = 0; w < miniWaterfall; w++) {
-    const startSec = 1 + Math.random() * (totalSec - 2);
+  // 疊加石頭濺水 burst（像水流過凸起的石頭噴濺）
+  const splashBurst = Math.floor(totalSec * 2);
+  for (let s = 0; s < splashBurst; s++) {
+    const startSec = Math.random() * totalSec;
     const startIdx = Math.floor(startSec * sr);
-    const dur = Math.floor((0.5 + Math.random() * 1.0) * sr);
+    const dur = Math.floor((0.08 + Math.random() * 0.2) * sr);
+    const amp = 0.08 + Math.random() * 0.12;
     for (let j = 0; j < dur && (startIdx + j) < data.length; j++) {
-      const env = Math.sin(Math.PI * j / dur) * 0.06;
+      const env = Math.exp(-j / (dur * 0.3));
+      data[startIdx + j] += (Math.random() * 2 - 1) * env * amp;
+    }
+  }
+
+  // 疊加小瀑布聲（持續的白噪音 burst，像水流過落差）
+  const miniWaterfall = Math.floor(totalSec / 3);
+  for (let w = 0; w < miniWaterfall; w++) {
+    const startSec = 0.5 + Math.random() * (totalSec - 1.5);
+    const startIdx = Math.floor(startSec * sr);
+    const dur = Math.floor((0.4 + Math.random() * 0.8) * sr);
+    for (let j = 0; j < dur && (startIdx + j) < data.length; j++) {
+      const env = Math.sin(Math.PI * j / dur) * 0.1;
       data[startIdx + j] += (Math.random() * 2 - 1) * env;
     }
   }
@@ -1351,6 +1428,72 @@ function fillTingsha(data: Float32Array, sr: number) {
   }
 }
 
+// 水滴雨聲：密集清脆的小水滴，像窗外綿密的小雨
+function fillRaindropDense(data: Float32Array, sr: number) {
+  const totalSec = data.length / sr;
+
+  // 極輕的背景雨聲底色（很安靜的白噪音）
+  for (let i = 0; i < data.length; i++) {
+    data[i] = (Math.random() * 2 - 1) * 0.015;
+  }
+
+  // 密集水滴（每秒 15~25 滴 — 小但清楚）
+  const dropCount = Math.floor(totalSec * (15 + Math.random() * 10));
+  for (let d = 0; d < dropCount; d++) {
+    const pos = Math.floor(Math.random() * data.length);
+    // 水滴音色：短促的高頻 ping + 快速衰減
+    const baseFreq = 2000 + Math.random() * 4000; // 高頻清脆音
+    const dur = Math.floor((0.005 + Math.random() * 0.02) * sr); // 5~25ms 極短
+    const amp = 0.08 + Math.random() * 0.18;
+    for (let j = 0; j < dur && (pos + j) < data.length; j++) {
+      // 頻率微微下滑（水滴特有的 plink 感）
+      const freq = baseFreq * (1 - (j / dur) * 0.15);
+      const env = Math.exp(-j / (dur * 0.12)); // 極快衰減
+      data[pos + j] += Math.sin(2 * Math.PI * freq * j / sr) * env * amp;
+    }
+  }
+
+  // 中等大小水滴（每秒 5~8 滴 — 稍微大顆一點，音調較低）
+  const medDropCount = Math.floor(totalSec * (5 + Math.random() * 3));
+  for (let d = 0; d < medDropCount; d++) {
+    const pos = Math.floor(Math.random() * data.length);
+    const baseFreq = 800 + Math.random() * 1500;
+    const dur = Math.floor((0.015 + Math.random() * 0.035) * sr);
+    const amp = 0.1 + Math.random() * 0.15;
+    for (let j = 0; j < dur && (pos + j) < data.length; j++) {
+      const freq = baseFreq * (1 - (j / dur) * 0.2);
+      const env = Math.exp(-j / (dur * 0.15));
+      // 加一點泛音讓水滴更真實
+      const fundamental = Math.sin(2 * Math.PI * freq * j / sr);
+      const overtone = Math.sin(2 * Math.PI * freq * 2.3 * j / sr) * 0.3;
+      data[pos + j] += (fundamental + overtone) * env * amp;
+    }
+  }
+
+  // 偶爾的水滴落入水面（有漣漪感的 plop）
+  const plopCount = Math.floor(totalSec * 1.5);
+  for (let p = 0; p < plopCount; p++) {
+    const pos = Math.floor(Math.random() * data.length);
+    const baseFreq = 400 + Math.random() * 600;
+    const dur = Math.floor((0.04 + Math.random() * 0.06) * sr);
+    const amp = 0.08 + Math.random() * 0.1;
+    for (let j = 0; j < dur && (pos + j) < data.length; j++) {
+      // 頻率先升後降（水滴落入水面的 bloop 感）
+      const phase = j / dur;
+      const freq = baseFreq * (1 + Math.sin(phase * Math.PI) * 0.3);
+      const env = Math.exp(-j / (dur * 0.25));
+      data[pos + j] += Math.sin(2 * Math.PI * freq * j / sr) * env * amp;
+    }
+  }
+
+  // 微量的水面漣漪持續聲
+  for (let i = 0; i < data.length; i++) {
+    const t = i / sr;
+    const ripple = Math.sin(t * Math.PI * 2 * (100 + Math.sin(t * 2.5) * 30)) * 0.008;
+    data[i] += ripple * (Math.sin(t * Math.PI * 2 / 3.5) * 0.3 + 0.7);
+  }
+}
+
 const GENERATORS: Record<string, (data: Float32Array, sr: number) => void> = {
   // 原始 generators
   'wind-gentle': fillWindGentle,
@@ -1363,6 +1506,7 @@ const GENERATORS: Record<string, (data: Float32Array, sr: number) => void> = {
   'crickets': fillCrickets,
   'fireplace': fillFireplace,
   'stream': fillStream,
+  'raindrop-dense': fillRaindropDense,
   'thunder': fillThunder,
   'cafe-murmur': fillCafeMurmur,
   // 新增的高級 generators —— 立體感和特色音景
