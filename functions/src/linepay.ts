@@ -17,13 +17,14 @@ const linePayApi = axios.create({
   timeout: 10000,
 });
 
-// 生成 LINE Pay 簽名
+// 生成 LINE Pay v3 簽名
+// Signature = Base64(HMAC-SHA256(ChannelSecret, ChannelSecret + URI + RequestBody + Nonce))
 function generateLinePaySignature(
-  nonce: string,
-  timestamp: string,
-  body: string
+  uri: string,
+  body: string,
+  nonce: string
 ): string {
-  const message = `${LINE_PAY_CHANNEL_SECRET}${nonce}${timestamp}${body}`;
+  const message = `${LINE_PAY_CHANNEL_SECRET}${uri}${body}${nonce}`;
   return crypto.createHmac("sha256", LINE_PAY_CHANNEL_SECRET)
     .update(message)
     .digest("base64");
@@ -68,7 +69,10 @@ router.post("/request", async (req, res) => {
       redirectUrls?: { confirmUrl?: string; cancelUrl?: string };
     };
 
+    console.log("LINE Pay incoming body:", JSON.stringify(req.body));
+
     if (!amount || !orderId) {
+      console.error("LINE Pay missing params - amount:", amount, "orderId:", orderId);
       res.status(400).json({ error: "amount and orderId are required" });
       return;
     }
@@ -77,7 +81,6 @@ router.post("/request", async (req, res) => {
     const totalAmount = Math.round(amount);
 
     const nonce = generateNonce();
-    const timestamp = Date.now().toString();
 
     const requestBody: LinePayRequestBody = {
       amount: totalAmount,
@@ -107,7 +110,8 @@ router.post("/request", async (req, res) => {
     };
 
     const bodyString = JSON.stringify(requestBody);
-    const signature = generateLinePaySignature(nonce, timestamp, bodyString);
+    const requestUri = "/v3/payments/request";
+    const signature = generateLinePaySignature(requestUri, bodyString, nonce);
 
     const headers = {
       "Content-Type": "application/json",
@@ -115,6 +119,8 @@ router.post("/request", async (req, res) => {
       "X-LINE-Authorization-Nonce": nonce,
       "X-LINE-Authorization": signature,
     };
+
+    console.log("LINE Pay Request - orderId:", orderId, "amount:", totalAmount);
 
     const response = await linePayApi.post("/request", requestBody, {
       headers,
@@ -153,11 +159,6 @@ router.post("/request", async (req, res) => {
   }
 });
 
-interface LinePayConfirmRequest {
-  transactionId?: string;
-  orderId?: string;
-}
-
 // GET /api/linepay/confirm - LINE Pay 確認付款
 router.get("/confirm", async (req, res) => {
   try {
@@ -171,13 +172,32 @@ router.get("/confirm", async (req, res) => {
       return;
     }
 
-    const nonce = generateNonce();
-    const timestamp = Date.now().toString();
-    const bodyString = ""; // GET 請求通常沒有 body
+    // 從 Firestore 取得原始交易的金額
+    const db = admin.firestore();
+    const reqSnapshot = await db
+      .collection("linepay_requests")
+      .where("transactionId", "==", transactionId)
+      .limit(1)
+      .get();
 
-    const signature = generateLinePaySignature(nonce, timestamp, bodyString);
+    let confirmAmount = 0;
+    if (!reqSnapshot.empty) {
+      confirmAmount = reqSnapshot.docs[0].data().amount || 0;
+    }
+
+    if (!confirmAmount) {
+      res.status(400).json({ error: "Cannot find original transaction amount" });
+      return;
+    }
+
+    const nonce = generateNonce();
+    const confirmUri = `/v3/payments/${transactionId}/confirm`;
+    const confirmBody = { amount: confirmAmount, currency: "TWD" };
+    const bodyString = JSON.stringify(confirmBody);
+    const signature = generateLinePaySignature(confirmUri, bodyString, nonce);
 
     const headers = {
+      "Content-Type": "application/json",
       "X-LINE-ChannelId": LINE_PAY_CHANNEL_ID,
       "X-LINE-Authorization-Nonce": nonce,
       "X-LINE-Authorization": signature,
@@ -185,29 +205,28 @@ router.get("/confirm", async (req, res) => {
 
     const response = await linePayApi.post(
       `/${transactionId}/confirm`,
-      {},
-      {
-        headers,
-        params: {
-          orderId: orderId,
-        },
-      }
+      confirmBody,
+      { headers }
     );
 
-    // 記錄確認結果
-    const db = admin.firestore();
+    // 記錄確認結果 & 更新原請求狀態
     await db.collection("linepay_confirmations").add({
       transactionId: transactionId,
       orderId: orderId,
-      status: response.data?.body?.status,
+      returnCode: response.data?.returnCode,
+      status: "confirmed",
       timestamp: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    res.json({
-      success: true,
-      status: response.data?.body?.status,
-      transactionId: transactionId,
-    });
+    if (!reqSnapshot.empty) {
+      await reqSnapshot.docs[0].ref.update({
+        status: "confirmed",
+        confirmedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+
+    // 導回前端
+    res.redirect(`https://healing-6b425.web.app/payment/linepay/confirm?transactionId=${transactionId}&orderId=${orderId}`);
   } catch (error) {
     const err = error as AxiosError;
     console.error("LINE Pay Confirm Error:", err.message);
