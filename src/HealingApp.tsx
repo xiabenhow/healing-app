@@ -6271,9 +6271,19 @@ function CustomOilPage({ user, records }: { user: User | null; records: HealingR
 // ===================== BOTTOM NAV =====================
 
 function TopNav({ active, onChange }: { active: PageType; onChange: (p: PageType) => void }) {
-  // 第一行 6 個，第二行 5 個 + LINE 客服
+  // 第一行 6 個，第二行 5 個 + LINE 客服 = 6 個
   const row1 = NAV_ITEMS.slice(0, 6);
   const row2 = NAV_ITEMS.slice(6);
+
+  const cellStyle: React.CSSProperties = {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 0,
+    position: 'relative',
+    padding: '4px 0',
+  };
 
   return (
     <div
@@ -6281,13 +6291,13 @@ function TopNav({ active, onChange }: { active: PageType; onChange: (p: PageType
       style={{ backgroundColor: '#FFFEF9', borderBottom: '1px solid #F0EDE8', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}
     >
       <div className="max-w-md mx-auto">
-        {/* 第一行 6 個 */}
-        <div className="flex justify-around items-center h-12">
+        {/* 第一行 6 個 — grid 等寬對齊 */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', height: 48 }}>
           {row1.map(item => (
             <button
               key={item.key}
               onClick={() => onChange(item.key)}
-              className="flex flex-col items-center gap-0 relative py-1 px-2"
+              style={cellStyle}
             >
               <span className="text-base">{item.emoji}</span>
               <span
@@ -6306,16 +6316,13 @@ function TopNav({ active, onChange }: { active: PageType; onChange: (p: PageType
             </button>
           ))}
         </div>
-        {/* 第二行 5 個 + LINE 客服 = 6 個 */}
-        <div
-          className="flex justify-around items-center h-11 border-t"
-          style={{ borderColor: '#F0EDE8' }}
-        >
+        {/* 第二行 5 個 + LINE 客服 = 6 個 — grid 等寬對齊 */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', height: 44, borderTop: '1px solid #F0EDE8' }}>
           {row2.map(item => (
             <button
               key={item.key}
               onClick={() => onChange(item.key)}
-              className="flex flex-col items-center gap-0 py-1 px-2 relative"
+              style={cellStyle}
             >
               <span className="text-base">{item.emoji}</span>
               <span
@@ -6337,7 +6344,7 @@ function TopNav({ active, onChange }: { active: PageType; onChange: (p: PageType
             href="https://page.line.me/296yrpvh?openQrModal=true"
             target="_blank"
             rel="noopener noreferrer"
-            className="flex flex-col items-center gap-0 py-1 px-2"
+            style={cellStyle}
           >
             <span className="text-base">💬</span>
             <span className="text-[10px] font-medium" style={{ color: '#06C755' }}>客服</span>
