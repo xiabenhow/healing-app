@@ -144,64 +144,213 @@ function isInWishlist(productId: number): boolean {
 }
 
 // 服務大廳分類資料
-const SERVICE_CATEGORIES = [
+interface ServiceQuickItem {
+  q: string;
+  a: string;
+}
+
+interface ServiceCategory {
+  id: string;
+  emoji: string;
+  title: string;
+  sub: string;
+  quickItems: ServiceQuickItem[];
+  navigateTo?: PageType;
+}
+
+const SERVICE_CATEGORIES: ServiceCategory[] = [
   {
     id: 'course', emoji: '🎨', title: '我想看看課程',
     sub: '手作、調香、花藝⋯⋯找到適合你的體驗',
     quickItems: [
-      '適合新手嗎', '一個人可以參加嗎', '有哪些城市可以上課',
-      '如何改期或取消', '今天還可以預約嗎',
+      {
+        q: '適合新手嗎',
+        a: '完全適合。我們的課程分成「平板自己做」和「老師教我做」兩種。平板自己做是跟著平板教學一步一步來，到目前為止還沒有人失敗過。老師教我做則有專業老師全程帶著你，不需要任何基礎，放心來就好。',
+      },
+      {
+        q: '一個人可以參加嗎',
+        a: '當然可以，很多人都是自己來的。一個人安靜地做手作，其實是很療癒的事。如果有朋友想陪但不想做，也可以，陪同費是 NT$199。',
+      },
+      {
+        q: '有哪些城市可以上課',
+        a: '目前在台北（萬華區漢口街二段121號，西門壹號店）、台中、高雄都有課程。台北是我們的主要據點，每天 10:00-22:00 都有開課。台中和高雄的課程種類可能會少一些，建議來之前先確認一下。',
+      },
+      {
+        q: '如何改期或取消',
+        a: '改期的話，請提前 3 天聯繫我們（LINE 或電話 02-2371-4171），每次預約可以改期一次，需在兩個月內重新選時間。取消退費的話：60 天前退 95%、8-59 天前退 90%、1-7 天前退 80%。當天就沒辦法退費或改期了，因為老師已經準備好了。',
+      },
+      {
+        q: '今天還可以預約嗎',
+        a: '可以試試看！如果是當天或前一天預約，建議先打電話（02-2371-4171）或 LINE 確認是否還有名額。有空位的話當天也能直接來。遲到超過 15 分鐘沒通知的話，位子就會被取消喔。',
+      },
+      {
+        q: '課程大概多久',
+        a: '大部分課程在 1-2 小時左右，看你選的項目和做的速度。水晶手鍊大約 1-1.5 小時，蠟燭和花藝大約 1.5-2 小時。不用趕，慢慢做就好。',
+      },
+      {
+        q: '價位大概多少',
+        a: '課程價格從 NT$490 到 NT$3,680 不等，大部分熱門課程落在 NT$590-NT$1,380 之間。價格已經包含所有材料費和教學，不會有額外費用。做完的成品可以直接帶走。',
+      },
     ],
   },
   {
     id: 'scent', emoji: '🌿', title: '我想找香氣',
     sub: '不確定也沒關係，從感覺開始就好',
     quickItems: [
-      '不知道選什麼，想有人陪我挑', '想找放鬆的香氣', '想找適合送禮的',
-      '精油和擴香怎麼用', '想做一瓶專屬的',
+      {
+        q: '不知道選什麼，想有人陪我挑',
+        a: '沒關係，很多人一開始也不確定。你可以到商城逛逛，我們有依照情緒分類的入口（想放鬆、想好睡、穩定情緒⋯⋯），從你現在的感覺出發就好。如果還是不確定，也可以直接 LINE 我們，有人可以陪你聊。',
+      },
+      {
+        q: '想找放鬆的香氣',
+        a: '推薦可以看看薰衣草、佛手柑、雪松、檀香類的精油或擴香商品。我們也有調香體驗課（精油調香分類），可以現場聞過之後，調一瓶最適合你的。如果想在家慢慢用，商城「把我帶回家」分類裡有擴香石、蠟燭、精油可以選。',
+      },
+      {
+        q: '想找適合送禮的',
+        a: '商城裡有禮盒組合可以看看，包含蠟燭禮盒、擴香禮盒、手作體驗禮券等。如果想更有心意，也可以帶對方一起來上課，做一份獨一無二的禮物。體驗課程也可以買課程券當禮物送人。',
+      },
+      {
+        q: '精油和擴香怎麼用',
+        a: '精油可以搭配擴香儀或擴香石使用，滴 3-5 滴讓香氣自然散開。擴香石放在桌上或枕邊，精油滴上去就好，不需要插電。蠟燭的話點燃 1-2 小時就能讓空間充滿香氣。第一次用的話建議從擴香石開始，最簡單。',
+      },
+      {
+        q: '想做一瓶專屬的',
+        a: '可以來上精油調香課（分類：精油調香），由調香師帶著你，從幾十種精油裡挑選你喜歡的味道，調出一瓶只屬於你的香氛。也可以在 App 裡用「調一瓶更像你的」功能，根據你的情緒狀態讓調香師為你量身配方。',
+      },
     ],
   },
   {
     id: 'companion', emoji: '🤲', title: '找適合我的陪伴',
     sub: '不用整理好自己，從最接近感受的方向開始',
+    navigateTo: 'home',
     quickItems: [
-      '我現在壓力蠻大的', '想動手做點什麼', '想找安靜的方式',
-      '不太確定我需要什麼', '想找人說說話',
+      {
+        q: '我現在壓力蠻大的',
+        a: '辛苦了。如果你現在只是想喘口氣，可以先試試 App 裡的「聆聽」功能，有海浪、雨聲、森林的聲音可以陪你。如果想動手轉移注意力，蠟燭課和調香課都蠻適合的，專注在手上的事情，壓力會慢慢鬆開。',
+      },
+      {
+        q: '想動手做點什麼',
+        a: '太好了！我們有很多可以動手的選擇：水晶手鍊（挑珠子、串珠子的過程很療癒）、蠟燭（倒蠟、調色）、花藝（跟花相處）、皮革（敲打裁切）。如果想在家做，也有 DIY 材料包可以寄到家裡，慢慢來就好。',
+      },
+      {
+        q: '想找安靜的方式',
+        a: '試試 App 裡的「聆聽」和「陪伴卡」功能，不需要說話、不需要社交，就是安靜陪著你。如果想出門但不想太多人，可以選平日白天來上平板自己做的課，跟著平板教學，安安靜靜地完成一件作品。',
+      },
+      {
+        q: '不太確定我需要什麼',
+        a: '不確定也沒關係，你可以先回到首頁做個情緒打卡，App 會根據你今天的感受，給你一些方向建議。不用想得很清楚，從最接近你現在感覺的選項開始就好。',
+      },
+      {
+        q: '想找人說說話',
+        a: '如果想聊聊，可以直接 LINE 我們（底下有按鈕），不一定要問什麼具體問題，想說就說。如果你覺得需要更專業的傾聽，我們也可以幫你推薦適合的資源。',
+      },
     ],
   },
   {
     id: 'order', emoji: '📦', title: '查看訂單或預約',
     sub: '看看你之前的訂單、預約狀態',
+    navigateTo: 'member',
     quickItems: [
-      '我的訂單在哪裡', '想改預約時間', '東西還沒收到', '想看物流進度',
+      {
+        q: '我的訂單在哪裡',
+        a: '登入會員後，在「我的」頁面就可以看到你的訂單記錄。也可以到官網 xiabenhow.com 登入「我的帳號」查看更詳細的訂單狀態。',
+      },
+      {
+        q: '想改預約時間',
+        a: '請提前 3 天聯繫我們，每筆預約可以改期一次，需在 2 個月內選新時間。聯繫方式：LINE 官方帳號或電話 02-2371-4171。當天是沒辦法改期的喔。',
+      },
+      {
+        q: '東西還沒收到',
+        a: '商品出貨後通常 1-3 個工作天會到。如果超過 5 天還沒收到，請 LINE 或來電告訴我們你的訂單編號，我們幫你查。如果是超商取貨，記得到指定門市領取，有 7 天的領取期限。',
+      },
+      {
+        q: '想看物流進度',
+        a: '出貨後會寄送通知到你的 email，裡面有物流追蹤編號。如果沒收到通知，可以在官網「我的帳號」裡查看訂單狀態，或直接 LINE 我們提供訂單號碼，幫你查進度。',
+      },
     ],
   },
   {
     id: 'custom', emoji: '✨', title: '客製服務',
     sub: '做一份只屬於你的、或送給重要的人',
     quickItems: [
-      '想做專屬香氛', '想客製禮物', '想辦一場私人活動', '想做企業贈禮',
+      {
+        q: '想做專屬香氛',
+        a: '可以來上精油調香課，由調香師一對一帶你選精油、調配比例，做出一瓶只屬於你的味道。也可以在 App 的「調一瓶更像你的」功能留下你的情緒狀態和喜好，調香師會為你量身配方。',
+      },
+      {
+        q: '想客製禮物',
+        a: '我們有幾種方式：買課程體驗券送人（讓對方自己選喜歡的課）、訂製禮盒（蠟燭+擴香+手作小物的組合）、或直接帶對方來上課做一份手作禮物。如果有特殊需求，例如想在蠟燭上刻字、或指定特定花材，LINE 跟我們說就好。',
+      },
+      {
+        q: '想辦一場私人活動',
+        a: '我們的空間最多可以容納 65 人，很適合辦生日派對、閨蜜聚會、求婚驚喜等私人活動。可以搭配手作課程，讓大家一邊做一邊聊。費用和細節依人數和課程內容而定，請 LINE 或來電洽詢，我們會幫你規劃。',
+      },
+      {
+        q: '想做企業贈禮',
+        a: '可以客製蠟燭禮盒、擴香禮盒、水晶手鍊禮盒等，可以加上企業 LOGO 或專屬包裝。數量從 30 份起訂，詳細報價請 LINE 或 email（xiabenhow@gmail.com）告訴我們數量和需求。',
+      },
     ],
   },
   {
     id: 'after', emoji: '💬', title: '售後問題',
     sub: '有什麼不對勁，讓我們知道',
     quickItems: [
-      '商品有狀況', '想退換貨', '發票問題', '寄送問題',
+      {
+        q: '商品有狀況',
+        a: '收到商品如果有任何問題（破損、漏液、跟預期不一樣），請在收到後 7 天內 LINE 我們，附上照片說明狀況，我們會盡快幫你處理。手作商品和客製品因為是獨一無二的，可能會有些手工痕跡，這是正常的。',
+      },
+      {
+        q: '想退換貨',
+        a: '收到商品後 7 天內可以申請退換貨。不過客製品和手作品因為是個人化商品，不接受無理由退貨。一般商品退貨請保持原包裝完整。超過 7 天或不符合退貨條件的話，我們可能沒辦法受理，所以建議購買前先跟我們確認喔。',
+      },
+      {
+        q: '發票問題',
+        a: '我們開立的是電子發票，會寄到你結帳時填的 email。如果需要公司統編發票，結帳時記得填寫統一編號和公司名稱。如果發票沒收到或需要補開，請 LINE 我們提供訂單編號。',
+      },
+      {
+        q: '寄送問題',
+        a: '我們支援超商取貨（7-11、全家、萊爾富）和宅配。下單後通常 1-3 個工作天出貨。超商取貨有 7 天領取期限，過期會被退回。如果指定地址有誤需要改，請在出貨前趕快 LINE 我們。',
+      },
     ],
   },
   {
     id: 'team', emoji: '👥', title: '企業 / 團隊方案',
     sub: '用手作和香氣，陪你的團隊喘口氣',
     quickItems: [
-      '想辦團隊活動', '企業下午茶體驗', '員工福利方案', '大量訂購',
+      {
+        q: '想辦團隊活動',
+        a: '我們已經辦過將近 1,000 場企業手作活動，17 大類、60 多種課程可以選。可以到我們的場地（最多 65 人），也可以派老師到你們公司。活動價格依人數和課程而定，基本從 NT$490/人起。請 LINE 或 email 告訴我們人數、預算和偏好，我們幫你規劃。',
+      },
+      {
+        q: '企業下午茶體驗',
+        a: '很受歡迎的方案！通常是 1.5-2 小時的手作體驗搭配下午茶，適合員工活動、部門聚餐、節慶活動。可以選蠟燭、花藝、調香、水晶手鍊等比較輕鬆的課程。我們也可以搭配主題佈置，詳細報價請聯繫我們。',
+      },
+      {
+        q: '員工福利方案',
+        a: '可以幫企業客製員工福利券（指定課程或金額），讓員工自己選時間來體驗。也可以做員工生日禮盒、節慶禮盒等。部分方案還可以搭配 ESG 環保主題課程（使用可回收材料），對企業永續報告也有幫助。',
+      },
+      {
+        q: '大量訂購',
+        a: '禮盒、蠟燭、擴香等商品都可以大量訂購，30 份以上有優惠價。可客製包裝、加印 LOGO、選香味。詳細報價請 email（xiabenhow@gmail.com）或 LINE 提供品項、數量、交期需求。',
+      },
     ],
   },
   {
     id: 'other', emoji: '🌸', title: '其他',
     sub: '不在上面也沒關係，從這裡開始',
     quickItems: [
-      '我想合作', '有建議想說', '想了解更多品牌故事',
+      {
+        q: '我想合作',
+        a: '歡迎！不管是品牌聯名、場地合作、內容合作、KOL 體驗邀約，都可以 email 到 xiabenhow@gmail.com，標題寫「合作洽詢」加上你的品牌或名稱，我們會盡快回覆。',
+      },
+      {
+        q: '有建議想說',
+        a: '我們很想聽你的想法。任何使用上的感受、覺得可以更好的地方、或是你希望有什麼新功能，都可以 LINE 告訴我們，或直接在這裡留言。每一個意見我們都會看到。',
+      },
+      {
+        q: '想了解更多品牌故事',
+        a: '下班隨手作從一間小小的手作教室開始，希望讓忙碌的人下班後有個地方可以慢下來、用雙手做點什麼。現在我們在台北、台中、高雄都有據點，超過 100 種課程，辦了近千場企業活動。不管你是想放鬆、想學東西、還是想找一個安靜的角落，這裡都歡迎你。',
+      },
     ],
   },
 ];
@@ -6779,15 +6928,7 @@ function CustomOilPage({ user, records }: { user: User | null; records: HealingR
 
 function ServiceHallPage({ onNavigate }: { onNavigate: (p: PageType) => void }) {
   const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
-  const [toast, setToast] = useState('');
-
-  const handleQuickItem = (categoryId: string, item: string) => {
-    // 導向 LINE 客服帶預設訊息
-    const msg = encodeURIComponent(`嗨，我想問一下：${item}`);
-    window.open(`https://page.line.me/296yrpvh?openQrModal=true`, '_blank');
-    setToast('已經幫你打開 LINE，和真人聊聊吧');
-    setTimeout(() => setToast(''), 2500);
-  };
+  const [expandedAnswer, setExpandedAnswer] = useState<string | null>(null); // "catId-index"
 
   return (
     <motion.div className="space-y-5" {...fadeInUp}>
@@ -6816,15 +6957,12 @@ function ServiceHallPage({ onNavigate }: { onNavigate: (p: PageType) => void }) 
             <motion.button
               whileTap={{ scale: 0.98 }}
               onClick={() => {
-                if (cat.id === 'order') {
-                  onNavigate('member');
-                  return;
-                }
-                if (cat.id === 'companion') {
-                  onNavigate('home');
+                if (cat.navigateTo) {
+                  onNavigate(cat.navigateTo);
                   return;
                 }
                 setExpandedCategory(expandedCategory === cat.id ? null : cat.id);
+                setExpandedAnswer(null);
               }}
               className="w-full p-4 text-left flex items-center gap-3"
             >
@@ -6834,7 +6972,7 @@ function ServiceHallPage({ onNavigate }: { onNavigate: (p: PageType) => void }) 
                 <p className="text-xs mt-0.5" style={{ color: '#8C7B72' }}>{cat.sub}</p>
               </div>
               <span className="text-xs" style={{ color: '#B5AFA8' }}>
-                {expandedCategory === cat.id ? '收起' : '→'}
+                {cat.navigateTo ? '→' : expandedCategory === cat.id ? '收起' : '→'}
               </span>
             </motion.button>
 
@@ -6847,21 +6985,67 @@ function ServiceHallPage({ onNavigate }: { onNavigate: (p: PageType) => void }) 
                   transition={{ duration: 0.2 }}
                   className="overflow-hidden"
                 >
-                  <div className="px-4 pb-4 pt-1">
-                    <p className="text-xs mb-2" style={{ color: '#B5AFA8' }}>先選一個最接近的方向：</p>
-                    <div className="flex flex-wrap gap-2">
-                      {cat.quickItems.map((item, i) => (
-                        <motion.button
-                          key={i}
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() => handleQuickItem(cat.id, item)}
-                          className="px-3 py-1.5 rounded-full text-xs"
-                          style={{ backgroundColor: '#FAF8F5', color: '#5C534C', border: '1px solid #E8E3DC' }}
-                        >
-                          {item}
-                        </motion.button>
-                      ))}
-                    </div>
+                  <div className="px-4 pb-4 pt-1 space-y-2">
+                    <p className="text-xs mb-1" style={{ color: '#B5AFA8' }}>先選一個最接近的方向：</p>
+                    {cat.quickItems.map((item, i) => {
+                      const answerKey = `${cat.id}-${i}`;
+                      const isOpen = expandedAnswer === answerKey;
+                      return (
+                        <div key={i}>
+                          <motion.button
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => setExpandedAnswer(isOpen ? null : answerKey)}
+                            className="w-full text-left px-3 py-2 rounded-xl text-xs flex items-center justify-between"
+                            style={{
+                              backgroundColor: isOpen ? '#3D353008' : '#FAF8F5',
+                              color: '#5C534C',
+                              border: `1px solid ${isOpen ? '#C9A96E40' : '#E8E3DC'}`,
+                            }}
+                          >
+                            <span>{item.q}</span>
+                            <span style={{ color: '#B5AFA8', fontSize: 10 }}>{isOpen ? '▲' : '▼'}</span>
+                          </motion.button>
+                          <AnimatePresence>
+                            {isOpen && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }}
+                                animate={{ height: 'auto', opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }}
+                                transition={{ duration: 0.2 }}
+                                className="overflow-hidden"
+                              >
+                                <div
+                                  className="px-3 py-3 text-xs leading-relaxed rounded-b-xl -mt-0.5"
+                                  style={{ color: '#5C534C', backgroundColor: '#FAF8F500' }}
+                                >
+                                  {item.a}
+                                  <div className="mt-2 pt-2 flex gap-2" style={{ borderTop: '1px solid #F0EDE8' }}>
+                                    <motion.a
+                                      whileTap={{ scale: 0.95 }}
+                                      href="https://page.line.me/296yrpvh?openQrModal=true"
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="px-3 py-1 rounded-full text-[10px]"
+                                      style={{ backgroundColor: '#00C300', color: 'white' }}
+                                    >
+                                      還是想聊聊
+                                    </motion.a>
+                                    <motion.a
+                                      whileTap={{ scale: 0.95 }}
+                                      href="tel:0223714171"
+                                      className="px-3 py-1 rounded-full text-[10px]"
+                                      style={{ backgroundColor: '#FAF8F5', color: '#8C7B72', border: '1px solid #E8E3DC' }}
+                                    >
+                                      打電話
+                                    </motion.a>
+                                  </div>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      );
+                    })}
                   </div>
                 </motion.div>
               )}
@@ -6883,32 +7067,10 @@ function ServiceHallPage({ onNavigate }: { onNavigate: (p: PageType) => void }) 
           <span>💬</span>
           <span>找真人聊聊</span>
         </motion.a>
-        <motion.button
-          whileTap={{ scale: 0.97 }}
-          onClick={() => {
-            window.open('https://www.xiabenhow.com/faq/', '_blank');
-          }}
-          className="w-full py-3 rounded-2xl text-sm font-medium"
-          style={{ backgroundColor: '#FAF8F5', color: '#8C7B72', border: '1px solid #F0EDE8' }}
-        >
-          先看看常見問題
-        </motion.button>
+        <p className="text-center text-xs" style={{ color: '#B5AFA8' }}>
+          電話：02-2371-4171（每天 10:00-22:00）
+        </p>
       </div>
-
-      {/* Toast */}
-      <AnimatePresence>
-        {toast && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl text-xs font-medium shadow-lg"
-            style={{ backgroundColor: '#3D3530', color: 'white' }}
-          >
-            {toast}
-          </motion.div>
-        )}
-      </AnimatePresence>
     </motion.div>
   );
 }
