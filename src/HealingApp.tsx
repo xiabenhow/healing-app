@@ -4,6 +4,7 @@ import { signInWithPopup, signInWithRedirect, signOut, onAuthStateChanged } from
 import type { User } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, getDocs, query, orderBy, Timestamp, addDoc, where } from 'firebase/firestore';
 import { auth, googleProvider, db } from './lib/firebase';
+import { isNative, initNativeApp, openPaymentUrl, openUrl, hapticLight, hapticSuccess } from './capacitorHelpers';
 import { OIL_LIBRARY, FAMILY_EMOJI, type OilLibraryItem } from './oilLibraryData';
 import { CRYSTAL_LIBRARY, CHAKRA_EMOJI, EMOTION_CRYSTAL_MAP, type CrystalItem } from './crystalData';
 import {
@@ -3959,14 +3960,7 @@ function CheckoutView({ cart, onBack }: { cart: CartItem[]; onBack: () => void }
       if (paymentMethod === 'credit' || paymentMethod === 'bank' || paymentMethod === 'convenience') {
         // ECPay付款
         console.log('導向ECPay付款...');
-        const ecpayWindow = window.open(
-          `${API_BASE}/api/ecpay/create?order_id=${orderId}&payment=${paymentMethod}`,
-          '付款',
-          'width=800,height=600'
-        );
-        if (!ecpayWindow) {
-          alert('無法開啟付款視窗，請檢查瀏覽器設定');
-        }
+        await openPaymentUrl(`${API_BASE}/api/ecpay/create?order_id=${orderId}&payment=${paymentMethod}`);
       } else if (paymentMethod === 'line') {
         // LINE Pay付款
         console.log('導向LINE Pay付款...');
@@ -3989,10 +3983,7 @@ function CheckoutView({ cart, onBack }: { cart: CartItem[]; onBack: () => void }
         const linePayData = await linePayResponse.json();
         const lpUrl = linePayData.paymentUrl || linePayData.info?.paymentUrl?.web;
         if (lpUrl) {
-          const linePayWindow = window.open(lpUrl, '付款', 'width=800,height=600');
-          if (!linePayWindow) {
-            alert('無法開啟付款視窗，請檢查瀏覽器設定');
-          }
+          await openPaymentUrl(lpUrl);
         } else {
           throw new Error('無法取得LINE Pay付款網址');
         }
@@ -4064,11 +4055,7 @@ function CheckoutView({ cart, onBack }: { cart: CartItem[]; onBack: () => void }
                 onClick={() => {
                   const subTypeMap: Record<string, string> = { '7-eleven': 'UNIMARTC2C', family: 'FAMIC2C', hilife: 'HILIFEC2C' };
                   const subType = subTypeMap[shippingMethod] || 'UNIMARTC2C';
-                  window.open(
-                    `${API_BASE}/api/ecpay/logistics/map?subtype=${subType}`,
-                    '選擇門市',
-                    'width=800,height=600'
-                  );
+                  openUrl(`${API_BASE}/api/ecpay/logistics/map?subtype=${subType}`, { windowName: '選擇門市', windowFeatures: 'width=800,height=600' });
                 }}
                 className="w-full py-2.5 rounded-lg text-sm font-medium transition-all"
                 style={{ backgroundColor: '#8FA886', color: '#fff' }}
@@ -4424,7 +4411,12 @@ function MemberPage({ records, onNavigate }: { records: HealingRecord[]; onNavig
 
   const handleGoogleLogin = async () => {
     try {
-      await signInWithPopup(auth, googleProvider);
+      if (isNative()) {
+        // Native apps must use redirect-based auth
+        await signInWithRedirect(auth, googleProvider);
+      } else {
+        await signInWithPopup(auth, googleProvider);
+      }
     } catch (error: any) {
       console.error('Google 登入失敗:', error);
       // Fallback to redirect
@@ -7917,6 +7909,11 @@ export default function HealingApp() {
   const [showMilestone, setShowMilestone] = useState<number | null>(null);
   const [isBedtimeFullscreen, setIsBedtimeFullscreen] = useState(false);
 
+  // Initialize native app features (StatusBar, SplashScreen)
+  useEffect(() => {
+    initNativeApp();
+  }, []);
+
   // Listen for auth changes and load Firestore records if logged in
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -7979,7 +7976,7 @@ export default function HealingApp() {
   const goToSound = useCallback(() => setPage('sound'), []);
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: '#FAF8F5' }}>
+    <div className="min-h-screen" style={{ backgroundColor: '#FAF8F5', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
       {!isBedtimeFullscreen && <BottomNav active={page} onChange={setPage} />}
       <div className="max-w-md mx-auto px-4 pt-4 pb-24">
         <AnimatePresence mode="wait">

@@ -5,4 +5,6 @@ import tailwindcss from '@tailwindcss/vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  // Capacitor needs relative paths for native file:// loading
+  base: './',
 })
