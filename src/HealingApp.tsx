@@ -40,7 +40,7 @@ import {
 
 // ===================== TYPES =====================
 
-type PageType = 'home' | 'diary' | 'recipe' | 'card' | 'healer' | 'library' | 'calendar' | 'sound' | 'booking' | 'member' | 'shop' | 'healing' | 'bedtime' | 'custom';
+type PageType = 'home' | 'diary' | 'recipe' | 'card' | 'healer' | 'library' | 'calendar' | 'sound' | 'booking' | 'member' | 'shop' | 'healing' | 'bedtime' | 'custom' | 'service' | 'wishlist';
 type TaskKey = 'checkin' | 'card' | 'note' | 'breathe' | 'evening' | 'share';
 
 interface CartItem {
@@ -110,6 +110,148 @@ interface MoodDiaryEntry {
   date: string; // YYYY-MM-DD
   recommendedOils?: string[];
 }
+
+// Wishlist / 我的陪伴清單
+type WishlistTag = '想上的課' | '想帶回家的香氣' | '想送的禮物' | '晚點再決定';
+
+interface WishlistItem {
+  productId: number;
+  name: string;
+  price: string;
+  image?: string;
+  tag: WishlistTag;
+  addedAt: number;
+}
+
+const WISHLIST_TAGS: { key: WishlistTag; emoji: string }[] = [
+  { key: '想上的課', emoji: '🎨' },
+  { key: '想帶回家的香氣', emoji: '🕯️' },
+  { key: '想送的禮物', emoji: '🎁' },
+  { key: '晚點再決定', emoji: '💭' },
+];
+
+function loadWishlist(): WishlistItem[] {
+  try {
+    const raw = localStorage.getItem('healing_wishlist');
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+function saveWishlist(items: WishlistItem[]) {
+  localStorage.setItem('healing_wishlist', JSON.stringify(items));
+}
+function isInWishlist(productId: number): boolean {
+  return loadWishlist().some(w => w.productId === productId);
+}
+
+// 服務大廳分類資料
+const SERVICE_CATEGORIES = [
+  {
+    id: 'course', emoji: '🎨', title: '我想看看課程',
+    sub: '手作、調香、花藝⋯⋯找到適合你的體驗',
+    quickItems: [
+      '適合新手嗎', '一個人可以參加嗎', '有哪些城市可以上課',
+      '如何改期或取消', '今天還可以預約嗎',
+    ],
+  },
+  {
+    id: 'scent', emoji: '🌿', title: '我想找香氣',
+    sub: '不確定也沒關係，從感覺開始就好',
+    quickItems: [
+      '不知道選什麼，想有人陪我挑', '想找放鬆的香氣', '想找適合送禮的',
+      '精油和擴香怎麼用', '想做一瓶專屬的',
+    ],
+  },
+  {
+    id: 'companion', emoji: '🤲', title: '找適合我的陪伴',
+    sub: '不用整理好自己，從最接近感受的方向開始',
+    quickItems: [
+      '我現在壓力蠻大的', '想動手做點什麼', '想找安靜的方式',
+      '不太確定我需要什麼', '想找人說說話',
+    ],
+  },
+  {
+    id: 'order', emoji: '📦', title: '查看訂單或預約',
+    sub: '看看你之前的訂單、預約狀態',
+    quickItems: [
+      '我的訂單在哪裡', '想改預約時間', '東西還沒收到', '想看物流進度',
+    ],
+  },
+  {
+    id: 'custom', emoji: '✨', title: '客製服務',
+    sub: '做一份只屬於你的、或送給重要的人',
+    quickItems: [
+      '想做專屬香氛', '想客製禮物', '想辦一場私人活動', '想做企業贈禮',
+    ],
+  },
+  {
+    id: 'after', emoji: '💬', title: '售後問題',
+    sub: '有什麼不對勁，讓我們知道',
+    quickItems: [
+      '商品有狀況', '想退換貨', '發票問題', '寄送問題',
+    ],
+  },
+  {
+    id: 'team', emoji: '👥', title: '企業 / 團隊方案',
+    sub: '用手作和香氣，陪你的團隊喘口氣',
+    quickItems: [
+      '想辦團隊活動', '企業下午茶體驗', '員工福利方案', '大量訂購',
+    ],
+  },
+  {
+    id: 'other', emoji: '🌸', title: '其他',
+    sub: '不在上面也沒關係，從這裡開始',
+    quickItems: [
+      '我想合作', '有建議想說', '想了解更多品牌故事',
+    ],
+  },
+];
+
+// 情緒→商品推薦對應
+const EMOTION_PRODUCT_SUGGESTIONS: Record<string, { title: string; desc: string; categoryId: number; emoji: string }[]> = {
+  anxious: [
+    { title: '精油調香體驗', desc: '用香氣讓思緒慢下來', categoryId: 173, emoji: '🌿' },
+    { title: 'DIY 蠟燭', desc: '專注在手上的溫度', categoryId: 18, emoji: '🕯️' },
+  ],
+  sad: [
+    { title: '花藝手作', desc: '被花和色彩圍繞一下', categoryId: 25, emoji: '💐' },
+    { title: '多肉植栽', desc: '照顧一個小小的生命', categoryId: 22, emoji: '🌱' },
+  ],
+  angry: [
+    { title: '皮革手作', desc: '把力氣放進敲打裡', categoryId: 212, emoji: '🔨' },
+    { title: '畫畫體驗', desc: '不用說話，用顏色表達', categoryId: 24, emoji: '🎨' },
+  ],
+  tired: [
+    { title: '精油調香', desc: '調一瓶陪你休息的香氣', categoryId: 173, emoji: '🌿' },
+    { title: 'DIY 材料包', desc: '在家慢慢做，不趕時間', categoryId: 75, emoji: '📦' },
+  ],
+  lonely: [
+    { title: '手作飾品體驗', desc: '做一個陪你的小東西', categoryId: 21, emoji: '💍' },
+    { title: '蠟燭課程', desc: '安靜的空間，有人在旁邊', categoryId: 18, emoji: '🕯️' },
+  ],
+  happy: [
+    { title: '把我帶回家', desc: '把這份好心情延續下去', categoryId: 27, emoji: '🏠' },
+    { title: '送禮選物', desc: '把快樂分享給重要的人', categoryId: 27, emoji: '🎁' },
+  ],
+  numb: [
+    { title: '多肉植栽', desc: '不需要感覺什麼，先碰碰泥土', categoryId: 22, emoji: '🌱' },
+    { title: 'DIY 材料包', desc: '讓手先動起來就好', categoryId: 75, emoji: '📦' },
+  ],
+  confused: [
+    { title: '精油調香', desc: '用嗅覺幫思緒找到方向', categoryId: 173, emoji: '🌿' },
+    { title: '畫畫體驗', desc: '不用想清楚，先畫就好', categoryId: 24, emoji: '🎨' },
+  ],
+};
+
+// 動手做一點什麼 - 情境卡資料
+const HANDS_ON_CARDS = [
+  { emoji: '🕯️', title: '點一盞光', desc: '做一支蠟燭，讓房間有你的味道', categoryId: 18 },
+  { emoji: '🌿', title: '調一瓶香氣', desc: '選你今天最想靠近的氣味', categoryId: 173 },
+  { emoji: '🌱', title: '種一棵小植物', desc: '照顧它的同時，也在照顧自己', categoryId: 22 },
+  { emoji: '💍', title: '做一個小飾品', desc: '手上多了一個只屬於你的東西', categoryId: 21 },
+  { emoji: '🎨', title: '畫點什麼', desc: '不需要很會畫，動筆就好', categoryId: 24 },
+  { emoji: '💐', title: '插一束花', desc: '讓今天的空間有不一樣的呼吸', categoryId: 25 },
+  { emoji: '📦', title: '在家做', desc: '材料包寄到家，慢慢來就好', categoryId: 75 },
+];
 
 // ===================== CONSTANTS =====================
 
@@ -1371,6 +1513,7 @@ function HomePage({
   onGoToCustom,
   user,
   onGoToSound,
+  onNavigate,
 }: {
   records: HealingRecord[];
   onCheckIn: (emotion: EmotionKey, level: EmotionLevel, subEmotion: string) => void;
@@ -1380,6 +1523,7 @@ function HomePage({
   onGoToCustom: () => void;
   user: User | null;
   onGoToSound?: () => void;
+  onNavigate?: (p: PageType) => void;
 }) {
   const todayRecord = records.find(r => r.date === getToday());
   const streak = getStreak(records);
@@ -1542,7 +1686,17 @@ function HomePage({
         </motion.div>
       )}
 
-      {/* 8. 柔和商業入口 - after check-in */}
+      {/* 8. 柔和推薦 + 動手做入口 - after check-in */}
+      {todayRecord && onNavigate && (
+        <motion.div variants={staggerItem}>
+          <CompanionRecommendation emotion={todayRecord.emotion} onNavigate={onNavigate} />
+        </motion.div>
+      )}
+      {todayRecord && onNavigate && (
+        <motion.div variants={staggerItem}>
+          <HandsOnCard onNavigate={onNavigate} />
+        </motion.div>
+      )}
       {todayRecord && (
         <motion.div variants={staggerItem} className="space-y-3 rounded-3xl p-5 shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
           <motion.button
@@ -2694,7 +2848,42 @@ function ShopProductsView({
   const [products, setProducts] = useState<WCProduct[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [wishlistIds, setWishlistIds] = useState<number[]>(() => loadWishlist().map(w => w.productId));
+  const [wishlistToast, setWishlistToast] = useState('');
   const categoryScrollRef = useRef<HTMLDivElement>(null);
+
+  const toggleWishlist = (product: WCProduct, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const current = loadWishlist();
+    const exists = current.some(w => w.productId === product.id);
+    if (exists) {
+      const updated = current.filter(w => w.productId !== product.id);
+      saveWishlist(updated);
+      setWishlistIds(updated.map(w => w.productId));
+      setWishlistToast('沒關係，隨時可以再回來看');
+    } else {
+      // Auto-assign tag based on category
+      let tag: WishlistTag = '晚點再決定';
+      const cats = product.categories?.map(c => c.id) || [];
+      if (product.virtual || cats.some(c => [18, 21, 22, 24, 25, 173, 212].includes(c))) tag = '想上的課';
+      else if (cats.includes(27)) tag = '想帶回家的香氣';
+      else if (cats.includes(75)) tag = '想帶回家的香氣';
+
+      const item: WishlistItem = {
+        productId: product.id,
+        name: product.name,
+        price: product.price,
+        image: product.images?.[0]?.src,
+        tag,
+        addedAt: Date.now(),
+      };
+      const updated = [...current, item];
+      saveWishlist(updated);
+      setWishlistIds(updated.map(w => w.productId));
+      setWishlistToast('已經幫你記住了');
+    }
+    setTimeout(() => setWishlistToast(''), 2000);
+  };
 
   const MAIN_CATEGORIES = [
     { id: 130, name: '全部' },
@@ -2853,7 +3042,7 @@ function ShopProductsView({
             >
               {/* Product Image */}
               <div
-                className="w-full aspect-square bg-gradient-to-br from-orange-100 to-pink-50 flex items-center justify-center overflow-hidden"
+                className="w-full aspect-square bg-gradient-to-br from-orange-100 to-pink-50 flex items-center justify-center overflow-hidden relative"
               >
                 {product.images && product.images.length > 0 && product.images[0].src ? (
                   <img
@@ -2867,6 +3056,20 @@ function ShopProductsView({
                 ) : (
                   <div style={{ color: '#F0A878' }} className="text-4xl">📦</div>
                 )}
+                {/* Wishlist Heart */}
+                <motion.div
+                  whileTap={{ scale: 1.3 }}
+                  onClick={(e) => toggleWishlist(product, e)}
+                  className="absolute top-2 right-2 w-8 h-8 rounded-full flex items-center justify-center"
+                  style={{
+                    backgroundColor: wishlistIds.includes(product.id) ? '#E8475820' : '#00000025',
+                    backdropFilter: 'blur(4px)',
+                  }}
+                >
+                  <span style={{ fontSize: 16 }}>
+                    {wishlistIds.includes(product.id) ? '♥' : '♡'}
+                  </span>
+                </motion.div>
               </div>
 
               {/* Product Info */}
@@ -2888,6 +3091,21 @@ function ShopProductsView({
           ))}
         </div>
       )}
+
+      {/* Wishlist Toast */}
+      <AnimatePresence>
+        {wishlistToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl text-xs font-medium shadow-lg"
+            style={{ backgroundColor: '#3D3530', color: 'white' }}
+          >
+            {wishlistToast}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 }
@@ -3869,51 +4087,71 @@ function MemberPage({ records, onNavigate }: { records: HealingRecord[]; onNavig
         </div>
       </motion.div>
 
-      {/* BLOCK 2: 我的收藏 (2x2 grid) */}
+      {/* BLOCK 2: 我的收藏 (3x2 grid) */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.15 }}
-        className="grid grid-cols-2 gap-3"
+        className="grid grid-cols-3 gap-2.5"
       >
         <motion.button
           whileTap={{ scale: 0.96 }}
-          onClick={() => onNavigate('card')}
-          className="rounded-2xl p-4 text-center"
+          onClick={() => onNavigate('wishlist')}
+          className="rounded-2xl p-3.5 text-center"
           style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}
         >
-          <p className="text-2xl mb-2">🃏</p>
-          <p className="text-xs font-medium" style={{ color: '#3D3530' }}>我的陪伴卡</p>
+          <p className="text-xl mb-1.5">💭</p>
+          <p className="text-[10px] font-medium" style={{ color: '#3D3530' }}>陪伴清單</p>
+        </motion.button>
+
+        <motion.button
+          whileTap={{ scale: 0.96 }}
+          onClick={() => onNavigate('card')}
+          className="rounded-2xl p-3.5 text-center"
+          style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}
+        >
+          <p className="text-xl mb-1.5">🃏</p>
+          <p className="text-[10px] font-medium" style={{ color: '#3D3530' }}>陪伴卡</p>
         </motion.button>
 
         <motion.button
           whileTap={{ scale: 0.96 }}
           onClick={() => onNavigate('sound')}
-          className="rounded-2xl p-4 text-center"
+          className="rounded-2xl p-3.5 text-center"
           style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}
         >
-          <p className="text-2xl mb-2">♪</p>
-          <p className="text-xs font-medium" style={{ color: '#3D3530' }}>收藏的音景</p>
+          <p className="text-xl mb-1.5">♪</p>
+          <p className="text-[10px] font-medium" style={{ color: '#3D3530' }}>音景</p>
         </motion.button>
 
         <motion.button
           whileTap={{ scale: 0.96 }}
           onClick={() => onNavigate('library')}
-          className="rounded-2xl p-4 text-center"
+          className="rounded-2xl p-3.5 text-center"
           style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}
         >
-          <p className="text-2xl mb-2">📚</p>
-          <p className="text-xs font-medium" style={{ color: '#3D3530' }}>療癒知識</p>
+          <p className="text-xl mb-1.5">📚</p>
+          <p className="text-[10px] font-medium" style={{ color: '#3D3530' }}>療癒知識</p>
         </motion.button>
 
         <motion.button
           whileTap={{ scale: 0.96 }}
           onClick={() => onNavigate('calendar')}
-          className="rounded-2xl p-4 text-center"
+          className="rounded-2xl p-3.5 text-center"
           style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}
         >
-          <p className="text-2xl mb-2">🗓️</p>
-          <p className="text-xs font-medium" style={{ color: '#3D3530' }}>調香日曆</p>
+          <p className="text-xl mb-1.5">🗓️</p>
+          <p className="text-[10px] font-medium" style={{ color: '#3D3530' }}>調香日曆</p>
+        </motion.button>
+
+        <motion.button
+          whileTap={{ scale: 0.96 }}
+          onClick={() => onNavigate('service')}
+          className="rounded-2xl p-3.5 text-center"
+          style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}
+        >
+          <p className="text-xl mb-1.5">🤲</p>
+          <p className="text-[10px] font-medium" style={{ color: '#3D3530' }}>服務大廳</p>
         </motion.button>
       </motion.div>
 
@@ -4031,8 +4269,16 @@ function MemberPage({ records, onNavigate }: { records: HealingRecord[]; onNavig
           </div>
         )}
 
-        {/* LINE contact + logout */}
+        {/* Service hall + LINE + logout */}
         <div className="flex gap-2 pt-2">
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            onClick={() => onNavigate('service')}
+            className="flex-1 py-2.5 rounded-xl text-xs font-medium"
+            style={{ backgroundColor: '#FAF8F5', color: '#3D3530', border: '1px solid #F0EDE8' }}
+          >
+            🤲 服務大廳
+          </motion.button>
           <motion.a
             whileTap={{ scale: 0.96 }}
             href="https://page.line.me/296yrpvh?openQrModal=true"
@@ -4041,7 +4287,7 @@ function MemberPage({ records, onNavigate }: { records: HealingRecord[]; onNavig
             className="flex-1 py-2.5 rounded-xl text-xs font-medium text-center"
             style={{ backgroundColor: '#00C300', color: 'white' }}
           >
-            LINE 客服
+            LINE 聊聊
           </motion.a>
           <motion.button
             whileTap={{ scale: 0.96 }}
@@ -4064,11 +4310,13 @@ function RecipePage({
   onCheckIn,
   onTaskComplete,
   user,
+  onNavigate,
 }: {
   records: HealingRecord[];
   onCheckIn: (emotion: EmotionKey, level?: EmotionLevel, subEmotion?: string) => void;
   onTaskComplete: (key: TaskKey) => void;
   user: User | null;
+  onNavigate?: (p: PageType) => void;
 }) {
   const todayRecord = records.find(r => r.date === getToday());
   const [selectedOil, setSelectedOil] = useState<string | null>(null);
@@ -4228,6 +4476,10 @@ function RecipePage({
           )}
         </AnimatePresence>
       </div>
+
+      {/* 柔和推薦模組 */}
+      {onNavigate && emotion && <CompanionRecommendation emotion={emotion} onNavigate={onNavigate} />}
+      {onNavigate && <HandsOnCard onNavigate={onNavigate} />}
     </motion.div>
   );
 }
@@ -4240,6 +4492,7 @@ function HealingPrescriptionPage({
   onTaskComplete,
   onGoToSound,
   onGoToBedtime,
+  onNavigate,
   user,
 }: {
   records: HealingRecord[];
@@ -4247,6 +4500,7 @@ function HealingPrescriptionPage({
   onTaskComplete: (key: TaskKey) => void;
   onGoToSound: () => void;
   onGoToBedtime: () => void;
+  onNavigate?: (p: PageType) => void;
   user: User | null;
 }) {
   const todayRecord = records.find(r => r.date === getToday());
@@ -4536,6 +4790,12 @@ function HealingPrescriptionPage({
           )}
         </AnimatePresence>
       </div>
+
+      {/* 柔和推薦模組 */}
+      {onNavigate && <CompanionRecommendation emotion={emotion} onNavigate={onNavigate} />}
+
+      {/* 動手做一點什麼 */}
+      {onNavigate && <HandsOnCard onNavigate={onNavigate} />}
 
       {/* Bedtime entry */}
       <motion.button
@@ -6515,6 +6775,390 @@ function CustomOilPage({ user, records }: { user: User | null; records: HealingR
   );
 }
 
+// ===================== PAGE: 服務大廳 =====================
+
+function ServiceHallPage({ onNavigate }: { onNavigate: (p: PageType) => void }) {
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
+  const [toast, setToast] = useState('');
+
+  const handleQuickItem = (categoryId: string, item: string) => {
+    // 導向 LINE 客服帶預設訊息
+    const msg = encodeURIComponent(`嗨，我想問一下：${item}`);
+    window.open(`https://page.line.me/296yrpvh?openQrModal=true`, '_blank');
+    setToast('已經幫你打開 LINE，和真人聊聊吧');
+    setTimeout(() => setToast(''), 2500);
+  };
+
+  return (
+    <motion.div className="space-y-5" {...fadeInUp}>
+      {/* Header */}
+      <div className="text-center pt-2 pb-1">
+        <p className="text-2xl mb-2">🤲</p>
+        <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>今天，你想從哪裡開始呢？</h2>
+        <p className="text-sm mt-2" style={{ color: '#8C7B72' }}>
+          不急，先看看你現在比較需要哪一種陪伴。
+        </p>
+        <p className="text-xs mt-1" style={{ color: '#B5AFA8' }}>
+          如果你還不知道怎麼說，也沒關係。
+        </p>
+      </div>
+
+      {/* Category Cards */}
+      <div className="space-y-3">
+        {SERVICE_CATEGORIES.map((cat) => (
+          <motion.div
+            key={cat.id}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-2xl overflow-hidden"
+            style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}
+          >
+            <motion.button
+              whileTap={{ scale: 0.98 }}
+              onClick={() => {
+                if (cat.id === 'order') {
+                  onNavigate('member');
+                  return;
+                }
+                if (cat.id === 'companion') {
+                  onNavigate('home');
+                  return;
+                }
+                setExpandedCategory(expandedCategory === cat.id ? null : cat.id);
+              }}
+              className="w-full p-4 text-left flex items-center gap-3"
+            >
+              <span className="text-2xl">{cat.emoji}</span>
+              <div className="flex-1">
+                <p className="text-sm font-bold" style={{ color: '#3D3530' }}>{cat.title}</p>
+                <p className="text-xs mt-0.5" style={{ color: '#8C7B72' }}>{cat.sub}</p>
+              </div>
+              <span className="text-xs" style={{ color: '#B5AFA8' }}>
+                {expandedCategory === cat.id ? '收起' : '→'}
+              </span>
+            </motion.button>
+
+            <AnimatePresence>
+              {expandedCategory === cat.id && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="overflow-hidden"
+                >
+                  <div className="px-4 pb-4 pt-1">
+                    <p className="text-xs mb-2" style={{ color: '#B5AFA8' }}>先選一個最接近的方向：</p>
+                    <div className="flex flex-wrap gap-2">
+                      {cat.quickItems.map((item, i) => (
+                        <motion.button
+                          key={i}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => handleQuickItem(cat.id, item)}
+                          className="px-3 py-1.5 rounded-full text-xs"
+                          style={{ backgroundColor: '#FAF8F5', color: '#5C534C', border: '1px solid #E8E3DC' }}
+                        >
+                          {item}
+                        </motion.button>
+                      ))}
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        ))}
+      </div>
+
+      {/* Bottom CTAs */}
+      <div className="space-y-2 pt-2">
+        <motion.a
+          whileTap={{ scale: 0.97 }}
+          href="https://page.line.me/296yrpvh?openQrModal=true"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl text-sm font-bold"
+          style={{ backgroundColor: '#00C300', color: 'white' }}
+        >
+          <span>💬</span>
+          <span>找真人聊聊</span>
+        </motion.a>
+        <motion.button
+          whileTap={{ scale: 0.97 }}
+          onClick={() => {
+            window.open('https://www.xiabenhow.com/faq/', '_blank');
+          }}
+          className="w-full py-3 rounded-2xl text-sm font-medium"
+          style={{ backgroundColor: '#FAF8F5', color: '#8C7B72', border: '1px solid #F0EDE8' }}
+        >
+          先看看常見問題
+        </motion.button>
+      </div>
+
+      {/* Toast */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl text-xs font-medium shadow-lg"
+            style={{ backgroundColor: '#3D3530', color: 'white' }}
+          >
+            {toast}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
+// ===================== PAGE: 我的陪伴清單 (Wishlist) =====================
+
+function WishlistPage({ onNavigate }: { onNavigate: (p: PageType) => void }) {
+  const [items, setItems] = useState<WishlistItem[]>(() => loadWishlist());
+  const [activeTag, setActiveTag] = useState<WishlistTag | '全部'>('全部');
+  const [toast, setToast] = useState('');
+
+  const filtered = activeTag === '全部' ? items : items.filter(w => w.tag === activeTag);
+
+  const removeItem = (productId: number) => {
+    const updated = items.filter(w => w.productId !== productId);
+    setItems(updated);
+    saveWishlist(updated);
+    setToast('沒關係，隨時可以再回來看');
+    setTimeout(() => setToast(''), 2000);
+  };
+
+  const changeTag = (productId: number, tag: WishlistTag) => {
+    const updated = items.map(w => w.productId === productId ? { ...w, tag } : w);
+    setItems(updated);
+    saveWishlist(updated);
+  };
+
+  if (items.length === 0) {
+    return (
+      <motion.div className="space-y-5" {...fadeInUp}>
+        <div>
+          <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>我的陪伴清單</h2>
+          <p className="text-sm mt-0.5" style={{ color: '#8C7B72' }}>留著慢慢看的東西，都在這裡</p>
+        </div>
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-2xl p-8 text-center space-y-4"
+          style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}
+        >
+          <p className="text-4xl">💭</p>
+          <p className="text-sm" style={{ color: '#8C7B72' }}>
+            還沒有留下什麼，<br/>去逛逛商城，看到喜歡的可以收進來。
+          </p>
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            onClick={() => onNavigate('shop')}
+            className="px-6 py-2.5 rounded-xl text-sm font-medium"
+            style={{ backgroundColor: '#8FA886', color: 'white' }}
+          >
+            去逛逛
+          </motion.button>
+        </motion.div>
+      </motion.div>
+    );
+  }
+
+  return (
+    <motion.div className="space-y-4" {...fadeInUp}>
+      {/* Header */}
+      <div>
+        <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>我的陪伴清單</h2>
+        <p className="text-sm mt-0.5" style={{ color: '#8C7B72' }}>
+          你留了 {items.length} 個想看的
+        </p>
+      </div>
+
+      {/* Tag Filter */}
+      <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+        <button
+          onClick={() => setActiveTag('全部')}
+          className="px-3 py-1.5 rounded-full text-xs whitespace-nowrap font-medium"
+          style={{
+            backgroundColor: activeTag === '全部' ? '#3D3530' : '#FAF8F5',
+            color: activeTag === '全部' ? 'white' : '#8C7B72',
+            border: '1px solid ' + (activeTag === '全部' ? '#3D3530' : '#E8E3DC'),
+          }}
+        >
+          全部 ({items.length})
+        </button>
+        {WISHLIST_TAGS.map(t => {
+          const count = items.filter(w => w.tag === t.key).length;
+          if (count === 0) return null;
+          return (
+            <button
+              key={t.key}
+              onClick={() => setActiveTag(t.key)}
+              className="px-3 py-1.5 rounded-full text-xs whitespace-nowrap font-medium"
+              style={{
+                backgroundColor: activeTag === t.key ? '#3D3530' : '#FAF8F5',
+                color: activeTag === t.key ? 'white' : '#8C7B72',
+                border: '1px solid ' + (activeTag === t.key ? '#3D3530' : '#E8E3DC'),
+              }}
+            >
+              {t.emoji} {t.key} ({count})
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Items */}
+      <div className="space-y-3">
+        {filtered.map((item) => (
+          <motion.div
+            key={item.productId}
+            layout
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, x: -50 }}
+            className="rounded-2xl p-3 flex gap-3"
+            style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}
+          >
+            {/* Image */}
+            <div
+              className="w-20 h-20 rounded-xl flex-shrink-0 flex items-center justify-center"
+              style={{ backgroundColor: '#FAF8F5' }}
+            >
+              {item.image ? (
+                <img src={item.image} alt={item.name} className="w-full h-full rounded-xl object-cover" />
+              ) : (
+                <span className="text-2xl">📦</span>
+              )}
+            </div>
+            {/* Info */}
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate" style={{ color: '#3D3530' }}>{item.name}</p>
+              <p className="text-sm font-bold mt-0.5" style={{ color: '#8FA886' }}>NT${Number(item.price).toLocaleString()}</p>
+              {/* Tag selector */}
+              <div className="flex gap-1 mt-1.5 flex-wrap">
+                {WISHLIST_TAGS.map(t => (
+                  <button
+                    key={t.key}
+                    onClick={() => changeTag(item.productId, t.key)}
+                    className="text-[10px] px-2 py-0.5 rounded-full"
+                    style={{
+                      backgroundColor: item.tag === t.key ? '#3D353015' : 'transparent',
+                      color: item.tag === t.key ? '#3D3530' : '#B5AFA8',
+                      border: `1px solid ${item.tag === t.key ? '#3D353030' : '#E8E3DC'}`,
+                    }}
+                  >
+                    {t.emoji} {t.key}
+                  </button>
+                ))}
+              </div>
+            </div>
+            {/* Remove */}
+            <button onClick={() => removeItem(item.productId)} className="self-start p-1">
+              <span className="text-xs" style={{ color: '#B5AFA8' }}>✕</span>
+            </button>
+          </motion.div>
+        ))}
+      </div>
+
+      {/* CTA */}
+      <motion.button
+        whileTap={{ scale: 0.97 }}
+        onClick={() => onNavigate('shop')}
+        className="w-full py-3 rounded-2xl text-sm font-medium"
+        style={{ backgroundColor: '#FAF8F5', color: '#8C7B72', border: '1px solid #F0EDE8' }}
+      >
+        繼續逛逛
+      </motion.button>
+
+      {/* Toast */}
+      <AnimatePresence>
+        {toast && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl text-xs font-medium shadow-lg"
+            style={{ backgroundColor: '#3D3530', color: 'white' }}
+          >
+            {toast}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
+// ===================== COMPONENT: 陪伴推薦模組 =====================
+
+function CompanionRecommendation({ emotion, onNavigate }: { emotion?: EmotionKey; onNavigate: (p: PageType) => void }) {
+  if (!emotion) return null;
+  const suggestions = EMOTION_PRODUCT_SUGGESTIONS[emotion] || EMOTION_PRODUCT_SUGGESTIONS['tired'];
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.3 }}
+      className="rounded-3xl p-5 shadow-sm space-y-3"
+      style={{ background: 'linear-gradient(135deg, #FAF8F520, #FFFEF9)' }}
+    >
+      <div>
+        <p className="text-sm font-bold" style={{ color: '#3D3530' }}>也許可以試試看</p>
+        <p className="text-xs mt-0.5" style={{ color: '#8C7B72' }}>
+          根據你今天的感受，這些可能適合你
+        </p>
+      </div>
+      <div className="space-y-2">
+        {suggestions.map((s, i) => (
+          <motion.button
+            key={i}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => onNavigate('shop')}
+            className="w-full flex items-center gap-3 p-3 rounded-2xl text-left"
+            style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}
+          >
+            <span className="text-2xl">{s.emoji}</span>
+            <div>
+              <p className="text-sm font-medium" style={{ color: '#3D3530' }}>{s.title}</p>
+              <p className="text-xs" style={{ color: '#8C7B72' }}>{s.desc}</p>
+            </div>
+            <span className="ml-auto text-xs" style={{ color: '#B5AFA8' }}>→</span>
+          </motion.button>
+        ))}
+      </div>
+    </motion.div>
+  );
+}
+
+// ===================== COMPONENT: 動手做一點什麼 =====================
+
+function HandsOnCard({ onNavigate }: { onNavigate: (p: PageType) => void }) {
+  const [currentIndex] = useState(() => Math.floor(Math.random() * HANDS_ON_CARDS.length));
+  const card = HANDS_ON_CARDS[currentIndex];
+  return (
+    <motion.button
+      whileTap={{ scale: 0.97 }}
+      onClick={() => onNavigate('shop')}
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.2 }}
+      className="w-full rounded-3xl p-5 shadow-sm text-left"
+      style={{ background: 'linear-gradient(135deg, #F5EDE4, #FFFEF9)', border: '1px solid #F0EDE8' }}
+    >
+      <div className="flex items-center gap-3">
+        <span className="text-3xl">{card.emoji}</span>
+        <div className="flex-1">
+          <p className="text-xs font-medium mb-0.5" style={{ color: '#C9A96E' }}>動手做一點什麼</p>
+          <p className="text-sm font-bold" style={{ color: '#3D3530' }}>{card.title}</p>
+          <p className="text-xs mt-0.5" style={{ color: '#8C7B72' }}>{card.desc}</p>
+        </div>
+        <span className="text-sm" style={{ color: '#C9A96E' }}>→</span>
+      </div>
+    </motion.button>
+  );
+}
+
 // ===================== BOTTOM NAV =====================
 
 function BottomNav({ active, onChange }: { active: PageType; onChange: (p: PageType) => void }) {
@@ -6670,6 +7314,7 @@ export default function HealingApp() {
                 onGoToDiary={() => setPage('diary')}
                 onGoToCustom={() => setPage('custom')}
                 onGoToSound={goToSound}
+                onNavigate={(p) => setPage(p)}
                 user={user}
               />
             )}
@@ -6691,6 +7336,7 @@ export default function HealingApp() {
                 onGoToBedtime={goToBedtime}
                 onGoToDiary={() => setPage('diary')}
                 onGoToCustom={() => setPage('custom')}
+                onNavigate={(p) => setPage(p)}
                 user={user}
               />
             )}
@@ -6704,6 +7350,7 @@ export default function HealingApp() {
                 onCheckIn={handleCheckIn}
                 onTaskComplete={completeTask}
                 user={user}
+                onNavigate={(p) => setPage(p)}
               />
             )}
             {page === 'card' && <CardPage onTaskComplete={completeTask} records={records} />}
@@ -6713,6 +7360,8 @@ export default function HealingApp() {
             {page === 'calendar' && <FragranceCalendarPage />}
             {page === 'member' && <MemberPage records={records} onNavigate={(p) => setPage(p)} />}
             {page === 'custom' && <CustomOilPage user={user} records={records} />}
+            {page === 'service' && <ServiceHallPage onNavigate={(p) => setPage(p)} />}
+            {page === 'wishlist' && <WishlistPage onNavigate={(p) => setPage(p)} />}
           </motion.div>
         </AnimatePresence>
       </div>
