@@ -30,3 +30,72 @@ body {
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
 }
+
+/* WooCommerce product description prose styling */
+.wc-prose p {
+  margin-bottom: 0.75rem;
+  line-height: 1.7;
+}
+.wc-prose h1, .wc-prose h2, .wc-prose h3, .wc-prose h4 {
+  font-weight: 600;
+  margin-top: 1.25rem;
+  margin-bottom: 0.5rem;
+  color: #3D3530;
+}
+.wc-prose h1 { font-size: 1.25rem; }
+.wc-prose h2 { font-size: 1.125rem; }
+.wc-prose h3 { font-size: 1rem; }
+.wc-prose img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 12px;
+  margin: 0.75rem 0;
+}
+.wc-prose ul, .wc-prose ol {
+  padding-left: 1.25rem;
+  margin-bottom: 0.75rem;
+}
+.wc-prose ul { list-style-type: disc; }
+.wc-prose ol { list-style-type: decimal; }
+.wc-prose li {
+  margin-bottom: 0.25rem;
+  line-height: 1.6;
+}
+.wc-prose a {
+  color: #8FA886;
+  text-decoration: underline;
+}
+.wc-prose strong, .wc-prose b {
+  font-weight: 600;
+  color: #3D3530;
+}
+.wc-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75rem 0;
+}
+.wc-prose th, .wc-prose td {
+  border: 1px solid #F0EDE8;
+  padding: 0.5rem;
+  text-align: left;
+  font-size: 0.875rem;
+}
+.wc-prose th {
+  background: #FAF8F5;
+  font-weight: 600;
+}
+.wc-prose blockquote {
+  border-left: 3px solid #C9A96E;
+  padding-left: 1rem;
+  margin: 0.75rem 0;
+  color: #8C7B72;
+  font-style: italic;
+}
+.wc-prose iframe {
+  max-width: 100%;
+  border-radius: 12px;
+  margin: 0.75rem 0;
+}
+.wc-prose br + br {
+  display: none;
+}

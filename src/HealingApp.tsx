@@ -72,6 +72,8 @@ interface WCProduct {
   stock_quantity: number | null;
   stock_status: string;
   manage_stock: boolean;
+  attributes?: { id: number; name: string; options: string[]; variation: boolean }[];
+  meta_data?: { key: string; value: unknown }[];
 }
 
 interface HealingRecord {
@@ -3243,6 +3245,140 @@ function ShopProductsView({
   const [wishlistToast, setWishlistToast] = useState('');
   const categoryScrollRef = useRef<HTMLDivElement>(null);
 
+  // Scenario tag filter state
+  const [activeScenario, setActiveScenario] = useState<string | null>(null);
+
+  // Scenario tag definitions with matching logic
+  const SCENARIO_TAGS = [
+    {
+      emoji: '🧘', label: '想放鬆',
+      // 香氛蠟燭(18), 精油調香(173), 花藝(25), booking預約制
+      match: (p: WCProduct) => {
+        const cids = p.categories?.map(c => c.id) || [];
+        return cids.some(id => [18, 173, 25].includes(id)) || p.type === 'phive_booking' ||
+          /香氛|蠟燭|精油|調香|花藝|花盒|浮游花/.test(p.name);
+      },
+    },
+    {
+      emoji: '😴', label: '想好睡',
+      // 香氛蠟燭(18), 精油調香(173)
+      match: (p: WCProduct) => {
+        const cids = p.categories?.map(c => c.id) || [];
+        return cids.some(id => [18, 173].includes(id)) || /香氛|蠟燭|精油|調香|擴香/.test(p.name);
+      },
+    },
+    {
+      emoji: '💆', label: '穩定情緒',
+      // 水晶飾品(21,200), 多肉植栽(22), 苔球, 生態瓶
+      match: (p: WCProduct) => {
+        const cids = p.categories?.map(c => c.id) || [];
+        return cids.some(id => [21, 22, 200].includes(id)) || p.type === 'phive_booking' ||
+          /水晶|多肉|苔球|苔蘚|生態|鹿角蕨|植栽/.test(p.name);
+      },
+    },
+    {
+      emoji: '🎨', label: '想創作',
+      // 畫畫(24), 皮革(211,212), 梭織(150), 樹脂(149), 流體畫
+      match: (p: WCProduct) => {
+        const cids = p.categories?.map(c => c.id) || [];
+        return cids.some(id => [24, 149, 150, 211, 212].includes(id)) ||
+          /畫|皮革|編織|Macrame|藍染|樹脂/.test(p.name);
+      },
+    },
+    {
+      emoji: '🕯️', label: '做儀式',
+      // 香氛蠟燭(18), 水晶(21), 精油(173)
+      match: (p: WCProduct) => {
+        const cids = p.categories?.map(c => c.id) || [];
+        return cids.some(id => [18, 21, 173].includes(id)) ||
+          /蠟燭|精油|調香|水晶|能量/.test(p.name);
+      },
+    },
+    {
+      emoji: '🎁', label: '送禮',
+      // 把我帶回家(27), 手作禮物(77), 禮盒(86), DIY材料包(75)
+      match: (p: WCProduct) => {
+        const cids = p.categories?.map(c => c.id) || [];
+        return cids.some(id => [27, 77, 86, 75].includes(id)) || /禮物|禮盒|材料包/.test(p.name);
+      },
+    },
+  ];
+
+  // Date filter state
+  type DateFilterMode = 'all' | 'this-week' | 'next-week' | 'custom';
+  const [dateFilterMode, setDateFilterMode] = useState<DateFilterMode>('all');
+  const [customDate, setCustomDate] = useState('');
+  const dateInputRef = useRef<HTMLInputElement>(null);
+
+  // Helper: parse date from variable product 場次 option string
+  // Format examples: "03/01 (日) 1100-1230", "03/15 (日) 1300–1430"
+  const parseSessionDate = (opt: string): string | null => {
+    const m = opt.match(/^(\d{1,2})\/(\d{1,2})/);
+    if (!m) return null;
+    const now = new Date();
+    const month = parseInt(m[1], 10);
+    const day = parseInt(m[2], 10);
+    // Determine year: if month < current month - 2, assume next year
+    let year = now.getFullYear();
+    if (month < now.getMonth() - 1) year += 1;
+    const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    return dateStr;
+  };
+
+  // Get date range for filter mode
+  const getFilterDateRange = (): { start: string; end: string } | null => {
+    if (dateFilterMode === 'all') return null;
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    if (dateFilterMode === 'custom' && customDate) {
+      return { start: customDate, end: customDate };
+    }
+    if (dateFilterMode === 'this-week') {
+      const dayOfWeek = today.getDay(); // 0=Sun
+      const startOfWeek = new Date(today);
+      // Start from today (not Monday), end on Sunday
+      const endOfWeek = new Date(today);
+      endOfWeek.setDate(today.getDate() + (7 - dayOfWeek));
+      const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      return { start: fmt(today), end: fmt(endOfWeek) };
+    }
+    if (dateFilterMode === 'next-week') {
+      const dayOfWeek = today.getDay();
+      const nextMon = new Date(today);
+      nextMon.setDate(today.getDate() + (8 - dayOfWeek));
+      const nextSun = new Date(nextMon);
+      nextSun.setDate(nextMon.getDate() + 6);
+      const fmt = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      return { start: fmt(nextMon), end: fmt(nextSun) };
+    }
+    return null;
+  };
+
+  // Check if a product matches the date filter
+  const productMatchesDateFilter = (product: WCProduct): boolean => {
+    const range = getFilterDateRange();
+    if (!range) return true; // 'all' mode — show everything
+
+    // Booking products: always show (they're available any day unless specifically blocked)
+    if (product.type === 'phive_booking') return true;
+
+    // Variable products: check if any 場次 falls within range
+    if (product.type === 'variable' && product.attributes) {
+      const sessionAttr = product.attributes.find(a => a.name.includes('場次'));
+      if (sessionAttr) {
+        return sessionAttr.options.some(opt => {
+          const dateStr = parseSessionDate(opt);
+          if (!dateStr) return false;
+          return dateStr >= range.start && dateStr <= range.end;
+        });
+      }
+    }
+
+    // Simple / other products: always show
+    return true;
+  };
+
   const toggleWishlist = (product: WCProduct, e: React.MouseEvent) => {
     e.stopPropagation();
     const current = loadWishlist();
@@ -3377,25 +3513,99 @@ function ShopProductsView({
         </p>
       )}
 
+      {/* Date Filter — 日期篩選 */}
+      <div className="rounded-2xl p-3" style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}>
+        <p className="text-xs font-medium mb-2" style={{ color: '#8C7B72' }}>📅 什麼時候有空？</p>
+        <div className="flex gap-2 flex-wrap">
+          {([
+            { key: 'all' as DateFilterMode, label: '全部' },
+            { key: 'this-week' as DateFilterMode, label: '本週' },
+            { key: 'next-week' as DateFilterMode, label: '下週' },
+            { key: 'custom' as DateFilterMode, label: '選日期' },
+          ]).map(f => (
+            <motion.button
+              key={f.key}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => {
+                setDateFilterMode(f.key);
+                if (f.key === 'custom') {
+                  setTimeout(() => dateInputRef.current?.showPicker?.(), 100);
+                }
+                if (f.key !== 'custom') setCustomDate('');
+              }}
+              className="px-3 py-1.5 rounded-full text-xs font-medium transition-all"
+              style={{
+                backgroundColor: dateFilterMode === f.key ? '#8FA886' : '#FAF8F5',
+                color: dateFilterMode === f.key ? '#fff' : '#3D3530',
+                border: `1px solid ${dateFilterMode === f.key ? '#8FA886' : '#F0EDE8'}`,
+              }}
+            >
+              {f.label}
+            </motion.button>
+          ))}
+        </div>
+        {dateFilterMode === 'custom' && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mt-2">
+            <input
+              ref={dateInputRef}
+              type="date"
+              value={customDate}
+              min={new Date().toISOString().split('T')[0]}
+              onChange={e => setCustomDate(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl text-sm outline-none"
+              style={{ backgroundColor: '#FAF8F5', border: '1px solid #F0EDE8', color: '#3D3530' }}
+            />
+          </motion.div>
+        )}
+        {dateFilterMode !== 'all' && (
+          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-[11px] mt-2" style={{ color: '#8FA886' }}>
+            {dateFilterMode === 'custom' && customDate
+              ? `📍 顯示 ${customDate.replace(/^(\d{4})-(\d{2})-(\d{2})$/, '$2/$3')} 有場次的課程`
+              : dateFilterMode === 'this-week'
+                ? '📍 顯示本週內有場次的課程'
+                : dateFilterMode === 'next-week'
+                  ? '📍 顯示下週有場次的課程'
+                  : '📍 選擇日期來篩選課程'
+            }
+            {' '}· 預約制課程不受日期限制
+          </motion.p>
+        )}
+      </div>
+
       {/* 情境入口 - Emotion Scenario Buttons */}
       <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1" style={{ scrollbarWidth: 'none' }}>
-        {[
-          { emoji: '🧘', label: '想放鬆' },
-          { emoji: '😴', label: '想好睡' },
-          { emoji: '💆', label: '穩定情緒' },
-          { emoji: '🕯️', label: '做儀式' },
-          { emoji: '🎁', label: '送禮' },
-        ].map(scenario => (
+        {SCENARIO_TAGS.map(scenario => (
           <motion.button
             key={scenario.label}
             whileTap={{ scale: 0.96 }}
-            className="flex-shrink-0 px-4 py-2 rounded-full text-xs font-medium"
-            style={{ backgroundColor: '#FAF8F5', color: '#3D3530', whiteSpace: 'nowrap' }}
+            onClick={() => setActiveScenario(activeScenario === scenario.label ? null : scenario.label)}
+            className="flex-shrink-0 px-4 py-2 rounded-full text-xs font-medium transition-all"
+            style={{
+              backgroundColor: activeScenario === scenario.label ? '#8FA886' : '#FAF8F5',
+              color: activeScenario === scenario.label ? '#fff' : '#3D3530',
+              whiteSpace: 'nowrap',
+              border: `1px solid ${activeScenario === scenario.label ? '#8FA886' : '#F0EDE8'}`,
+            }}
           >
             {scenario.emoji} {scenario.label}
           </motion.button>
         ))}
       </div>
+      {activeScenario && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex items-center justify-between">
+          <p className="text-[11px]" style={{ color: '#8FA886' }}>
+            ✨ 為「{activeScenario}」的你推薦
+          </p>
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            onClick={() => setActiveScenario(null)}
+            className="text-[10px] px-2 py-0.5 rounded-full"
+            style={{ backgroundColor: '#FAF8F5', color: '#8C7B72' }}
+          >
+            清除
+          </motion.button>
+        </motion.div>
+      )}
 
       {/* Category Tabs - Horizontal Scrollable */}
       <div
@@ -3445,20 +3655,46 @@ function ShopProductsView({
       )}
 
       {/* Products Grid */}
-      {!loading && !error && products.length === 0 && (
+      {(() => {
+        const activeTag = SCENARIO_TAGS.find(t => t.label === activeScenario);
+        const filteredProducts = products
+          .filter(productMatchesDateFilter)
+          .filter(p => activeTag ? activeTag.match(p) : true);
+        const hasDateFilter = dateFilterMode !== 'all';
+        const hasAnyFilter = hasDateFilter || !!activeScenario;
+        const hiddenCount = products.length - filteredProducts.length;
+        return (<>
+      {!loading && !error && filteredProducts.length === 0 && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           className="rounded-2xl p-8 text-center"
           style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}
         >
-          <p style={{ color: '#8C7B72' }}>此分類暫無商品</p>
+          <p style={{ color: '#8C7B72' }}>
+            {hasAnyFilter ? '沒有找到符合的課程，試試調整篩選條件？' : '此分類暫無商品'}
+          </p>
+          {hasAnyFilter && (
+            <motion.button
+              whileTap={{ scale: 0.96 }}
+              onClick={() => { setDateFilterMode('all'); setCustomDate(''); setActiveScenario(null); }}
+              className="mt-3 px-4 py-2 rounded-full text-xs font-medium"
+              style={{ backgroundColor: '#8FA886', color: '#fff' }}
+            >
+              清除所有篩選
+            </motion.button>
+          )}
         </motion.div>
       )}
 
-      {!loading && !error && products.length > 0 && (
+      {!loading && !error && filteredProducts.length > 0 && (<>
+        {hasAnyFilter && hiddenCount > 0 && (
+          <p className="text-[11px] text-center" style={{ color: '#8C7B72' }}>
+            已篩選出 {filteredProducts.length} 個符合的商品（已隱藏 {hiddenCount} 個）
+          </p>
+        )}
         <div className="grid grid-cols-2 gap-3">
-          {products.map((product, idx) => (
+          {filteredProducts.map((product, idx) => (
             <motion.button
               key={product.id}
               initial={{ opacity: 0, y: 10 }}
@@ -3530,11 +3766,34 @@ function ShopProductsView({
                     </span>
                   )}
                 </div>
+                {/* Next session date tag */}
+                {product.type === 'variable' && product.attributes && (() => {
+                  const sessionAttr = product.attributes.find(a => a.name.includes('場次'));
+                  if (!sessionAttr) return null;
+                  const todayStr = new Date().toISOString().split('T')[0];
+                  const futureSessions = sessionAttr.options
+                    .map(opt => ({ opt, date: parseSessionDate(opt) }))
+                    .filter(s => s.date && s.date >= todayStr)
+                    .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+                  if (futureSessions.length === 0) return null;
+                  const next = futureSessions[0].opt.split(' ').slice(0, 2).join(' ');
+                  return (
+                    <p className="text-[10px] mt-1" style={{ color: '#8C7B72' }}>
+                      📅 最近：{next}
+                    </p>
+                  );
+                })()}
+                {product.type === 'phive_booking' && (
+                  <p className="text-[10px] mt-1" style={{ color: '#C9A96E' }}>
+                    🕐 預約制・隨時可約
+                  </p>
+                )}
               </div>
             </motion.button>
           ))}
         </div>
-      )}
+      </>)}
+      </>); })()}
 
       {/* Wishlist Toast */}
       <AnimatePresence>
@@ -3543,7 +3802,7 @@ function ShopProductsView({
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
-            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl text-xs font-medium shadow-lg"
+            className="fixed bottom-28 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl text-xs font-medium shadow-lg"
             style={{ backgroundColor: '#3D3530', color: 'white' }}
           >
             {wishlistToast}
@@ -3554,84 +3813,184 @@ function ShopProductsView({
   );
 }
 
+interface WCVariation {
+  id: number;
+  price: string;
+  stock_status: string;
+  attributes: { name: string; option: string }[];
+}
+
 function ProductDetailView({ product, onBack, onAddToCart }: { product: WCProduct; onBack: () => void; onAddToCart: (item: CartItem) => void }) {
   const [currentImageIdx, setCurrentImageIdx] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  const [showFullDesc, setShowFullDesc] = useState(false);
+
+  // Variable product state
+  const [variations, setVariations] = useState<WCVariation[]>([]);
+  const [variationsLoading, setVariationsLoading] = useState(false);
+  const [selectedOptions, setSelectedOptions] = useState<Record<string, string>>({});
+  const [selectedVariation, setSelectedVariation] = useState<WCVariation | null>(null);
+
+  // Booking product state (phive_booking type)
   const [bookingDate, setBookingDate] = useState('');
   const [bookingTime, setBookingTime] = useState('');
-  const [availableSlots, setAvailableSlots] = useState<string[]>([]);
-  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [bookingSlots, setBookingSlots] = useState<{ date: string; time: string; endTime: string; available: boolean; remainingCapacity: number }[]>([]);
+  const [bookingConfig, setBookingConfig] = useState<{ allowedPerSlot: number; maxParticipants: number; minParticipants: number; personEnable: boolean; personsMultiply: boolean; basePrice: number } | null>(null);
+  const [bookingSlotsLoading, setBookingSlotsLoading] = useState(false);
 
-  // 生成未來 14 天的日期選項
-  const dateOptions = useMemo(() => {
-    const dates: { value: string; label: string }[] = [];
-    const today = new Date();
-    for (let i = 1; i <= 14; i++) {
-      const d = new Date(today);
-      d.setDate(d.getDate() + i);
-      const value = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
-      const label = `${d.getMonth() + 1}/${d.getDate()} (${weekdays[d.getDay()]})`;
-      dates.push({ value, label });
-    }
-    return dates;
-  }, []);
+  const isVariable = product.type === 'variable';
+  const isBooking = product.type === 'phive_booking';
 
-  // 預設時段（實際應從 WC 或 Phive Booking 取得）
-  const defaultTimeSlots = ['10:00', '11:00', '13:00', '14:00', '15:00', '16:00'];
+  // Smart isVirtual: 只有「把我帶回家(27)/手作禮物系列(77)/禮盒(86)」且不屬於任何課程分類的商品才是實體
+  const catIds = product.categories?.map(c => c.id) || [];
+  const COURSE_CAT_IDS = [17, 18, 19, 21, 22, 24, 25, 61, 128, 133, 149, 150, 151, 173, 200, 211, 212];
+  const PHYSICAL_CAT_IDS = [27, 77, 86];
+  const isCourseProduct = catIds.some(id => COURSE_CAT_IDS.includes(id)) || product.name.includes('手作課程');
+  const isPhysicalOnly = catIds.some(id => PHYSICAL_CAT_IDS.includes(id)) && !isCourseProduct;
+  const isVirtual = !isPhysicalOnly;
 
-  // 當選擇日期時載入可用時段
+  // Fetch variations for variable products
   useEffect(() => {
-    if (!bookingDate || !(product.virtual || product.type === 'virtual')) return;
-    setSlotsLoading(true);
-    setBookingTime('');
-    // 嘗試從 WC 取得時段，失敗則用預設
-    fetch(`${API_BASE}/api/wc/products/${product.id}/booking-slots?date=${bookingDate}`)
+    if (!isVariable) return;
+    setVariationsLoading(true);
+    fetch(`${API_BASE}/api/wc/products/${product.id}/variations`)
       .then(res => res.json())
-      .then(data => {
-        if (data.slots && data.slots.length > 0) {
-          setAvailableSlots(data.slots);
-        } else {
-          setAvailableSlots(defaultTimeSlots);
+      .then((data: WCVariation[]) => {
+        if (Array.isArray(data)) {
+          setVariations(data);
         }
       })
-      .catch(() => {
-        setAvailableSlots(defaultTimeSlots);
-      })
-      .finally(() => setSlotsLoading(false));
-  }, [bookingDate, product.id, product.virtual, product.type]);
+      .catch(err => console.error('載入場次失敗:', err))
+      .finally(() => setVariationsLoading(false));
+  }, [product.id, isVariable]);
 
-  const cleanHtml = (html: string) => {
-    if (!html) return '';
-    return html.replace(/<[^>]*>/g, '').trim();
+  // Fetch booking slots for booking products
+  useEffect(() => {
+    if (!isBooking) return;
+    setBookingSlotsLoading(true);
+    fetch(`${API_BASE}/api/wc/products/${product.id}/booking-slots`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.slots) setBookingSlots(data.slots);
+        if (data.config) setBookingConfig(data.config);
+      })
+      .catch(err => console.error('載入預約時段失敗:', err))
+      .finally(() => setBookingSlotsLoading(false));
+  }, [product.id, isBooking]);
+
+  // When selected options change, find matching variation
+  useEffect(() => {
+    if (!isVariable || variations.length === 0) return;
+    const attrs = product.attributes || [];
+    const allSelected = attrs.every(a => selectedOptions[a.name]);
+    if (!allSelected) { setSelectedVariation(null); return; }
+    const match = variations.find(v =>
+      v.attributes.every(va => selectedOptions[va.name] === va.option)
+    );
+    setSelectedVariation(match || null);
+  }, [selectedOptions, variations, isVariable, product.attributes]);
+
+  // Get product attributes (for variable products)
+  const productAttributes = product.attributes || [];
+
+  // Filter available options based on current selections
+  const getAvailableOptions = (attrName: string): string[] => {
+    const attr = productAttributes.find(a => a.name === attrName);
+    if (!attr) return [];
+    // Filter to only show options that have at least one in-stock variation
+    return attr.options.filter(opt => {
+      return variations.some(v => {
+        const matchesThis = v.attributes.some(va => va.name === attrName && va.option === opt);
+        const matchesOthers = Object.entries(selectedOptions).every(([k, val]) => {
+          if (k === attrName) return true;
+          return v.attributes.some(va => va.name === k && va.option === val);
+        });
+        return matchesThis && matchesOthers && v.stock_status === 'instock';
+      });
+    });
   };
 
-  const isVirtual = product.virtual || product.type === 'virtual';
+  // Booking: get available dates from slots
+  const bookingDateOptions = useMemo(() => {
+    if (!isBooking || bookingSlots.length === 0) return [];
+    const dateMap = new Map<string, { hasAvailable: boolean; totalCapacity: number }>();
+    bookingSlots.forEach(s => {
+      const existing = dateMap.get(s.date) || { hasAvailable: false, totalCapacity: 0 };
+      if (s.available) {
+        existing.hasAvailable = true;
+        existing.totalCapacity += s.remainingCapacity;
+      }
+      dateMap.set(s.date, existing);
+    });
+    const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
+    return Array.from(dateMap.entries())
+      .filter(([, info]) => info.hasAvailable)
+      .map(([dateStr, info]) => {
+        const d = new Date(dateStr + 'T00:00:00');
+        return {
+          value: dateStr,
+          label: `${d.getMonth() + 1}/${d.getDate()} (${weekdays[d.getDay()]})`,
+          totalCapacity: info.totalCapacity,
+        };
+      });
+  }, [bookingSlots, isBooking]);
+
+  // Booking: get available time slots for selected date
+  const bookingTimeOptions = useMemo(() => {
+    if (!bookingDate) return [];
+    return bookingSlots
+      .filter(s => s.date === bookingDate && s.available)
+      .map(s => ({
+        time: s.time,
+        endTime: s.endTime,
+        remaining: s.remainingCapacity,
+      }));
+  }, [bookingSlots, bookingDate]);
+
+  // Selected slot remaining capacity
+  const selectedSlotCapacity = useMemo(() => {
+    if (!bookingDate || !bookingTime) return null;
+    const slot = bookingSlots.find(s => s.date === bookingDate && s.time === bookingTime);
+    return slot ? slot.remainingCapacity : null;
+  }, [bookingSlots, bookingDate, bookingTime]);
+
+  const unitPrice = selectedVariation ? parseFloat(selectedVariation.price) : parseFloat(product.price);
+  const displayPrice = unitPrice;
+  const totalPrice = unitPrice * quantity;
 
   const handleAddToCart = () => {
-    if (isVirtual && !bookingDate) {
-      alert('請選擇預約日期');
+    if (isVariable && !selectedVariation) {
+      alert('請選擇場次與票種');
       return;
     }
-    if (isVirtual && !bookingTime) {
-      alert('請選擇預約時段');
+    if (isBooking && (!bookingDate || !bookingTime)) {
+      alert('請選擇預約日期與時段');
       return;
     }
-    console.log(`加入購物車: ${product.name}`);
+
     const specsArr: string[] = [];
-    if (isVirtual && bookingDate) specsArr.push(`日期: ${bookingDate}`);
-    if (isVirtual && bookingTime) specsArr.push(`時段: ${bookingTime}`);
-    specsArr.push(`數量: ${quantity}`);
+    if (isVariable && selectedVariation) {
+      selectedVariation.attributes.forEach(a => specsArr.push(`${a.name}: ${a.option}`));
+    }
+    if (isBooking) {
+      if (bookingDate) specsArr.push(`日期: ${bookingDate}`);
+      if (bookingTime) {
+        const slot = bookingTimeOptions.find(s => s.time === bookingTime);
+        specsArr.push(`時段: ${bookingTime}${slot ? `-${slot.endTime}` : ''}`);
+      }
+      if (quantity > 1) specsArr.push(`人數: ${quantity}`);
+    }
 
     const item: CartItem = {
-      id: `product-${product.id}-${bookingDate || 'na'}-${bookingTime || 'na'}`,
+      id: `product-${product.id}-${selectedVariation?.id || 'na'}-${bookingDate || 'na'}`,
       productId: product.id,
+      variationId: selectedVariation?.id,
       name: product.name,
       specs: specsArr.join(' / '),
-      price: Math.round(parseFloat(product.price)),
+      price: Math.round(displayPrice),
       quantity,
       isVirtual,
-      image: product.images && product.images.length > 0 ? product.images[0].src : undefined,
+      image: product.images?.[0]?.src,
       bookingDate: bookingDate || undefined,
       bookingTime: bookingTime || undefined,
     };
@@ -3694,13 +4053,33 @@ function ProductDetailView({ product, onBack, onAddToCart }: { product: WCProduc
         )}
       </motion.div>
 
+      {/* Image Thumbnails */}
+      {images.length > 1 && (
+        <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+          {images.map((img, idx) => (
+            <motion.button
+              key={idx}
+              whileTap={{ scale: 0.9 }}
+              onClick={() => setCurrentImageIdx(idx)}
+              className="flex-shrink-0 w-14 h-14 rounded-lg overflow-hidden"
+              style={{ border: currentImageIdx === idx ? '2px solid #8FA886' : '1px solid #F0EDE8', opacity: currentImageIdx === idx ? 1 : 0.6 }}
+            >
+              <img src={img.src} alt="" className="w-full h-full object-cover" />
+            </motion.button>
+          ))}
+        </div>
+      )}
+
       {/* Product Info */}
       <motion.div className="rounded-2xl p-4" style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}>
         <h3 className="text-lg font-bold mb-2" style={{ color: '#3D3530' }}>
           {product.name}
         </h3>
         <p className="text-2xl font-bold mb-2" style={{ color: '#8FA886' }}>
-          NT${parseFloat(product.price).toLocaleString('zh-TW', { maximumFractionDigits: 0 })}
+          NT${displayPrice.toLocaleString('zh-TW', { maximumFractionDigits: 0 })}
+          {isVariable && !selectedVariation && product.price && (
+            <span className="text-sm font-normal ml-1" style={{ color: '#8C7B72' }}>起</span>
+          )}
         </p>
         {/* 庫存/剩餘名額 */}
         {product.manage_stock && product.stock_quantity !== null && (
@@ -3721,36 +4100,113 @@ function ProductDetailView({ product, onBack, onAddToCart }: { product: WCProduc
             </span>
           </div>
         )}
-        {!product.manage_stock && product.stock_status === 'outofstock' && (
-          <div className="mb-3 p-3 rounded-xl" style={{ backgroundColor: '#FAF8F5', border: '1px solid #F0EDE8' }}>
-            <p className="text-xs font-bold" style={{ color: '#C9A96E' }}>目前無場次</p>
-            <p className="text-xs mt-0.5" style={{ color: '#8C7B72' }}>可與老師預約包班，LINE 或來電洽詢</p>
-          </div>
-        )}
-        {product.manage_stock && product.stock_quantity !== null && product.stock_quantity <= 0 && (
+        {!product.manage_stock && product.stock_status === 'outofstock' && !isVariable && (
           <div className="mb-3 p-3 rounded-xl" style={{ backgroundColor: '#FAF8F5', border: '1px solid #F0EDE8' }}>
             <p className="text-xs font-bold" style={{ color: '#C9A96E' }}>目前無場次</p>
             <p className="text-xs mt-0.5" style={{ color: '#8C7B72' }}>可與老師預約包班，LINE 或來電洽詢</p>
           </div>
         )}
         {product.short_description && (
-          <p className="text-sm" style={{ color: '#8C7B72' }}>
-            {cleanHtml(product.short_description)}
-          </p>
+          <div
+            className="text-sm leading-relaxed wc-prose"
+            style={{ color: '#5C534C' }}
+            dangerouslySetInnerHTML={{ __html: product.short_description }}
+          />
         )}
       </motion.div>
 
-      {/* Description */}
-      {product.description && (
-        <motion.div className="rounded-2xl p-4" style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}>
-          <p className="text-sm" style={{ color: '#8C7B72' }}>
-            {cleanHtml(product.description).substring(0, 200)}...
-          </p>
+      {/* Variable Product: Attribute Selection (場次 / 票價) */}
+      {isVariable && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-2xl p-4 space-y-4"
+          style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}
+        >
+          <p className="text-sm font-bold" style={{ color: '#3D3530' }}>🎫 選擇場次</p>
+
+          {variationsLoading ? (
+            <p className="text-xs" style={{ color: '#8C7B72' }}>載入場次中...</p>
+          ) : productAttributes.length === 0 ? (
+            <p className="text-xs" style={{ color: '#8C7B72' }}>此商品無需選擇規格</p>
+          ) : (
+            productAttributes.filter(a => a.variation).map(attr => {
+              const availableOpts = getAvailableOptions(attr.name);
+              return (
+                <div key={attr.name}>
+                  <label className="text-xs font-medium" style={{ color: '#3D3530' }}>{attr.name}</label>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {attr.options.map((opt: string) => {
+                      const isAvailable = availableOpts.includes(opt);
+                      const isSelected = selectedOptions[attr.name] === opt;
+                      return (
+                        <motion.button
+                          key={opt}
+                          whileTap={isAvailable ? { scale: 0.95 } : {}}
+                          onClick={() => {
+                            if (!isAvailable) return;
+                            setSelectedOptions(prev => ({ ...prev, [attr.name]: isSelected ? '' : opt }));
+                          }}
+                          className="py-2 px-3 rounded-lg text-xs font-medium transition-all"
+                          style={{
+                            backgroundColor: isSelected ? '#8FA886' : isAvailable ? '#FAF8F5' : '#F0EDE8',
+                            color: isSelected ? '#fff' : isAvailable ? '#3D3530' : '#C0B8B0',
+                            border: `1px solid ${isSelected ? '#8FA886' : '#F0EDE8'}`,
+                            opacity: isAvailable ? 1 : 0.4,
+                            textDecoration: isAvailable ? 'none' : 'line-through',
+                          }}
+                        >
+                          {opt}
+                        </motion.button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })
+          )}
+
+          {selectedVariation && (<>
+            {/* Persons/Quantity — inside variable section */}
+            <div className="pt-2 border-t" style={{ borderColor: '#F0EDE8' }}>
+              <label className="text-xs font-medium" style={{ color: '#3D3530' }}>👥 人數</label>
+              <div className="flex items-center gap-4 mt-2">
+                <motion.button
+                  whileTap={{ scale: 0.85 }}
+                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                  className="w-9 h-9 rounded-lg flex items-center justify-center text-sm"
+                  style={{ backgroundColor: '#FAF8F5', color: '#3D3530', border: '1px solid #F0EDE8' }}
+                >−</motion.button>
+                <span className="text-lg font-bold" style={{ color: '#3D3530' }}>{quantity}</span>
+                <motion.button
+                  whileTap={{ scale: 0.85 }}
+                  onClick={() => setQuantity(quantity + 1)}
+                  className="w-9 h-9 rounded-lg flex items-center justify-center text-sm"
+                  style={{ backgroundColor: '#FAF8F5', color: '#3D3530', border: '1px solid #F0EDE8' }}
+                >+</motion.button>
+              </div>
+            </div>
+
+            {/* Summary with total price */}
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-3 rounded-xl" style={{ backgroundColor: '#E8F0E8' }}>
+              <p className="text-xs font-medium" style={{ color: '#3D3530' }}>
+                已選擇：{selectedVariation.attributes.map(a => a.option).join(' / ')}
+              </p>
+              <div className="flex justify-between items-center mt-1">
+                <span className="text-xs" style={{ color: '#5C534C' }}>
+                  NT${parseFloat(selectedVariation.price).toLocaleString('zh-TW', { maximumFractionDigits: 0 })} × {quantity} 人
+                </span>
+                <span className="text-base font-bold" style={{ color: '#8FA886' }}>
+                  NT${totalPrice.toLocaleString('zh-TW', { maximumFractionDigits: 0 })}
+                </span>
+              </div>
+            </motion.div>
+          </>)}
         </motion.div>
       )}
 
-      {/* Booking Date/Time for Virtual Products */}
-      {isVirtual && (
+      {/* Booking Product: Date/Time Selection + Persons */}
+      {isBooking && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -3759,89 +4215,164 @@ function ProductDetailView({ product, onBack, onAddToCart }: { product: WCProduc
         >
           <p className="text-sm font-bold" style={{ color: '#3D3530' }}>📅 預約日期與時段</p>
 
-          {/* Date Selection */}
-          <div>
-            <label className="text-xs" style={{ color: '#8C7B72' }}>選擇日期</label>
-            <div className="grid grid-cols-3 gap-2 mt-2">
-              {dateOptions.map(d => (
-                <motion.button
-                  key={d.value}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => setBookingDate(d.value)}
-                  className="py-2 px-1 rounded-lg text-xs font-medium transition-all"
-                  style={{
-                    backgroundColor: bookingDate === d.value ? '#8FA886' : '#FAF8F5',
-                    color: bookingDate === d.value ? '#fff' : '#3D3530',
-                    border: `1px solid ${bookingDate === d.value ? '#8FA886' : '#F0EDE8'}`,
-                  }}
-                >
-                  {d.label}
-                </motion.button>
-              ))}
+          {bookingSlotsLoading ? (
+            <p className="text-xs" style={{ color: '#8C7B72' }}>載入可預約時段中...</p>
+          ) : bookingDateOptions.length === 0 ? (
+            <p className="text-xs" style={{ color: '#8C7B72' }}>目前暫無可預約日期，請聯繫 LINE 客服</p>
+          ) : (<>
+            {/* Date selection */}
+            <div>
+              <label className="text-xs" style={{ color: '#8C7B72' }}>選擇日期</label>
+              <div className="grid grid-cols-3 gap-2 mt-2">
+                {bookingDateOptions.map(d => (
+                  <motion.button
+                    key={d.value}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => { setBookingDate(d.value); setBookingTime(''); setQuantity(1); }}
+                    className="py-2 px-1 rounded-lg text-xs font-medium transition-all"
+                    style={{
+                      backgroundColor: bookingDate === d.value ? '#8FA886' : '#FAF8F5',
+                      color: bookingDate === d.value ? '#fff' : '#3D3530',
+                      border: `1px solid ${bookingDate === d.value ? '#8FA886' : '#F0EDE8'}`,
+                    }}
+                  >
+                    {d.label}
+                  </motion.button>
+                ))}
+              </div>
             </div>
-          </div>
 
-          {/* Time Slot Selection */}
-          {bookingDate && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-              <label className="text-xs" style={{ color: '#8C7B72' }}>選擇時段</label>
-              {slotsLoading ? (
-                <p className="text-xs mt-2" style={{ color: '#8C7B72' }}>載入時段中...</p>
-              ) : (
-                <div className="grid grid-cols-3 gap-2 mt-2">
-                  {availableSlots.map(time => (
+            {/* Time slot selection */}
+            {bookingDate && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <label className="text-xs" style={{ color: '#8C7B72' }}>選擇時段</label>
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  {bookingTimeOptions.map(slot => (
                     <motion.button
-                      key={time}
+                      key={slot.time}
                       whileTap={{ scale: 0.95 }}
-                      onClick={() => setBookingTime(time)}
-                      className="py-2 px-2 rounded-lg text-sm font-medium transition-all"
+                      onClick={() => { setBookingTime(slot.time); setQuantity(1); }}
+                      className="py-2.5 px-2 rounded-lg text-xs font-medium transition-all text-left"
                       style={{
-                        backgroundColor: bookingTime === time ? '#8FA886' : '#FAF8F5',
-                        color: bookingTime === time ? '#fff' : '#3D3530',
-                        border: `1px solid ${bookingTime === time ? '#8FA886' : '#F0EDE8'}`,
+                        backgroundColor: bookingTime === slot.time ? '#8FA886' : '#FAF8F5',
+                        color: bookingTime === slot.time ? '#fff' : '#3D3530',
+                        border: `1px solid ${bookingTime === slot.time ? '#8FA886' : '#F0EDE8'}`,
                       }}
                     >
-                      {time}
+                      <span className="block">{slot.time} - {slot.endTime}</span>
+                      <span className="block text-[10px] mt-0.5" style={{ color: bookingTime === slot.time ? 'rgba(255,255,255,0.8)' : '#8C7B72' }}>
+                        剩餘 {slot.remaining} 位
+                      </span>
                     </motion.button>
                   ))}
                 </div>
-              )}
-            </motion.div>
-          )}
+                {bookingTimeOptions.length === 0 && (
+                  <p className="text-xs mt-2" style={{ color: '#8C7B72' }}>此日期暫無可用時段</p>
+                )}
+              </motion.div>
+            )}
 
-          {bookingDate && bookingTime && (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-2 rounded-lg text-xs" style={{ backgroundColor: '#E8F0E8', color: '#3D3530' }}>
-              已選擇: {bookingDate} {bookingTime}
-            </motion.div>
+            {/* Persons selection — inside booking section */}
+            {bookingTime && (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="pt-2 border-t" style={{ borderColor: '#F0EDE8' }}>
+                <label className="text-xs font-medium" style={{ color: '#3D3530' }}>👥 人數</label>
+                <div className="flex items-center gap-4 mt-2">
+                  <motion.button
+                    whileTap={{ scale: 0.85 }}
+                    onClick={() => setQuantity(Math.max(bookingConfig?.minParticipants || 1, quantity - 1))}
+                    className="w-9 h-9 rounded-lg flex items-center justify-center text-sm"
+                    style={{ backgroundColor: '#FAF8F5', color: '#3D3530', border: '1px solid #F0EDE8' }}
+                  >−</motion.button>
+                  <span className="text-lg font-bold" style={{ color: '#3D3530' }}>{quantity}</span>
+                  <motion.button
+                    whileTap={{ scale: 0.85 }}
+                    onClick={() => {
+                      const max = selectedSlotCapacity || bookingConfig?.maxParticipants || 8;
+                      setQuantity(Math.min(max, quantity + 1));
+                    }}
+                    className="w-9 h-9 rounded-lg flex items-center justify-center text-sm"
+                    style={{ backgroundColor: '#FAF8F5', color: '#3D3530', border: '1px solid #F0EDE8' }}
+                  >+</motion.button>
+                  {selectedSlotCapacity !== null && (
+                    <span className="text-[10px]" style={{ color: '#8C7B72' }}>（此時段剩餘 {selectedSlotCapacity} 位）</span>
+                  )}
+                </div>
+                {/* Total price for booking */}
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-3 p-3 rounded-xl" style={{ backgroundColor: '#E8F0E8' }}>
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs" style={{ color: '#3D3530' }}>
+                      NT${displayPrice.toLocaleString('zh-TW', { maximumFractionDigits: 0 })} × {quantity} 人
+                    </span>
+                    <span className="text-base font-bold" style={{ color: '#8FA886' }}>
+                      NT${totalPrice.toLocaleString('zh-TW', { maximumFractionDigits: 0 })}
+                    </span>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </>)}
+        </motion.div>
+      )}
+
+      {/* Full Description — rendered as HTML */}
+      {product.description && (
+        <motion.div className="rounded-2xl p-4" style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}>
+          <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>📋 商品說明</p>
+          <div
+            className={`text-sm leading-relaxed wc-prose overflow-hidden ${!showFullDesc ? 'max-h-60' : ''}`}
+            style={{ color: '#5C534C' }}
+            dangerouslySetInnerHTML={{ __html: product.description }}
+          />
+          {product.description.length > 300 && (
+            <motion.button
+              whileTap={{ scale: 0.96 }}
+              onClick={() => setShowFullDesc(!showFullDesc)}
+              className="mt-2 text-xs font-medium"
+              style={{ color: '#8FA886' }}
+            >
+              {showFullDesc ? '收起 ▲' : '展開完整說明 ▼'}
+            </motion.button>
           )}
         </motion.div>
       )}
 
-      {/* Quantity Selection */}
-      <motion.div className="rounded-2xl p-4" style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}>
-        <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>{isVirtual ? '👥 人數' : '📦 數量'}</p>
-        <div className="flex items-center justify-center gap-4">
-          <motion.button
-            whileTap={{ scale: 0.85 }}
-            onClick={() => setQuantity(Math.max(1, quantity - 1))}
-            className="w-10 h-10 rounded-lg flex items-center justify-center"
-            style={{ backgroundColor: '#FAF8F5', color: '#3D3530', border: '1px solid #F0EDE8' }}
-          >
-            −
-          </motion.button>
-          <span className="text-lg font-bold" style={{ color: '#3D3530' }}>
-            {quantity}
-          </span>
-          <motion.button
-            whileTap={{ scale: 0.85 }}
-            onClick={() => setQuantity(quantity + 1)}
-            className="w-10 h-10 rounded-lg flex items-center justify-center"
-            style={{ backgroundColor: '#FAF8F5', color: '#3D3530', border: '1px solid #F0EDE8' }}
-          >
-            +
-          </motion.button>
-        </div>
-      </motion.div>
+      {/* Quantity Selection — only for simple (non-variable, non-booking) products */}
+      {!isVariable && !isBooking && (
+        <motion.div className="rounded-2xl p-4" style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}>
+          <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>📦 數量</p>
+          <div className="flex items-center justify-center gap-4">
+            <motion.button
+              whileTap={{ scale: 0.85 }}
+              onClick={() => setQuantity(Math.max(1, quantity - 1))}
+              className="w-10 h-10 rounded-lg flex items-center justify-center"
+              style={{ backgroundColor: '#FAF8F5', color: '#3D3530', border: '1px solid #F0EDE8' }}
+            >
+              −
+            </motion.button>
+            <span className="text-lg font-bold" style={{ color: '#3D3530' }}>
+              {quantity}
+            </span>
+            <motion.button
+              whileTap={{ scale: 0.85 }}
+              onClick={() => setQuantity(quantity + 1)}
+              className="w-10 h-10 rounded-lg flex items-center justify-center"
+              style={{ backgroundColor: '#FAF8F5', color: '#3D3530', border: '1px solid #F0EDE8' }}
+            >
+              +
+            </motion.button>
+          </div>
+          {quantity > 1 && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-3 p-3 rounded-xl text-center" style={{ backgroundColor: '#E8F0E8' }}>
+              <span className="text-xs" style={{ color: '#5C534C' }}>
+                NT${displayPrice.toLocaleString('zh-TW', { maximumFractionDigits: 0 })} × {quantity}
+              </span>
+              <span className="text-base font-bold ml-2" style={{ color: '#8FA886' }}>
+                = NT${totalPrice.toLocaleString('zh-TW', { maximumFractionDigits: 0 })}
+              </span>
+            </motion.div>
+          )}
+        </motion.div>
+      )}
 
       {/* Add to Cart Button */}
       {product.stock_status === 'outofstock' || (product.manage_stock && product.stock_quantity !== null && product.stock_quantity <= 0) ? (
@@ -5737,41 +6268,46 @@ function CardPage({ onTaskComplete, records }: { onTaskComplete: (key: TaskKey) 
   const todayRecord = records.find(r => r.date === getToday());
   const todayEmoInfo = todayRecord?.emotion ? getEmotionInfo(todayRecord.emotion) : null;
 
-  const [drawnCard, setDrawnCard] = useState<HealingCard | null>(null);
-  const [isFlipped, setIsFlipped] = useState(false);
+  // Daily draw limit — check localStorage
+  const todayKey = `card_drawn_${getToday()}`;
+  const getTodayDraw = (): HealingCard | null => {
+    try {
+      const saved = localStorage.getItem(todayKey);
+      if (!saved) return null;
+      const data = JSON.parse(saved);
+      return HEALING_CARDS.find(c => c.id === data.cardId) || null;
+    } catch { return null; }
+  };
+  const hasDrawnToday = () => !!localStorage.getItem(todayKey);
+  const saveTodayDraw = (card: HealingCard) => {
+    localStorage.setItem(todayKey, JSON.stringify({ cardId: card.id, timestamp: Date.now() }));
+  };
+
+  const [drawnCard, setDrawnCard] = useState<HealingCard | null>(() => getTodayDraw());
+  const [isFlipped, setIsFlipped] = useState(() => !!getTodayDraw());
   const [showDetail, setShowDetail] = useState(false);
   const [savedCards, setSavedCards] = useState<string[]>(loadSavedCards);
-  const [imgLoaded, setImgLoaded] = useState(false);
+  const [imgLoaded, setImgLoaded] = useState(() => !!getTodayDraw());
+  const [alreadyDrawn] = useState(() => hasDrawnToday());
 
   const drawCard = () => {
+    if (hasDrawnToday()) return; // Safety check
     setImgLoaded(false);
-    // If today has emotion check-in, auto-select that emotion's color
     let card: HealingCard;
     if (todayRecord && todayEmoInfo) {
-      // Find a card matching the emotion's color
       const emotionColor: CardColor = (todayEmoInfo.color.toLowerCase() as CardColor) || 'neutral';
       card = drawCardByColor(emotionColor) || drawRandomCard();
     } else {
       card = drawRandomCard();
     }
     setDrawnCard(card);
+    saveTodayDraw(card);
     setIsFlipped(false);
     setShowDetail(false);
     setTimeout(() => {
       setIsFlipped(true);
       onTaskComplete('card');
     }, 400);
-  };
-
-  const redraw = () => {
-    setIsFlipped(false);
-    setShowDetail(false);
-    setImgLoaded(false);
-    setTimeout(() => {
-      const card = drawRandomCard();
-      setDrawnCard(card);
-      setTimeout(() => setIsFlipped(true), 400);
-    }, 500);
   };
 
   const saveCard = () => {
@@ -5804,7 +6340,7 @@ function CardPage({ onTaskComplete, records }: { onTaskComplete: (key: TaskKey) 
       </div>
 
       {/* 抽卡 */}
-      {!drawnCard && (
+      {!drawnCard && !alreadyDrawn && (
         <div className="space-y-4">
           <motion.button
             whileTap={{ scale: 0.96 }}
@@ -5991,14 +6527,6 @@ function CardPage({ onTaskComplete, records }: { onTaskComplete: (key: TaskKey) 
 
               {/* 操作按鈕 */}
               <div className="flex gap-2">
-                <motion.button
-                  whileTap={{ scale: 0.96 }}
-                  onClick={redraw}
-                  className="flex-1 rounded-2xl py-3 font-medium text-sm"
-                  style={{ backgroundColor: '#FFFEF9', color: '#3D3530' }}
-                >
-                  🔄 再抽一張
-                </motion.button>
                 <motion.button
                   whileTap={{ scale: 0.96 }}
                   onClick={saveCard}
@@ -6282,7 +6810,10 @@ const NAV_ITEMS: { key: PageType; icon: string; label: string }[] = [
   { key: 'home', icon: '☽', label: '陪伴' },
   { key: 'sound', icon: '♪', label: '聆聽' },
   { key: 'card', icon: '✦', label: '卡牌' },
+  { key: 'shop', icon: '🎁', label: '陪伴選物' },
   { key: 'diary', icon: '◎', label: '紀錄' },
+  { key: 'library', icon: '✧', label: '懂你' },
+  { key: 'healer', icon: '🌹', label: '療癒師' },
   { key: 'member', icon: '♡', label: '我的' },
 ];
 
@@ -7834,7 +8365,7 @@ function WishlistPage({ onNavigate }: { onNavigate: (p: PageType) => void }) {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 20 }}
-            className="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl text-xs font-medium shadow-lg"
+            className="fixed bottom-28 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-2xl text-xs font-medium shadow-lg"
             style={{ backgroundColor: '#3D3530', color: 'white' }}
           >
             {toast}
@@ -7924,8 +8455,11 @@ function BottomNav({ active, onChange }: { active: PageType; onChange: (p: PageT
     justifyContent: 'center',
     gap: 0,
     position: 'relative',
-    padding: '6px 0',
+    padding: '4px 0',
   };
+
+  const row1 = NAV_ITEMS.slice(0, 4);
+  const row2 = NAV_ITEMS.slice(4, 8);
 
   return (
     <div
@@ -7937,30 +8471,35 @@ function BottomNav({ active, onChange }: { active: PageType; onChange: (p: PageT
       }}
     >
       <div className="max-w-md mx-auto">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', height: 56 }}>
-          {NAV_ITEMS.map(item => (
-            <button
-              key={item.key}
-              onClick={() => onChange(item.key)}
-              style={cellStyle}
-            >
-              <span className="text-lg">{item.icon}</span>
-              <span
-                className="text-[10px] font-medium"
-                style={{ color: active === item.key ? '#8FA886' : '#8C7B72' }}
+        {[row1, row2].map((row, rowIdx) => (
+          <div key={rowIdx} style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', height: 48 }}>
+            {row.map(item => (
+              <button
+                key={item.key}
+                onClick={() => onChange(item.key)}
+                style={cellStyle}
               >
-                {item.label}
-              </span>
-              {active === item.key && (
-                <motion.div
-                  layoutId="bottom-nav-indicator"
-                  className="absolute bottom-1.5 w-1.5 h-1.5 rounded-full"
-                  style={{ backgroundColor: '#8FA886' }}
-                />
-              )}
-            </button>
-          ))}
-        </div>
+                <span className={item.key === 'healer' ? 'text-lg' : 'text-base'} style={{
+                  color: active === item.key ? '#8FA886' : '#3D3530',
+                  ...((['shop', 'healer'].includes(item.key)) ? { filter: active === item.key ? 'grayscale(100%) brightness(0.7) sepia(1) hue-rotate(70deg) saturate(3)' : 'grayscale(100%) contrast(0.6)' } : {}),
+                }}>{item.icon}</span>
+                <span
+                  className="text-[10px] font-medium"
+                  style={{ color: active === item.key ? '#8FA886' : '#8C7B72' }}
+                >
+                  {item.label}
+                </span>
+                {active === item.key && (
+                  <motion.div
+                    layoutId="bottom-nav-indicator"
+                    className="absolute bottom-0.5 w-1.5 h-1.5 rounded-full"
+                    style={{ backgroundColor: '#8FA886' }}
+                  />
+                )}
+              </button>
+            ))}
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -7969,7 +8508,31 @@ function BottomNav({ active, onChange }: { active: PageType; onChange: (p: PageT
 // ===================== MAIN COMPONENT =====================
 
 export default function HealingApp() {
-  const [page, setPage] = useState<PageType>('home');
+  const [page, _setPage] = useState<PageType>('home');
+  const pageHistoryRef = useRef<PageType[]>(['home']);
+
+  // Wrapped setPage that maintains history
+  const setPage = useCallback((newPage: PageType) => {
+    _setPage(prev => {
+      // Don't push if same page
+      if (prev !== newPage) {
+        pageHistoryRef.current.push(newPage);
+        // Push browser history state so back button works
+        window.history.pushState({ page: newPage }, '', '');
+      }
+      return newPage;
+    });
+  }, []);
+
+  // Go back to previous page
+  const goBack = useCallback(() => {
+    const history = pageHistoryRef.current;
+    if (history.length > 1) {
+      history.pop(); // remove current
+      const prevPage = history[history.length - 1];
+      _setPage(prevPage);
+    }
+  }, []);
   const [user, setUser] = useState<User | null>(null);
   const [records, setRecords] = useState<HealingRecord[]>(() => {
     const existing = loadRecords();
@@ -7991,6 +8554,27 @@ export default function HealingApp() {
   // Initialize native app features (StatusBar, SplashScreen)
   useEffect(() => {
     initNativeApp();
+  }, []);
+
+  // Browser back button → navigate within app instead of leaving
+  useEffect(() => {
+    // Push initial state
+    window.history.replaceState({ page: 'home' }, '', '');
+
+    const handlePopState = () => {
+      const history = pageHistoryRef.current;
+      if (history.length > 1) {
+        history.pop();
+        const prevPage = history[history.length - 1];
+        _setPage(prevPage);
+      } else {
+        // At root — push state again to prevent leaving app
+        window.history.pushState({ page: 'home' }, '', '');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
   // Listen for auth changes and load Firestore records if logged in
@@ -8057,7 +8641,24 @@ export default function HealingApp() {
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#FAF8F5', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
       {!isBedtimeFullscreen && <BottomNav active={page} onChange={setPage} />}
-      <div className="max-w-md mx-auto px-4 pt-4 pb-24">
+
+      {/* Global Back Button — top left */}
+      {!isBedtimeFullscreen && pageHistoryRef.current.length > 1 && (
+        <div className="fixed top-0 left-0 right-0 z-30" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+          <div className="max-w-md mx-auto px-3 py-2">
+            <motion.button
+              whileTap={{ scale: 0.85 }}
+              onClick={() => window.history.back()}
+              className="w-9 h-9 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: 'rgba(255,254,249,0.9)', backdropFilter: 'blur(8px)', border: '1px solid #F0EDE8', color: '#3D3530' }}
+            >
+              <span className="text-sm">←</span>
+            </motion.button>
+          </div>
+        </div>
+      )}
+
+      <div className="max-w-md mx-auto px-4 pt-4 pb-32">
         <AnimatePresence mode="wait">
           <motion.div
             key={page}

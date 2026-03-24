@@ -115,20 +115,116 @@ router.get("/products/:id/booking-slots", async (req, res) => {
   try {
     const { id } = req.params;
 
-    // 從 WooCommerce 獲取商品詳細資訊（包含 meta 中的 booking 資訊）
     const productResponse = await wcApi.get(`/products/${id}`);
     const product = productResponse.data;
+    const meta = product.meta_data || [];
 
-    // 預期商品的 meta_data 中會有 booking_slots 或相關信息
-    // 這裡先返回空陣列，實際應該整合 Phive Booking API
-    const slots = product.meta_data?.find(
-      (m: Record<string, unknown>) => m.key === "booking_slots"
-    )?.value || [];
+    const getMeta = (key: string): string =>
+      meta.find((m: Record<string, unknown>) => m.key === key)?.value || "";
+    const getMetaArr = (key: string): Record<string, string>[] =>
+      meta.find((m: Record<string, unknown>) => m.key === key)?.value || [];
+
+    // Parse booking configuration from Phive Booking meta
+    const workStart = getMeta("_phive_book_working_hour_start") || "10:00";
+    const workEnd = getMeta("_phive_book_working_hour_end") || "19:00";
+    const intervalStr = getMeta("_phive_book_interval") || "1";
+    const intervalPeriod = getMeta("_phive_book_interval_period") || "hour";
+    const allowedPerSlot = parseInt(getMeta("_phive_book_allowed_per_slot") || "4", 10);
+    const maxParticipants = parseInt(getMeta("_phive_booking_maximum_number_of_allowed_participant") || "8", 10);
+    const minParticipants = parseInt(getMeta("_phive_booking_minimum_number_of_required_participant") || "1", 10);
+    const fixedFrom = getMeta("_phive_fixed_availability_from");
+    const personEnable = getMeta("_phive_booking_person_enable") === "yes";
+    const personsMultiply = getMeta("_phive_booking_persons_multuply_all_cost") === "yes";
+    const basePrice = parseFloat(getMeta("_phive_booking_pricing_base_cost") || product.price || "0");
+
+    // Parse blocked date/time rules
+    const availabilityRules = getMetaArr("_phive_booking_availability_rules");
+    interface BlockedRange { from: Date; to: Date }
+    const blockedRanges: BlockedRange[] = availabilityRules
+      .filter((r) => r.is_bokable === "no" && r.from_date && r.to_date)
+      .map((r) => ({
+        from: new Date(r.from_date.replace(" ", "T")),
+        to: new Date(r.to_date.replace(" ", "T")),
+      }));
+
+    // Generate time slots for each day (next 14 days)
+    const intervalMinutes = intervalPeriod === "hour"
+      ? parseInt(intervalStr, 10) * 60
+      : parseInt(intervalStr, 10);
+
+    const startH = parseInt(workStart.split(":")[0], 10);
+    const startM = parseInt(workStart.split(":")[1] || "0", 10);
+    const endH = parseInt(workEnd.split(":")[0], 10);
+    const endM = parseInt(workEnd.split(":")[1] || "0", 10);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const startDate = fixedFrom ? new Date(fixedFrom) : today;
+    if (startDate < today) startDate.setTime(today.getTime());
+
+    interface SlotInfo {
+      date: string;
+      time: string;
+      endTime: string;
+      available: boolean;
+      remainingCapacity: number;
+    }
+
+    const slots: SlotInfo[] = [];
+
+    for (let dayOffset = 0; dayOffset <= 14; dayOffset++) {
+      const day = new Date(startDate);
+      day.setDate(day.getDate() + dayOffset);
+      const dateStr = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
+
+      let currentMin = startH * 60 + startM;
+      const endMin = endH * 60 + endM;
+
+      while (currentMin < endMin) {
+        const slotH = Math.floor(currentMin / 60);
+        const slotM = currentMin % 60;
+        const slotTime = `${String(slotH).padStart(2, "0")}:${String(slotM).padStart(2, "0")}`;
+        const nextMin = currentMin + intervalMinutes;
+        const nextH = Math.floor(nextMin / 60);
+        const nextM = nextMin % 60;
+        const endTime = `${String(nextH).padStart(2, "0")}:${String(nextM).padStart(2, "0")}`;
+
+        // Check if this slot is blocked
+        const slotStart = new Date(`${dateStr}T${slotTime}:00`);
+        const isBlocked = blockedRanges.some(
+          (b) => slotStart >= b.from && slotStart < b.to
+        );
+
+        // Skip past slots for today
+        const isPast = day.toDateString() === new Date().toDateString() &&
+          slotStart.getTime() < Date.now();
+
+        slots.push({
+          date: dateStr,
+          time: slotTime,
+          endTime,
+          available: !isBlocked && !isPast,
+          remainingCapacity: isBlocked || isPast ? 0 : allowedPerSlot,
+        });
+
+        currentMin = nextMin;
+      }
+    }
 
     res.json({
       productId: id,
-      slots: slots,
-      message: "Phive Booking integration should be implemented",
+      slots,
+      config: {
+        workStart,
+        workEnd,
+        intervalMinutes,
+        allowedPerSlot,
+        maxParticipants,
+        minParticipants,
+        personEnable,
+        personsMultiply,
+        basePrice,
+      },
     });
   } catch (error) {
     const err = error as AxiosError<WCErrorResponse>;
