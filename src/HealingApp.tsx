@@ -470,28 +470,6 @@ const SERVICE_CATEGORIES: ServiceCategory[] = [
     ],
   },
   {
-    id: 'custom', emoji: '✨', title: '客製服務',
-    sub: '做一份只屬於你的、或送給重要的人',
-    quickItems: [
-      {
-        q: '想做專屬香氛',
-        a: '可以來上精油調香課，由調香師一對一帶你選精油、調配比例，做出一瓶只屬於你的味道。也可以在 App 的「調一瓶更像你的」功能留下你的情緒狀態和喜好，調香師會為你量身配方。',
-      },
-      {
-        q: '想客製禮物',
-        a: '我們有幾種方式：買課程體驗券送人（讓對方自己選喜歡的課）、訂製禮盒（蠟燭+擴香+手作小物的組合）、或直接帶對方來上課做一份手作禮物。如果有特殊需求，例如想在蠟燭上刻字、或指定特定花材，LINE 跟我們說就好。',
-      },
-      {
-        q: '想辦一場私人活動',
-        a: '我們的空間最多可以容納 65 人，很適合辦生日派對、閨蜜聚會、求婚驚喜等私人活動。可以搭配手作課程，讓大家一邊做一邊聊。費用和細節依人數和課程內容而定，請 LINE 或來電洽詢，我們會幫你規劃。',
-      },
-      {
-        q: '想做企業贈禮',
-        a: '可以客製蠟燭禮盒、擴香禮盒、水晶手鍊禮盒等，可以加上企業 LOGO 或專屬包裝。數量從 30 份起訂，詳細報價請 LINE 或 email（xiabenhow@gmail.com）告訴我們數量和需求。',
-      },
-    ],
-  },
-  {
     id: 'after', emoji: '💬', title: '售後問題',
     sub: '有什麼不對勁，讓我們知道',
     quickItems: [
@@ -3132,11 +3110,70 @@ function SoundPage({ recommendedEmotion }: { recommendedEmotion?: string }) {
 
 // ===================== PAGE: SHOP (COMMERCE) =====================
 
+// 地區設定
+type ShopRegion = 'taipei' | 'taichung' | 'kaohsiung';
+const SHOP_REGIONS: { key: ShopRegion; label: string; emoji: string; wcCategoryId: number }[] = [
+  { key: 'taipei', label: '台北店', emoji: '🏙️', wcCategoryId: 128 },
+  { key: 'taichung', label: '台中店', emoji: '🌿', wcCategoryId: 32 },
+  { key: 'kaohsiung', label: '高雄店', emoji: '☀️', wcCategoryId: 133 },
+];
+
+// 各地區對應的課程分類（子分類在 WC 裡是 parent=17 老師教我做）
+const REGION_CATEGORIES: Record<ShopRegion, { id: number; name: string }[]> = {
+  taipei: [
+    { id: 128, name: '全部' },
+    { id: 21, name: '手作飾品' },
+    { id: 22, name: '多肉植栽' },
+    { id: 24, name: '畫畫課程' },
+    { id: 25, name: '花藝課程' },
+    { id: 18, name: '蠟燭課程' },
+    { id: 173, name: '精油調香' },
+    { id: 212, name: '皮革課程' },
+    { id: 149, name: '環氧樹脂' },
+    { id: 150, name: '梭織系列' },
+    { id: 151, name: '藍染課程' },
+    { id: 61, name: '平板自己做' },
+    { id: 200, name: '下班隨手飾' },
+    { id: 75, name: 'DIY材料包' },
+    { id: 27, name: '把我帶回家' },
+  ],
+  taichung: [
+    { id: 32, name: '全部' },
+    { id: 21, name: '手作飾品' },
+    { id: 22, name: '多肉植栽' },
+    { id: 24, name: '畫畫課程' },
+    { id: 25, name: '花藝課程' },
+    { id: 18, name: '蠟燭課程' },
+    { id: 173, name: '精油調香' },
+    { id: 75, name: 'DIY材料包' },
+    { id: 27, name: '把我帶回家' },
+  ],
+  kaohsiung: [
+    { id: 133, name: '全部' },
+    { id: 21, name: '手作飾品' },
+    { id: 22, name: '多肉植栽' },
+    { id: 24, name: '畫畫課程' },
+    { id: 25, name: '花藝課程' },
+    { id: 18, name: '蠟燭課程' },
+    { id: 173, name: '精油調香' },
+    { id: 75, name: 'DIY材料包' },
+    { id: 27, name: '把我帶回家' },
+  ],
+};
+
 function ShopPage() {
   const [view, setView] = useState<'products' | 'detail' | 'cart' | 'checkout'>('products');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<WCProduct | null>(null);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<number>(130);
+  const [selectedRegion, setSelectedRegion] = useState<ShopRegion>('taipei');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number>(128);
+
+  const handleRegionChange = (region: ShopRegion) => {
+    setSelectedRegion(region);
+    // Reset to "全部" for that region
+    const regionCats = REGION_CATEGORIES[region];
+    setSelectedCategoryId(regionCats[0].id);
+  };
 
   const addToCart = (item: CartItem) => {
     const existingItem = cart.find(c => c.id === item.id);
@@ -3173,7 +3210,7 @@ function ShopPage() {
 
   return (
     <motion.div className="space-y-5" {...fadeInUp}>
-      {view === 'products' && <ShopProductsView categoryId={selectedCategoryId} onSelectCategory={setSelectedCategoryId} onSelectProduct={handleSelectProduct} onNavigateCart={() => setView('cart')} cartCount={cart.length} />}
+      {view === 'products' && <ShopProductsView region={selectedRegion} onRegionChange={handleRegionChange} categoryId={selectedCategoryId} onSelectCategory={setSelectedCategoryId} onSelectProduct={handleSelectProduct} onNavigateCart={() => setView('cart')} cartCount={cart.length} />}
       {view === 'detail' && selectedProduct && <ProductDetailView product={selectedProduct} onBack={handleBackFromDetail} onAddToCart={addToCart} />}
       {view === 'cart' && <CartView cart={cart} onUpdateQuantity={updateCartQuantity} onRemove={removeFromCart} onCheckout={() => setView('checkout')} onBack={() => setView('products')} />}
       {view === 'checkout' && <CheckoutView cart={cart} onBack={() => setView('cart')} />}
@@ -3183,12 +3220,16 @@ function ShopPage() {
 
 
 function ShopProductsView({
+  region,
+  onRegionChange,
   categoryId,
   onSelectCategory,
   onSelectProduct,
   onNavigateCart,
   cartCount,
 }: {
+  region: ShopRegion;
+  onRegionChange: (r: ShopRegion) => void;
   categoryId: number;
   onSelectCategory: (id: number) => void;
   onSelectProduct: (product: WCProduct) => void;
@@ -3235,34 +3276,36 @@ function ShopProductsView({
     setTimeout(() => setWishlistToast(''), 2000);
   };
 
-  const MAIN_CATEGORIES = [
-    { id: 130, name: '全部' },
-    { id: 21, name: '手作飾品' },
-    { id: 22, name: '多肉植栽' },
-    { id: 24, name: '畫畫課程' },
-    { id: 25, name: '花藝課程' },
-    { id: 18, name: '蠟燭課程' },
-    { id: 173, name: '精油調香' },
-    { id: 212, name: '皮革課程' },
-    { id: 75, name: 'DIY材料包' },
-    { id: 27, name: '把我帶回家' },
-  ];
+  const MAIN_CATEGORIES = REGION_CATEGORIES[region];
+
+  // Categories that are NOT region-specific (show regardless of region)
+  const NO_REGION_FILTER_CATS = [75, 27, 61, 200]; // DIY材料包, 把我帶回家, 平板自己做, 下班隨手飾
+  const regionInfo = SHOP_REGIONS.find(r => r.key === region)!;
 
   useEffect(() => {
     const fetchProducts = async () => {
-      console.log(`載入分類 ${categoryId} 的商品...`);
+      console.log(`載入 ${region} 分類 ${categoryId} 的商品...`);
       setLoading(true);
       setError(null);
       try {
         const url = `${API_BASE}/api/wc/products?category=${categoryId}`;
-
         const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error('載入商品失敗');
-        }
+        if (!response.ok) throw new Error('載入商品失敗');
         const data = await response.json();
-        console.log(`成功載入 ${data?.length || 0} 件商品`);
-        setProducts(Array.isArray(data) ? data : []);
+        let filtered: WCProduct[] = Array.isArray(data) ? data : [];
+
+        // If we're fetching a shared sub-category (like 手作飾品),
+        // filter to only show products also in the current region category
+        const isRegionRoot = categoryId === regionInfo.wcCategoryId;
+        const isNoRegionCat = NO_REGION_FILTER_CATS.includes(categoryId);
+        if (!isRegionRoot && !isNoRegionCat) {
+          filtered = filtered.filter(p =>
+            p.categories?.some(c => c.id === regionInfo.wcCategoryId)
+          );
+        }
+
+        console.log(`成功載入 ${filtered.length} 件商品 (原始 ${data?.length || 0})`);
+        setProducts(filtered);
       } catch (err) {
         console.error('載入商品錯誤:', err);
         setError('無法載入商品，請重試');
@@ -3273,7 +3316,7 @@ function ShopProductsView({
     };
 
     fetchProducts();
-  }, [categoryId]);
+  }, [categoryId, region]);
 
   return (
     <motion.div className="space-y-4">
@@ -3297,6 +3340,42 @@ function ShopProductsView({
           )}
         </motion.button>
       </div>
+
+      {/* Region Switcher - 地區切換 */}
+      <div className="flex gap-1.5 p-1 rounded-2xl" style={{ backgroundColor: '#F0EDE8' }}>
+        {SHOP_REGIONS.map(r => (
+          <motion.button
+            key={r.key}
+            whileTap={{ scale: 0.96 }}
+            onClick={() => onRegionChange(r.key)}
+            className="flex-1 py-2.5 rounded-xl text-sm font-medium text-center transition-all"
+            style={{
+              backgroundColor: region === r.key ? '#FFFEF9' : 'transparent',
+              color: region === r.key ? '#3D3530' : '#8C7B72',
+              boxShadow: region === r.key ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
+            }}
+          >
+            {r.emoji} {r.label}
+          </motion.button>
+        ))}
+      </div>
+
+      {/* 台北店特有提示 */}
+      {region === 'taipei' && (
+        <p className="text-[11px] text-center" style={{ color: '#8C7B72' }}>
+          📍 台北西門｜每日 10:00-22:00｜老師教學 + 平板自己做 + 隨手飾
+        </p>
+      )}
+      {region === 'taichung' && (
+        <p className="text-[11px] text-center" style={{ color: '#8C7B72' }}>
+          📍 台中｜老師教學課程
+        </p>
+      )}
+      {region === 'kaohsiung' && (
+        <p className="text-[11px] text-center" style={{ color: '#8C7B72' }}>
+          📍 高雄｜老師教學課程
+        </p>
+      )}
 
       {/* 情境入口 - Emotion Scenario Buttons */}
       <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1" style={{ scrollbarWidth: 'none' }}>
