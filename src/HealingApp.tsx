@@ -143,6 +143,197 @@ function isInWishlist(productId: number): boolean {
   return loadWishlist().some(w => w.productId === productId);
 }
 
+// ===================== 陪伴能量 COMPANION ENERGY =====================
+
+type EnergyActionType = 'checkin' | 'note' | 'sound' | 'bedtime';
+
+interface EnergyLog {
+  date: string; // YYYY-MM-DD
+  action: EnergyActionType;
+  points: number;
+  label: string;
+  timestamp: number;
+}
+
+interface CompanionCoupon {
+  id: string;
+  type: 'small_heart' | 'warm_return' | 'scent_companion' | 'healing_time' | 'unconditional';
+  name: string;
+  emoji: string;
+  discount: number;         // NT$ discount amount
+  description: string;      // warm brand copy
+  thresholdEnergy: number;  // energy needed to unlock
+  unlockedAt: number;       // timestamp when unlocked, 0 = not yet
+  usedAt: number;           // timestamp when used, 0 = not yet
+  applicableTo?: string;    // restriction text, e.g. "精油調香課程" or "任一課程"
+}
+
+interface EnergyState {
+  totalEnergy: number;
+  logs: EnergyLog[];
+  coupons: CompanionCoupon[];
+  streakDays: number;       // current consecutive check-in streak for energy
+  lastCheckinDate: string;  // YYYY-MM-DD
+}
+
+const ENERGY_ACTIONS: Record<EnergyActionType, { label: string; emoji: string }> = {
+  checkin: { label: '情緒打卡', emoji: '🌅' },
+  note: { label: '寫一則筆記', emoji: '📝' },
+  sound: { label: '聆聽音景', emoji: '🎧' },
+  bedtime: { label: '睡前陪伴', emoji: '🌙' },
+};
+
+const COUPON_TIERS: Omit<CompanionCoupon, 'id' | 'unlockedAt' | 'usedAt'>[] = [
+  {
+    type: 'small_heart',
+    name: '一點小心意',
+    emoji: '🌿',
+    discount: 30,
+    description: '這幾天你有好好陪自己，這是一點小小心意。',
+    thresholdEnergy: 10,
+    applicableTo: '全館商品',
+  },
+  {
+    type: 'warm_return',
+    name: '溫柔的回饋',
+    emoji: '🕯️',
+    discount: 60,
+    description: '你的堅持被看見了，讓我陪你做點什麼。',
+    thresholdEnergy: 20,
+    applicableTo: '全館商品',
+  },
+  {
+    type: 'scent_companion',
+    name: '香氛陪伴券',
+    emoji: '🌸',
+    discount: 100,
+    description: '累積了這麼多溫柔，送你一段香氣時光。',
+    thresholdEnergy: 30,
+    applicableTo: '精油調香體驗',
+  },
+  {
+    type: 'healing_time',
+    name: '療癒時光券',
+    emoji: '✨',
+    discount: 150,
+    description: '你值得一段完整的療癒時光，這是我們的心意。',
+    thresholdEnergy: 50,
+    applicableTo: '任一課程',
+  },
+  {
+    type: 'unconditional',
+    name: '無條件陪伴券',
+    emoji: '💛',
+    discount: 300,
+    description: '謝謝你一直在，這份陪伴沒有條件。',
+    thresholdEnergy: 100,
+    applicableTo: '任一課程',
+  },
+];
+
+// localStorage helpers for energy
+function loadEnergy(): EnergyState {
+  try {
+    const raw = localStorage.getItem('healing_energy');
+    return raw ? JSON.parse(raw) : { totalEnergy: 0, logs: [], coupons: [], streakDays: 0, lastCheckinDate: '' };
+  } catch { return { totalEnergy: 0, logs: [], coupons: [], streakDays: 0, lastCheckinDate: '' }; }
+}
+
+function saveEnergy(state: EnergyState) {
+  localStorage.setItem('healing_energy', JSON.stringify(state));
+}
+
+/** inline date formatter to avoid hoisting issues */
+function _energyToday(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+/** Record an energy-earning action. Returns the updated state + points earned (0 if already done today). */
+function earnEnergy(action: EnergyActionType): { state: EnergyState; earned: number } {
+  const state = loadEnergy();
+  const today = _energyToday();
+  // Check if already earned for this action today
+  const alreadyDone = state.logs.some(l => l.date === today && l.action === action);
+  if (alreadyDone) return { state, earned: 0 };
+
+  const info = ENERGY_ACTIONS[action];
+  const log: EnergyLog = {
+    date: today,
+    action,
+    points: 1,
+    label: info.label,
+    timestamp: Date.now(),
+  };
+  state.logs.push(log);
+  state.totalEnergy += 1;
+
+  // Streak logic for check-in
+  if (action === 'checkin') {
+    const yd = new Date(Date.now() - 86400000);
+    const yesterday = `${yd.getFullYear()}-${String(yd.getMonth() + 1).padStart(2, '0')}-${String(yd.getDate()).padStart(2, '0')}`;
+    if (state.lastCheckinDate === yesterday) {
+      state.streakDays += 1;
+    } else if (state.lastCheckinDate !== today) {
+      state.streakDays = 1;
+    }
+    state.lastCheckinDate = today;
+
+    // Streak bonuses
+    if (state.streakDays === 3) {
+      const bonusLog: EnergyLog = { date: today, action: 'checkin', points: 2, label: '連續簽到 3 天獎勵', timestamp: Date.now() };
+      state.logs.push(bonusLog);
+      state.totalEnergy += 2;
+    }
+    if (state.streakDays === 7) {
+      const bonusLog: EnergyLog = { date: today, action: 'checkin', points: 5, label: '連續簽到 7 天獎勵', timestamp: Date.now() };
+      state.logs.push(bonusLog);
+      state.totalEnergy += 5;
+    }
+  }
+
+  // Check if new coupons should be unlocked
+  for (const tier of COUPON_TIERS) {
+    const alreadyHas = state.coupons.some(c => c.type === tier.type);
+    if (!alreadyHas && state.totalEnergy >= tier.thresholdEnergy) {
+      state.coupons.push({
+        ...tier,
+        id: `coupon_${tier.type}_${Date.now()}`,
+        unlockedAt: Date.now(),
+        usedAt: 0,
+      });
+    }
+  }
+
+  saveEnergy(state);
+  return { state, earned: 1 };
+}
+
+function getAvailableCoupons(): CompanionCoupon[] {
+  const state = loadEnergy();
+  return state.coupons.filter(c => c.unlockedAt > 0 && c.usedAt === 0);
+}
+
+function useCoupon(couponId: string): boolean {
+  const state = loadEnergy();
+  const coupon = state.coupons.find(c => c.id === couponId);
+  if (!coupon || coupon.usedAt > 0) return false;
+  coupon.usedAt = Date.now();
+  saveEnergy(state);
+  return true;
+}
+
+function getBestCouponForAmount(amount: number): CompanionCoupon | null {
+  const available = getAvailableCoupons();
+  // Find the highest-value coupon that doesn't exceed the order amount
+  const eligible = available.filter(c => c.discount <= amount);
+  if (eligible.length === 0) return null;
+  return eligible.reduce((best, c) => c.discount > best.discount ? c : best, eligible[0]);
+}
+
 // 服務大廳分類資料
 interface ServiceQuickItem {
   q: string;
@@ -2460,6 +2651,15 @@ function SoundPage({ recommendedEmotion }: { recommendedEmotion?: string }) {
     }
   }, [recommendedEmotion, isPlaying, playForEmotion]);
 
+  // 陪伴能量: earn energy when sound starts playing
+  const hasEarnedSoundEnergy = useRef(false);
+  useEffect(() => {
+    if (isPlaying && !hasEarnedSoundEnergy.current) {
+      hasEarnedSoundEnergy.current = true;
+      earnEnergy('sound');
+    }
+  }, [isPlaying]);
+
   const formatTime = (s: number) => {
     const m = Math.floor(s / 60);
     const sec = s % 60;
@@ -3674,6 +3874,15 @@ function CheckoutView({ cart, onBack }: { cart: CartItem[]; onBack: () => void }
   const [companyName, setCompanyName] = useState('');
   const [selectedStore, setSelectedStore] = useState<{ storeId: string; storeName: string; storeAddress: string } | null>(null);
 
+  // 陪伴能量票券
+  const [availableCoupons] = useState<CompanionCoupon[]>(() => getAvailableCoupons());
+  const [selectedCoupon, setSelectedCoupon] = useState<CompanionCoupon | null>(() => {
+    const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    return getBestCouponForAmount(total);
+  });
+  const [showCouponPicker, setShowCouponPicker] = useState(false);
+  const [couponSkipped, setCouponSkipped] = useState(false);
+
   // 監聽超商門市選擇結果
   useEffect(() => {
     const handleMessage = (event: MessageEvent) => {
@@ -3789,7 +3998,13 @@ function CheckoutView({ cart, onBack }: { cart: CartItem[]; onBack: () => void }
         }
       }
 
-      alert(`訂單已建立\n訂單編號: ${orderId}\n金額: NT$${total.toLocaleString()}`);
+      // Mark coupon as used if one was selected
+      if (!couponSkipped && selectedCoupon) {
+        useCoupon(selectedCoupon.id);
+      }
+
+      const finalAmount = (!couponSkipped && selectedCoupon) ? total - selectedCoupon.discount : total;
+      alert(`訂單已建立\n訂單編號: ${orderId}\n金額: NT$${finalAmount.toLocaleString()}${selectedCoupon && !couponSkipped ? `\n已使用票券「${selectedCoupon.name}」折抵 NT$${selectedCoupon.discount}` : ''}`);
     } catch (error) {
       console.error('結帳錯誤:', error);
       alert('結帳失敗，請重試: ' + (error instanceof Error ? error.message : '未知錯誤'));
@@ -3976,10 +4191,130 @@ function CheckoutView({ cart, onBack }: { cart: CartItem[]; onBack: () => void }
         </div>
       </motion.div>
 
+      {/* 陪伴能量票券 - 今天想送你一點溫柔 */}
+      {availableCoupons.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-2xl p-5 space-y-3"
+          style={{ backgroundColor: '#FFF8E7', border: '1px solid #F0EDE8' }}
+        >
+          <p className="text-sm font-bold" style={{ color: '#3D3530' }}>🌿 今天想送你一點溫柔</p>
+
+          {!couponSkipped && selectedCoupon ? (
+            <div>
+              {/* Selected coupon display */}
+              <motion.div
+                className="p-3 rounded-xl flex items-center gap-3"
+                style={{ backgroundColor: '#FFFEF9', border: '1px solid #C5D9BE' }}
+              >
+                <span className="text-2xl">{selectedCoupon.emoji}</span>
+                <div className="flex-1">
+                  <p className="text-sm font-medium" style={{ color: '#3D3530' }}>{selectedCoupon.name}</p>
+                  <p className="text-xs" style={{ color: '#8C7B72' }}>{selectedCoupon.description}</p>
+                  <p className="text-xs font-bold mt-1" style={{ color: '#8FA886' }}>折抵 NT${selectedCoupon.discount}</p>
+                </div>
+              </motion.div>
+              <div className="flex gap-2 mt-2">
+                {availableCoupons.length > 1 && (
+                  <motion.button
+                    whileTap={{ scale: 0.96 }}
+                    onClick={() => setShowCouponPicker(!showCouponPicker)}
+                    className="flex-1 py-2 rounded-lg text-xs font-medium"
+                    style={{ backgroundColor: '#FAF8F5', color: '#3D3530', border: '1px solid #F0EDE8' }}
+                  >
+                    {showCouponPicker ? '收起' : '換一張'}
+                  </motion.button>
+                )}
+                <motion.button
+                  whileTap={{ scale: 0.96 }}
+                  onClick={() => { setCouponSkipped(true); setSelectedCoupon(null); }}
+                  className="flex-1 py-2 rounded-lg text-xs font-medium"
+                  style={{ backgroundColor: '#FAF8F5', color: '#8C7B72', border: '1px solid #F0EDE8' }}
+                >
+                  這次先不用，留給下次
+                </motion.button>
+              </div>
+            </div>
+          ) : couponSkipped ? (
+            <div>
+              <p className="text-xs" style={{ color: '#8C7B72' }}>沒關係，票券會在這裡等你的 🌿</p>
+              <motion.button
+                whileTap={{ scale: 0.96 }}
+                onClick={() => {
+                  setCouponSkipped(false);
+                  setSelectedCoupon(getBestCouponForAmount(total));
+                }}
+                className="mt-2 py-2 px-4 rounded-lg text-xs font-medium"
+                style={{ backgroundColor: '#FAF8F5', color: '#3D3530', border: '1px solid #F0EDE8' }}
+              >
+                還是想用一張
+              </motion.button>
+            </div>
+          ) : (
+            <p className="text-xs" style={{ color: '#8C7B72' }}>目前沒有適合這筆訂單的票券</p>
+          )}
+
+          {/* Coupon picker */}
+          <AnimatePresence>
+            {showCouponPicker && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="space-y-2"
+              >
+                {availableCoupons.map(coupon => {
+                  const isOverAmount = coupon.discount > total;
+                  return (
+                    <motion.button
+                      key={coupon.id}
+                      whileTap={isOverAmount ? {} : { scale: 0.97 }}
+                      onClick={() => {
+                        if (!isOverAmount) {
+                          setSelectedCoupon(coupon);
+                          setCouponSkipped(false);
+                          setShowCouponPicker(false);
+                        }
+                      }}
+                      className="w-full p-3 rounded-xl flex items-center gap-3 text-left"
+                      style={{
+                        backgroundColor: selectedCoupon?.id === coupon.id ? '#E8F0E8' : isOverAmount ? '#F5F3F0' : '#FFFEF9',
+                        opacity: isOverAmount ? 0.5 : 1,
+                        border: selectedCoupon?.id === coupon.id ? '1px solid #8FA886' : '1px solid #F0EDE8',
+                      }}
+                    >
+                      <span className="text-lg">{coupon.emoji}</span>
+                      <div className="flex-1">
+                        <p className="text-xs font-medium" style={{ color: '#3D3530' }}>{coupon.name}</p>
+                        <p className="text-[10px]" style={{ color: '#8C7B72' }}>
+                          {isOverAmount ? `面額超過訂單金額` : `折抵 NT$${coupon.discount} · ${coupon.applicableTo}`}
+                        </p>
+                      </div>
+                    </motion.button>
+                  );
+                })}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
+      )}
+
       {/* Order Summary */}
       <motion.div className="rounded-2xl p-5 text-center" style={{ backgroundColor: '#FAF8F5' }}>
         <p className="text-sm mb-2" style={{ color: '#8C7B72' }}>訂單金額</p>
         <p className="text-2xl font-bold" style={{ color: '#8FA886' }}>NT${total.toLocaleString()}</p>
+        {!couponSkipped && selectedCoupon && (
+          <div className="mt-2 space-y-1">
+            <p className="text-xs" style={{ color: '#8C7B72' }}>
+              {selectedCoupon.emoji} {selectedCoupon.name} -{' '}
+              <span style={{ color: '#C48B6C', fontWeight: 600 }}>-NT${selectedCoupon.discount}</span>
+            </p>
+            <p className="text-lg font-bold" style={{ color: '#C9A96E' }}>
+              實付 NT${(total - selectedCoupon.discount).toLocaleString()}
+            </p>
+          </div>
+        )}
       </motion.div>
 
       {/* Checkout Button */}
@@ -4011,6 +4346,8 @@ function MemberPage({ records, onNavigate }: { records: HealingRecord[]; onNavig
   const [pointsLoading, setPointsLoading] = useState(false);
   const [ordersError, setOrdersError] = useState<string | null>(null);
   const [pointsError, setPointsError] = useState<string | null>(null);
+  const [energyState, setEnergyState] = useState<EnergyState>(() => loadEnergy());
+  const [showEnergyDetail, setShowEnergyDetail] = useState(false);
 
   const streak = getStreak(records);
   const monthCheckins = records.filter(r => {
@@ -4257,6 +4594,140 @@ function MemberPage({ records, onNavigate }: { records: HealingRecord[]; onNavig
             ))}
           </div>
         </div>
+      </motion.div>
+
+      {/* BLOCK: 陪伴能量 */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.12 }}
+        className="rounded-3xl p-5 shadow-sm"
+        style={{ backgroundColor: '#FFFEF9' }}
+      >
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-sm font-bold" style={{ color: '#3D3530' }}>陪伴能量</p>
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            onClick={() => setShowEnergyDetail(!showEnergyDetail)}
+            className="text-xs px-2.5 py-1 rounded-full"
+            style={{ backgroundColor: '#FAF8F5', color: '#8C7B72' }}
+          >
+            {showEnergyDetail ? '收起' : '查看詳情'}
+          </motion.button>
+        </div>
+
+        {/* Energy progress bar */}
+        <div className="flex items-end gap-3 mb-3">
+          <p className="text-3xl font-bold" style={{ color: '#8FA886' }}>{energyState.totalEnergy}</p>
+          <p className="text-xs pb-1" style={{ color: '#8C7B72' }}>陪伴能量</p>
+        </div>
+
+        {/* Next tier progress */}
+        {(() => {
+          const nextTier = COUPON_TIERS.find(t => t.thresholdEnergy > energyState.totalEnergy);
+          if (!nextTier) return (
+            <p className="text-xs" style={{ color: '#C9A96E' }}>你已經解鎖了所有票券，謝謝你一直在 💛</p>
+          );
+          const prevThreshold = COUPON_TIERS.filter(t => t.thresholdEnergy <= energyState.totalEnergy).pop()?.thresholdEnergy || 0;
+          const progress = ((energyState.totalEnergy - prevThreshold) / (nextTier.thresholdEnergy - prevThreshold)) * 100;
+          return (
+            <div>
+              <div className="flex justify-between text-xs mb-1.5">
+                <span style={{ color: '#8C7B72' }}>距離「{nextTier.emoji} {nextTier.name}」</span>
+                <span style={{ color: '#8FA886', fontWeight: 600 }}>還差 {nextTier.thresholdEnergy - energyState.totalEnergy} 能量</span>
+              </div>
+              <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: '#F0EDE8' }}>
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${Math.min(progress, 100)}%` }}
+                  transition={{ duration: 0.8, ease: 'easeOut' }}
+                  className="h-full rounded-full"
+                  style={{ backgroundColor: '#8FA886' }}
+                />
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* Today's actions */}
+        <div className="mt-3 pt-3" style={{ borderTop: '1px solid #F0EDE8' }}>
+          <p className="text-xs font-medium mb-2" style={{ color: '#3D3530' }}>今天的陪伴</p>
+          <div className="flex gap-2">
+            {(Object.keys(ENERGY_ACTIONS) as EnergyActionType[]).map(action => {
+              const info = ENERGY_ACTIONS[action];
+              const today = _energyToday();
+              const done = energyState.logs.some(l => l.date === today && l.action === action);
+              return (
+                <div
+                  key={action}
+                  className="flex-1 text-center py-2 rounded-xl text-xs"
+                  style={{
+                    backgroundColor: done ? '#E8F0E8' : '#FAF8F5',
+                    color: done ? '#5C8A4D' : '#8C7B72',
+                    border: done ? '1px solid #C5D9BE' : '1px solid #F0EDE8',
+                  }}
+                >
+                  <p className="text-base mb-0.5">{info.emoji}</p>
+                  <p className="text-[10px]">{done ? '✓' : info.label}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Available coupons */}
+        {energyState.coupons.length > 0 && (
+          <div className="mt-3 pt-3" style={{ borderTop: '1px solid #F0EDE8' }}>
+            <p className="text-xs font-medium mb-2" style={{ color: '#3D3530' }}>你的票券</p>
+            <div className="space-y-2">
+              {energyState.coupons.map(coupon => (
+                <div
+                  key={coupon.id}
+                  className="flex items-center gap-3 p-2.5 rounded-xl"
+                  style={{
+                    backgroundColor: coupon.usedAt > 0 ? '#F5F3F0' : '#FFF8E7',
+                    opacity: coupon.usedAt > 0 ? 0.6 : 1,
+                  }}
+                >
+                  <span className="text-lg">{coupon.emoji}</span>
+                  <div className="flex-1">
+                    <p className="text-xs font-medium" style={{ color: '#3D3530' }}>{coupon.name}</p>
+                    <p className="text-[10px]" style={{ color: '#8C7B72' }}>
+                      {coupon.usedAt > 0 ? '已使用' : `折抵 NT$${coupon.discount} · ${coupon.applicableTo}`}
+                    </p>
+                  </div>
+                  {coupon.usedAt === 0 && (
+                    <span className="text-xs font-bold" style={{ color: '#8FA886' }}>可用</span>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Detail: energy history */}
+        <AnimatePresence>
+          {showEnergyDetail && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mt-3 pt-3 space-y-1.5"
+              style={{ borderTop: '1px solid #F0EDE8' }}
+            >
+              <p className="text-xs font-medium mb-2" style={{ color: '#3D3530' }}>能量紀錄</p>
+              {energyState.logs.slice(-10).reverse().map((log, i) => (
+                <div key={i} className="flex justify-between text-xs" style={{ color: '#8C7B72' }}>
+                  <span>{log.date} · {log.label}</span>
+                  <span style={{ color: '#8FA886', fontWeight: 600 }}>+{log.points}</span>
+                </div>
+              ))}
+              {energyState.logs.length === 0 && (
+                <p className="text-xs" style={{ color: '#8C7B72' }}>還沒有紀錄，今天開始累積陪伴能量吧</p>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
 
       {/* BLOCK 2: 我的收藏 (3x2 grid) */}
@@ -4516,6 +4987,7 @@ function RecipePage({
     }
     setNoteSaved(true);
     onTaskComplete('note');
+    earnEnergy('note');
     setTimeout(() => setNoteSaved(false), 2000);
   }, [emotion, note, onTaskComplete, user]);
 
@@ -4701,6 +5173,7 @@ function HealingPrescriptionPage({
     }
     setNoteSaved(true);
     onTaskComplete('note');
+    earnEnergy('note');
     setTimeout(() => setNoteSaved(false), 2000);
   }, [emotion, note, onTaskComplete, user]);
 
@@ -5174,7 +5647,7 @@ function BedtimeRitualPage({ records, onClose }: { records: HealingRecord[]; onC
           ) : (
             <motion.button
               whileTap={{ scale: 0.96 }}
-              onClick={onClose}
+              onClick={() => { earnEnergy('bedtime'); onClose?.(); }}
               className="flex-1 rounded-2xl py-3 text-white font-medium text-sm"
               style={{ backgroundColor: '#8FA886' }}
             >
@@ -7478,6 +7951,7 @@ export default function HealingApp() {
       return updated;
     });
     completeTask('checkin');
+    earnEnergy('checkin');
     setMorningFlowEmotion(emotion);
     setMorningFlowLevel(lv);
     setShowMorningFlow(true);
