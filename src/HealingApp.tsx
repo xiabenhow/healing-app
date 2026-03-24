@@ -1370,6 +1370,7 @@ function HomePage({
   onGoToDiary,
   onGoToCustom,
   user,
+  onGoToSound,
 }: {
   records: HealingRecord[];
   onCheckIn: (emotion: EmotionKey, level: EmotionLevel, subEmotion: string) => void;
@@ -1378,19 +1379,40 @@ function HomePage({
   onGoToDiary: () => void;
   onGoToCustom: () => void;
   user: User | null;
+  onGoToSound?: () => void;
 }) {
   const todayRecord = records.find(r => r.date === getToday());
   const streak = getStreak(records);
-  const weekCheckins = getWeekCheckins(records);
-  const stabilityStars = getStabilityStars(records);
-  const dayIndex = getDayOfYear();
   const currentHour = new Date().getHours();
   const showBedtime = currentHour >= 20;
+  const dayIndex = getDayOfYear();
 
   const todayHealingData = todayRecord?.emotion
     ? getHealingData(todayRecord.emotion, todayRecord.level || 'L1')
     : null;
   const todayEmoInfo = todayRecord?.emotion ? getEmotionInfo(todayRecord.emotion) : null;
+
+  // 時段問候
+  const getGreeting = () => {
+    if (currentHour >= 6 && currentHour < 11) return '「早安，新的一天從照顧自己開始。」';
+    if (currentHour >= 11 && currentHour < 14) return '「午安，記得喝口水、深呼吸。」';
+    if (currentHour >= 14 && currentHour < 17) return '「下午了，如果累了，這裡可以讓你喘口氣。」';
+    if (currentHour >= 17 && currentHour < 20) return '「辛苦了今天，讓我們慢慢把節奏放下來。」';
+    return '「晚上好，今天夠了，準備好好休息吧。」';
+  };
+
+  // 隨機推薦音景
+  const getRecommendedSound = () => {
+    const sounds = [
+      { emoji: '🌊', label: '海浪聲', reason: '讓思緒隨波流動' },
+      { emoji: '🌧️', label: '雨聲', reason: '舒緩焦慮的完美陪伴' },
+      { emoji: '🌲', label: '森林', reason: '回歸寧靜的懷抱' },
+      { emoji: '🔥', label: '壁爐', reason: '溫暖的陪伴' },
+    ];
+    return sounds[Math.floor(Math.random() * sounds.length)];
+  };
+
+  const recommendedSound = getRecommendedSound();
 
   return (
     <motion.div
@@ -1399,103 +1421,113 @@ function HomePage({
       initial="initial"
       animate="animate"
     >
-      {/* Header */}
+      {/* 1. 時段問候 */}
       <motion.div variants={staggerItem} className="flex items-center justify-between">
-        <div>
-          <p className="text-xs tracking-widest" style={{ color: '#C9A96E' }}>你回來了</p>
-          <p className="text-sm" style={{ color: '#8C7B72' }}>今天也陪你待一下</p>
-        </div>
-        <p className="text-sm" style={{ color: '#8C7B72' }}>{getDisplayDate()}</p>
-      </motion.div>
-
-      {/* 🔥 BIG STREAK CARD */}
-      <motion.div
-        variants={staggerItem}
-        className="rounded-3xl p-5 shadow-sm flex items-center gap-4"
-        style={{ background: 'linear-gradient(135deg, #FFF8E7, #FAF8F5)' }}
-      >
-        <div className="text-center">
-          <p className="text-5xl font-bold leading-none" style={{ color: '#C9A96E' }}>{streak}</p>
-          <p className="text-xs mt-1" style={{ color: '#8C7B72' }}>連續天數</p>
-        </div>
-        <div className="flex-1">
-          <div className="flex items-center gap-1 mb-2">
-            <span className="text-lg">🔥</span>
-            <p className="text-sm font-bold" style={{ color: '#3D3530' }}>你一直在照顧自己呢</p>
-          </div>
-          <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: '#E8E3DC' }}>
-            <motion.div
-              className="h-full rounded-full"
-              style={{ background: 'linear-gradient(90deg, #C9A96E, #F0C878)' }}
-              initial={{ width: 0 }}
-              animate={{ width: `${Math.min(100, (streak / 30) * 100)}%` }}
-              transition={{ duration: 0.8, ease: 'easeOut' }}
-            />
-          </div>
-          <div className="flex justify-between mt-1">
-            <p className="text-xs" style={{ color: '#8C7B72' }}>本週 {weekCheckins}/7 天</p>
-            <p className="text-xs" style={{ color: '#8FA886' }}>穩定 {renderStars(stabilityStars)}</p>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Daily Quote or warm message */}
-      <motion.div
-        variants={staggerItem}
-        className="rounded-3xl p-5 shadow-sm"
-        style={{ backgroundColor: '#FFFEF9' }}
-      >
-        <p className="text-sm leading-relaxed italic text-center" style={{ color: '#8C7B72' }}>
-          「{todayRecord?.emotion && todayRecord.level
-            ? getRandomWarmMessage(todayRecord.emotion, todayRecord.level)
-            : DAILY_QUOTES[dayIndex % DAILY_QUOTES.length]}」
+        <p className="text-sm leading-relaxed" style={{ color: '#3D3530' }}>
+          {getGreeting()}
         </p>
+        <p className="text-xs" style={{ color: '#8C7B72' }}>{getDisplayDate()}</p>
       </motion.div>
 
-      {/* Emotion Check-in (if not done today) */}
+      {/* 2. 情緒打卡 */}
       {!todayRecord ? (
         <motion.div variants={staggerItem}>
           <EmotionCheckInFlow onComplete={onCheckIn} />
         </motion.div>
       ) : (
-        /* Today's healing summary */
         <motion.div variants={staggerItem} className="rounded-3xl p-5 shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
           <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: (todayEmoInfo?.color || '#C9A96E') + '25' }}>
               <span className="text-xl">{todayEmoInfo?.emoji}</span>
             </div>
             <div>
-              <p className="text-sm font-bold" style={{ color: '#3D3530' }}>今日情緒：{todayEmoInfo?.label}</p>
+              <p className="text-sm font-bold" style={{ color: '#3D3530' }}>
+                {todayEmoInfo?.label}
+              </p>
               <p className="text-xs" style={{ color: '#8C7B72' }}>
                 {todayHealingData ? `${todayHealingData.levelLabel}` : todayRecord.level || 'L1'}
               </p>
             </div>
           </div>
-
           {todayHealingData && (
-            <>
-              <div className="rounded-2xl p-3 mb-3" style={{ backgroundColor: '#FAF8F5' }}>
-                <p className="text-xs font-medium mb-1" style={{ color: '#C9A96E' }}>🌿 今日香氛</p>
-                <p className="text-sm" style={{ color: '#3D3530' }}>{todayHealingData.blend.oils.join(' + ')}</p>
-              </div>
-              <div className="flex gap-2">
-                <motion.button
-                  whileTap={{ scale: 0.96 }}
-                  onClick={onGoToHealing}
-                  className="flex-1 rounded-2xl py-3 text-white font-medium text-sm"
-                  style={{ backgroundColor: todayEmoInfo?.color || '#8FA886' }}
-                >
-                  查看完整處方 →
-                </motion.button>
-              </div>
-            </>
+            <p className="text-xs leading-relaxed" style={{ color: '#5C534C' }}>
+              {getRandomWarmMessage(todayRecord.emotion, todayRecord.level || 'L1')}
+            </p>
           )}
         </motion.div>
       )}
 
-      {/* Evening Feedback (only show after 17:00) - removed as part of refactoring */}
+      {/* 3. 今日一句話 */}
+      {todayRecord && (
+        <motion.div
+          variants={staggerItem}
+          className="rounded-3xl p-5 shadow-sm"
+          style={{
+            background: `linear-gradient(135deg, ${todayEmoInfo?.color || '#C9A96E'}33, ${todayEmoInfo?.color || '#C9A96E'}11)`,
+          }}
+        >
+          <p className="text-sm leading-relaxed text-center italic" style={{ color: '#3D3530' }}>
+            「{getRandomWarmMessage(todayRecord.emotion, todayRecord.level || 'L1')}」
+          </p>
+        </motion.div>
+      )}
 
-      {/* Bedtime Ritual Entry (after 20:00) */}
+      {/* 4. 今日香氣 - only show after check-in */}
+      {todayRecord && todayHealingData && (
+        <motion.div variants={staggerItem} className="rounded-3xl p-5 shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
+          <p className="text-xs font-medium mb-3" style={{ color: '#C9A96E' }}>🌿 今日香氣</p>
+          <div className="flex flex-wrap gap-2 mb-3">
+            {todayHealingData.blend.oils.map((oil, i) => (
+              <span
+                key={i}
+                className="px-3 py-1.5 rounded-full text-xs font-medium"
+                style={{ backgroundColor: '#FAF8F5', color: '#3D3530' }}
+              >
+                {oil}
+              </span>
+            ))}
+          </div>
+          <p className="text-xs leading-relaxed" style={{ color: '#8C7B72' }}>
+            {todayHealingData.blend.note}
+          </p>
+        </motion.div>
+      )}
+
+      {/* 5. 今日小儀式 - only after check-in */}
+      {todayRecord && todayHealingData && (
+        <motion.div variants={staggerItem} className="rounded-3xl p-5 shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
+          <p className="text-xs font-medium mb-3" style={{ color: '#C9A96E' }}>✦ 今日小儀式</p>
+          <p className="text-xs leading-relaxed mb-4" style={{ color: '#3D3530' }}>
+            {todayHealingData.practicalTips[0]}
+          </p>
+          <div className="flex justify-center">
+            <BreathingCircle />
+          </div>
+        </motion.div>
+      )}
+
+      {/* 6. 今日音景推薦 - only after check-in */}
+      {todayRecord && (
+        <motion.div variants={staggerItem} className="rounded-3xl p-5 shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
+          <div className="flex items-center gap-3 mb-3">
+            <span className="text-2xl">{recommendedSound.emoji}</span>
+            <div>
+              <p className="text-sm font-bold" style={{ color: '#3D3530' }}>{recommendedSound.label}</p>
+              <p className="text-xs" style={{ color: '#8C7B72' }}>{recommendedSound.reason}</p>
+            </div>
+          </div>
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            onClick={onGoToSound}
+            className="w-full rounded-2xl py-2.5 text-white font-medium text-sm"
+            style={{ backgroundColor: '#8FA886' }}
+          >
+            播放
+          </motion.button>
+        </motion.div>
+      )}
+
+      {/* 7. 睡前儀式入口 - after 20:00 */}
       {showBedtime && todayRecord && (
         <motion.div variants={staggerItem}>
           <motion.button
@@ -1504,21 +1536,45 @@ function HomePage({
             className="w-full rounded-3xl p-5 shadow-sm text-left"
             style={{ background: 'linear-gradient(135deg, #2D2438, #1A1A2E)' }}
           >
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">🌙</span>
-              <div>
-                <p className="text-sm font-bold text-white">準備好好睡了</p>
-                <p className="text-xs" style={{ color: '#B8A8C8' }}>讓香氛陪你把今天放下...</p>
-              </div>
-              <span className="ml-auto text-white text-sm">→</span>
-            </div>
+            <p className="text-sm font-bold text-white mb-1">今晚，慢慢來</p>
+            <p className="text-xs" style={{ color: '#B8A8C8' }}>讓香氛陪你把今天放下</p>
           </motion.button>
         </motion.div>
       )}
 
-      {/* 心情日記 */}
-      <motion.div variants={staggerItem}>
-        <MoodDiaryWidget user={user} onViewFull={onGoToDiary} onGoToCustom={onGoToCustom} />
+      {/* 8. 柔和商業入口 - after check-in */}
+      {todayRecord && (
+        <motion.div variants={staggerItem} className="space-y-3 rounded-3xl p-5 shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
+          <motion.button
+            whileTap={{ scale: 0.97 }}
+            onClick={onGoToCustom}
+            className="w-full text-left"
+          >
+            <p className="text-xs font-medium mb-1" style={{ color: '#3D3530' }}>想把今天的香氣帶回家嗎？</p>
+            <p className="text-xs" style={{ color: '#8C7B72' }}>讓香氛師幫你調一瓶更像你的</p>
+          </motion.button>
+        </motion.div>
+      )}
+
+      {/* 9. 最近紀錄摘要 */}
+      <motion.div
+        variants={staggerItem}
+        onClick={onGoToDiary}
+        className="rounded-3xl p-5 shadow-sm cursor-pointer"
+        style={{ backgroundColor: '#FFFEF9' }}
+      >
+        <p className="text-xs font-medium mb-3" style={{ color: '#3D3530' }}>
+          你已經連續陪伴自己 {streak} 天了 ✦
+        </p>
+        <div className="flex gap-1.5">
+          {records.slice(-7).reverse().map((r, i) => (
+            <div
+              key={i}
+              className="w-4 h-4 rounded-full"
+              style={{ backgroundColor: r ? getEmotionInfo(r.emotion).color : '#E8E3DC' }}
+            />
+          ))}
+        </div>
       </motion.div>
     </motion.div>
   );
@@ -1660,6 +1716,44 @@ function DiaryPage({ records, onUpdateRecord, onCheckIn }: {
 
   return (
     <motion.div className="space-y-4" {...fadeInUp}>
+      {/* 慢慢認識自己 - Emotion Summary Section */}
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="rounded-3xl p-5 shadow-sm"
+        style={{ backgroundColor: '#FFFEF9' }}
+      >
+        <p className="text-base font-bold mb-3" style={{ color: '#3D3530' }}>慢慢認識自己</p>
+
+        {/* Emotion summary text */}
+        {monthRecords.length > 0 ? (
+          <>
+            <p className="text-sm leading-relaxed mb-3" style={{ color: '#5C534C' }}>
+              {mostFrequentInfo
+                ? `這個月你最常出現的是${mostFrequentInfo.label}，你最近比較需要被陪伴的是理解與安定。`
+                : `你這個月已經有 ${monthRecords.length} 次情緒打卡，慢慢認識自己，這件事本身就很了不起。`
+              }
+            </p>
+          </>
+        ) : (
+          <p className="text-sm leading-relaxed mb-3" style={{ color: '#5C534C' }}>
+            你正在慢慢認識自己，這就是最好的開始。
+          </p>
+        )}
+
+        {/* Recent 7-day emotion color dots */}
+        <div className="flex gap-1.5 items-center">
+          <span className="text-xs" style={{ color: '#8C7B72' }}>最近 7 天：</span>
+          {weekRecords.map((w, i) => (
+            <div
+              key={i}
+              className="w-4 h-4 rounded-full"
+              style={{ backgroundColor: w.record ? getEmotionInfo(w.record.emotion).color : '#E8E3DC' }}
+            />
+          ))}
+        </div>
+      </motion.div>
+
       {/* Top bar: view mode + privacy + month nav */}
       <div className="flex items-center justify-between">
         <div className="flex gap-1.5">
@@ -2073,56 +2167,78 @@ function SoundPage({ recommendedEmotion }: { recommendedEmotion?: string }) {
     <motion.div className="space-y-5" {...fadeInUp}>
       {/* Header */}
       <div>
-        <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>療癒音景</h2>
+        <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>聽一些讓你安靜的</h2>
         <p className="text-sm mt-1" style={{ color: '#8C7B72' }}>
-          找一個讓你安心的聲音，陪你待一會兒
+          {recommendedEmotion ? `今天的你適合聽：${activeMainPreset ? activeMainPreset.label : '為你挑選中...'}` : '先聽點什麼吧，讓身體慢下來'}
         </p>
       </div>
 
-      {/* Emotion quick-recommend */}
-      {recommendedEmotion && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="rounded-2xl p-4"
-          style={{ background: 'linear-gradient(135deg, #FAF8F5, #FFF8E7)' }}
-        >
-          <p className="text-xs font-medium mb-2" style={{ color: '#C9A96E' }}>
-            根據你今天的心情，推薦你...
-          </p>
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-sm font-medium" style={{ color: '#3D3530' }}>
-              {activeMainPreset ? `${activeMainPreset.emoji} ${activeMainPreset.label}` : '為你挑選中...'}
+      {/* 推薦區 - Recommendation card (45% viewport height) */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="rounded-3xl p-6 shadow-sm flex flex-col items-center justify-center"
+        style={{
+          background: 'linear-gradient(135deg, #FAF8F5, #FFF8E7)',
+          minHeight: '220px',
+        }}
+      >
+        {activeMainPreset ? (
+          <>
+            <span className="text-6xl mb-3">{activeMainPreset.emoji}</span>
+            <p className="text-sm font-bold text-center mb-2" style={{ color: '#3D3530' }}>
+              今天的你適合聽：{activeMainPreset.label}
             </p>
-            {!isPlaying && (
-              <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={() => playForEmotion(recommendedEmotion)}
-                className="px-3 py-1.5 rounded-full text-xs font-medium text-white"
-                style={{ backgroundColor: '#8FA886' }}
-              >
-                播放推薦
-              </motion.button>
-            )}
-          </div>
-          {/* 呼吸/能量/冥想快速推薦 */}
-          {wellnessRec && (
-            <div className="flex flex-wrap gap-1.5">
-              {wellnessRec.breathing && (() => {
-                const p = SCAPE_PRESETS_IMPORT.find(s => s.key === wellnessRec.breathing);
-                return p ? (
-                  <motion.button key={p.key} whileTap={{ scale: 0.95 }}
-                    onClick={() => playMain(p)}
-                    className="px-2.5 py-1 rounded-full text-xs"
-                    style={{ backgroundColor: mainScape === p.key ? p.color + '30' : '#F0EDE8', color: '#3D3530' }}>
-                    {p.emoji} {p.label}
-                  </motion.button>
-                ) : null;
-              })()}
-            </div>
-          )}
-        </motion.div>
-      )}
+            <p className="text-xs text-center mb-4" style={{ color: '#8C7B72' }}>
+              {activeMainPreset.subtitle || '陪著你慢慢放鬆'}
+            </p>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={() => playForEmotion(recommendedEmotion || 'neutral')}
+              className="w-16 h-16 rounded-full flex items-center justify-center text-2xl shadow-md"
+              style={{ backgroundColor: '#8FA886', color: 'white' }}
+            >
+              ▶
+            </motion.button>
+          </>
+        ) : (
+          <>
+            <span className="text-5xl mb-3">🎵</span>
+            <p className="text-sm font-bold text-center mb-2" style={{ color: '#3D3530' }}>
+              先聽點什麼吧
+            </p>
+            <p className="text-xs text-center" style={{ color: '#8C7B72' }}>
+              讓身體慢下來
+            </p>
+          </>
+        )}
+      </motion.div>
+
+      {/* 快捷場景 - Quick scene buttons */}
+      <div className="flex gap-2 overflow-x-auto pb-2" style={{ scrollbarWidth: 'none' }}>
+        {[
+          { emoji: '🌙', label: '3分鐘安定', timer: 180, preset: 'deep-night' },
+          { emoji: '😴', label: '20分鐘入眠', timer: 1200, preset: 'ocean-night' },
+          { emoji: '🧘', label: '專注工作', timer: 0, preset: 'focus' },
+          { emoji: '💆', label: '午休放鬆', timer: 900, preset: 'forest-breath' },
+        ].map(scene => (
+          <motion.button
+            key={scene.label}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => {
+              const preset = SCAPE_PRESETS_IMPORT.find(p => p.key === scene.preset);
+              if (preset) {
+                playMain(preset);
+                if (scene.timer > 0) setTimer(scene.timer / 60);
+              }
+            }}
+            className="flex-shrink-0 px-3 py-2 rounded-full text-xs font-medium whitespace-nowrap"
+            style={{ backgroundColor: '#FAF8F5', color: '#3D3530' }}
+          >
+            {scene.emoji} {scene.label}
+          </motion.button>
+        ))}
+      </div>
 
       {/* Now playing */}
       {isPlaying && (
@@ -2641,6 +2757,26 @@ function ShopProductsView({
             </span>
           )}
         </motion.button>
+      </div>
+
+      {/* 情境入口 - Emotion Scenario Buttons */}
+      <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1" style={{ scrollbarWidth: 'none' }}>
+        {[
+          { emoji: '🧘', label: '想放鬆' },
+          { emoji: '😴', label: '想好睡' },
+          { emoji: '💆', label: '穩定情緒' },
+          { emoji: '🕯️', label: '做儀式' },
+          { emoji: '🎁', label: '送禮' },
+        ].map(scenario => (
+          <motion.button
+            key={scenario.label}
+            whileTap={{ scale: 0.96 }}
+            className="flex-shrink-0 px-4 py-2 rounded-full text-xs font-medium"
+            style={{ backgroundColor: '#FAF8F5', color: '#3D3530', whiteSpace: 'nowrap' }}
+          >
+            {scenario.emoji} {scenario.label}
+          </motion.button>
+        ))}
       </div>
 
       {/* Category Tabs - Horizontal Scrollable */}
@@ -3471,7 +3607,7 @@ function CheckoutView({ cart, onBack }: { cart: CartItem[]; onBack: () => void }
 
 // ===================== PAGE: MEMBER =====================
 
-function MemberPage() {
+function MemberPage({ records, onNavigate }: { records: HealingRecord[]; onNavigate: (p: PageType) => void }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<OrderItem[]>([]);
@@ -3480,6 +3616,20 @@ function MemberPage() {
   const [pointsLoading, setPointsLoading] = useState(false);
   const [ordersError, setOrdersError] = useState<string | null>(null);
   const [pointsError, setPointsError] = useState<string | null>(null);
+
+  const streak = getStreak(records);
+  const monthCheckins = records.filter(r => {
+    const d = new Date(r.date);
+    const now = new Date();
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+  }).length;
+  const monthRecords = records.filter(r => {
+    const d = new Date(r.date);
+    const now = new Date();
+    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+  });
+  const mostFrequent = getMostFrequentEmotion(monthRecords);
+  const mostFrequentInfo = mostFrequent ? getEmotionInfo(mostFrequent) : null;
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -3621,30 +3771,32 @@ function MemberPage() {
     <motion.div className="space-y-5" {...fadeInUp}>
       {/* Header */}
       <div>
-        <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>👤 會員中心</h2>
-        <p className="text-sm mt-0.5" style={{ color: '#8C7B72' }}>歡迎回來</p>
+        <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>你的陪伴檔案</h2>
+        <p className="text-sm mt-0.5" style={{ color: '#8C7B72' }}>
+          {user.displayName ? `歡迎回來，${user.displayName}` : '歡迎回來'}
+        </p>
       </div>
 
-      {/* User Profile Card */}
+      {/* User Profile Card - simplified */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="rounded-2xl p-5"
-        style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}
+        className="rounded-2xl p-4"
+        style={{ backgroundColor: '#FAF8F5' }}
       >
-        <div className="flex items-center gap-4 mb-4">
+        <div className="flex items-center gap-3 mb-4">
           {user.photoURL && (
             <img
               src={user.photoURL}
               alt={user.displayName || 'User'}
-              className="w-16 h-16 rounded-full"
+              className="w-12 h-12 rounded-full"
             />
           )}
-          <div className="flex-1">
-            <p className="font-bold" style={{ color: '#3D3530' }}>
+          <div>
+            <p className="font-bold text-sm" style={{ color: '#3D3530' }}>
               {user.displayName || '使用者'}
             </p>
-            <p className="text-sm" style={{ color: '#8C7B72' }}>
+            <p className="text-xs" style={{ color: '#8C7B72' }}>
               {user.email}
             </p>
           </div>
@@ -3652,120 +3804,199 @@ function MemberPage() {
         <motion.button
           whileTap={{ scale: 0.96 }}
           onClick={handleLogout}
-          className="w-full py-2 rounded-xl text-sm font-medium transition-all"
-          style={{ backgroundColor: '#FAF8F5', color: '#8B5E3C' }}
+          className="w-full py-2 rounded-xl text-xs font-medium transition-all"
+          style={{ backgroundColor: '#FFFEF9', color: '#8B5E3C' }}
         >
           登出
         </motion.button>
       </motion.div>
 
-      {/* My Orders */}
+      {/* BLOCK 1: 我的陪伴紀錄 */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="rounded-2xl p-5"
-        style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}
+        className="rounded-3xl p-5 shadow-sm"
+        style={{ backgroundColor: '#FFFEF9' }}
       >
-        <p className="font-bold mb-4" style={{ color: '#3D3530' }}>📋 我的訂單</p>
-        {ordersLoading ? (
-          <div className="text-center py-4">
-            <p className="text-sm" style={{ color: '#8C7B72' }}>載入中...</p>
+        <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>我的陪伴紀錄</p>
+        <div className="space-y-3">
+          <div>
+            <p className="text-3xl font-bold" style={{ color: '#8FA886' }}>{streak}</p>
+            <p className="text-xs mt-1" style={{ color: '#8C7B72' }}>你已經連續陪伴自己 {streak} 天了</p>
           </div>
-        ) : ordersError ? (
-          <div className="text-center py-4">
-            <p className="text-sm" style={{ color: '#8C7B72' }}>{ordersError}</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="p-3 rounded-2xl" style={{ backgroundColor: '#FAF8F5' }}>
+              <p className="text-xs" style={{ color: '#8C7B72' }}>本月打卡</p>
+              <p className="text-lg font-bold" style={{ color: '#3D3530' }}>{monthCheckins}</p>
+            </div>
+            <div className="p-3 rounded-2xl" style={{ backgroundColor: '#FAF8F5' }}>
+              <p className="text-xs" style={{ color: '#8C7B72' }}>常見情緒</p>
+              <p className="text-lg font-bold" style={{ color: '#3D3530' }}>
+                {mostFrequentInfo?.label || '-'}
+              </p>
+            </div>
           </div>
-        ) : orders.length === 0 ? (
-          <div className="text-center py-6">
-            <p className="text-sm" style={{ color: '#8C7B72' }}>暫無訂單記錄</p>
-            <p className="text-xs mt-2" style={{ color: '#8FA886' }}>預約體驗後，訂單將在此顯示</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {orders.map((order) => (
+          {mostFrequentInfo && (
+            <p className="text-xs leading-relaxed" style={{ color: '#5C534C' }}>
+              你最近比較需要被陪伴的是：<span style={{ fontWeight: 600 }}>安定與理解</span>
+            </p>
+          )}
+          <div className="flex gap-1.5">
+            {records.slice(-7).reverse().map((r, i) => (
               <div
-                key={order.id}
-                className="p-3 rounded-lg"
-                style={{ backgroundColor: '#FAF8F5' }}
-              >
-                <div className="flex justify-between items-start mb-2">
-                  <p className="text-sm font-medium" style={{ color: '#3D3530' }}>
-                    訂單 #{order.id}
-                  </p>
-                  <span
-                    className="text-xs px-2 py-1 rounded-full"
-                    style={{
-                      backgroundColor: '#E8F5E9',
-                      color: '#2E7D32',
-                    }}
-                  >
-                    {ORDER_STATUS_MAP[order.status] || order.status}
-                  </span>
-                </div>
-                <p className="text-xs mb-1" style={{ color: '#8C7B72' }}>
-                  {order.date}
-                </p>
-                <p className="text-sm font-bold" style={{ color: '#8FA886' }}>
-                  NT${order.total.toLocaleString()}
-                </p>
-              </div>
+                key={i}
+                className="w-4 h-4 rounded-full"
+                style={{ backgroundColor: getEmotionInfo(r.emotion).color }}
+              />
             ))}
           </div>
-        )}
+        </div>
       </motion.div>
 
-      {/* My Points */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.12 }}
-        className="rounded-2xl p-5"
-        style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}
-      >
-        <p className="font-bold mb-4" style={{ color: '#3D3530' }}>⭐ 我的紅利點數</p>
-        {pointsLoading ? (
-          <div className="text-center py-4">
-            <p className="text-sm" style={{ color: '#8C7B72' }}>載入中...</p>
-          </div>
-        ) : pointsError ? (
-          <div className="text-center py-4">
-            <p className="text-sm" style={{ color: '#8C7B72' }}>{pointsError}</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <div className="p-4 rounded-lg text-center" style={{ backgroundColor: '#FAF8F5' }}>
-              <p className="text-3xl font-bold" style={{ color: '#8FA886' }}>
-                {points}
-              </p>
-              <p className="text-xs mt-2" style={{ color: '#8C7B72' }}>
-                可用點數（每1點 = NT$1）
-              </p>
-            </div>
-            <div className="p-3 rounded-lg" style={{ backgroundColor: '#FAF8F5' }}>
-              <p className="text-xs font-medium mb-2" style={{ color: '#3D3530' }}>💡 點數說明</p>
-              <p className="text-xs" style={{ color: '#8C7B72' }}>
-                消費金額的 2% 累積為紅利點數，可於下次購物時折抵現金使用。
-              </p>
-            </div>
-          </div>
-        )}
-      </motion.div>
-
-      {/* Member Benefits */}
+      {/* BLOCK 2: 我的收藏 (2x2 grid) */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.15 }}
-        className="rounded-2xl p-4"
-        style={{ backgroundColor: '#FAF8F5' }}
+        className="grid grid-cols-2 gap-3"
       >
-        <p className="text-xs font-medium mb-3" style={{ color: '#3D3530' }}>🎁 你的會員福利</p>
-        <ul className="space-y-2 text-xs" style={{ color: '#8C7B72' }}>
-          <li>✓ 訂單歷史查詢</li>
-          <li>✓ 會員專屬優惠與最新資訊</li>
-          <li>✓ 體驗記錄與評分</li>
-        </ul>
+        <motion.button
+          whileTap={{ scale: 0.96 }}
+          onClick={() => onNavigate('card')}
+          className="rounded-2xl p-4 text-center"
+          style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}
+        >
+          <p className="text-2xl mb-2">🃏</p>
+          <p className="text-xs font-medium" style={{ color: '#3D3530' }}>我的陪伴卡</p>
+        </motion.button>
+
+        <motion.button
+          whileTap={{ scale: 0.96 }}
+          onClick={() => onNavigate('sound')}
+          className="rounded-2xl p-4 text-center"
+          style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}
+        >
+          <p className="text-2xl mb-2">♪</p>
+          <p className="text-xs font-medium" style={{ color: '#3D3530' }}>收藏的音景</p>
+        </motion.button>
+
+        <motion.button
+          whileTap={{ scale: 0.96 }}
+          onClick={() => onNavigate('library')}
+          className="rounded-2xl p-4 text-center"
+          style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}
+        >
+          <p className="text-2xl mb-2">📚</p>
+          <p className="text-xs font-medium" style={{ color: '#3D3530' }}>療癒知識</p>
+        </motion.button>
+
+        <motion.button
+          whileTap={{ scale: 0.96 }}
+          onClick={() => onNavigate('calendar')}
+          className="rounded-2xl p-4 text-center"
+          style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}
+        >
+          <p className="text-2xl mb-2">🗓️</p>
+          <p className="text-xs font-medium" style={{ color: '#3D3530' }}>調香日曆</p>
+        </motion.button>
+      </motion.div>
+
+      {/* BLOCK 3: 為你推薦 (soft commercial) */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="rounded-3xl p-5 shadow-sm space-y-3"
+        style={{ backgroundColor: '#FFFEF9' }}
+      >
+        <motion.button
+          whileTap={{ scale: 0.97 }}
+          onClick={() => onNavigate('shop')}
+          className="w-full text-left p-3 rounded-2xl"
+          style={{ backgroundColor: '#FAF8F5' }}
+        >
+          <p className="text-sm font-medium" style={{ color: '#3D3530' }}>找適合我的香氣</p>
+        </motion.button>
+
+        <motion.button
+          whileTap={{ scale: 0.97 }}
+          onClick={() => onNavigate('custom')}
+          className="w-full text-left p-3 rounded-2xl"
+          style={{ backgroundColor: '#FAF8F5' }}
+        >
+          <p className="text-sm font-medium" style={{ color: '#3D3530' }}>調一瓶更像你的</p>
+        </motion.button>
+
+        <motion.button
+          whileTap={{ scale: 0.97 }}
+          onClick={() => onNavigate('healer')}
+          className="w-full text-left p-3 rounded-2xl"
+          style={{ backgroundColor: '#FAF8F5' }}
+        >
+          <p className="text-sm font-medium" style={{ color: '#3D3530' }}>讓香氛師幫你</p>
+        </motion.button>
+      </motion.div>
+
+      {/* BLOCK 4: 帳務與設定 */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.25 }}
+        className="rounded-3xl p-5 shadow-sm space-y-4"
+        style={{ backgroundColor: '#FFFEF9' }}
+      >
+        {/* Orders section */}
+        <div>
+          <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>我的訂單</p>
+          {ordersLoading ? (
+            <p className="text-xs" style={{ color: '#8C7B72' }}>載入中...</p>
+          ) : ordersError ? (
+            <p className="text-xs" style={{ color: '#8C7B72' }}>{ordersError}</p>
+          ) : orders.length === 0 ? (
+            <p className="text-xs" style={{ color: '#8C7B72' }}>暫無訂單記錄</p>
+          ) : (
+            <div className="space-y-2">
+              {orders.slice(0, 3).map((order) => (
+                <div key={order.id} className="flex justify-between text-xs" style={{ color: '#8C7B72' }}>
+                  <span>訂單 #{order.id}</span>
+                  <span>NT${order.total.toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Points section */}
+        {!pointsLoading && !pointsError && (
+          <div>
+            <p className="text-sm font-bold mb-2" style={{ color: '#3D3530' }}>紅利點數</p>
+            <p className="text-2xl font-bold" style={{ color: '#8FA886' }}>{points}</p>
+            <p className="text-xs mt-1" style={{ color: '#8C7B72' }}>每1點 = NT$1</p>
+          </div>
+        )}
+
+        {/* LINE contact + logout */}
+        <div className="flex gap-2 pt-2">
+          <motion.a
+            whileTap={{ scale: 0.96 }}
+            href="https://page.line.me/296yrpvh?openQrModal=true"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-1 py-2.5 rounded-xl text-xs font-medium text-center"
+            style={{ backgroundColor: '#00C300', color: 'white' }}
+          >
+            LINE 客服
+          </motion.a>
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            onClick={handleLogout}
+            className="flex-1 py-2.5 rounded-xl text-xs font-medium"
+            style={{ backgroundColor: '#FAF8F5', color: '#8B5E3C' }}
+          >
+            登出
+          </motion.button>
+        </div>
       </motion.div>
     </motion.div>
   );
@@ -4273,7 +4504,7 @@ function HealingPrescriptionPage({
 
 // ===================== PAGE: BEDTIME RITUAL =====================
 
-function BedtimeRitualPage({ records }: { records: HealingRecord[] }) {
+function BedtimeRitualPage({ records, onClose }: { records: HealingRecord[]; onClose?: () => void }) {
   const todayRecord = records.find(r => r.date === getToday());
   const emotion = todayRecord?.emotion;
   const level = (todayRecord?.level || 'L1') as EmotionLevel;
@@ -4282,6 +4513,17 @@ function BedtimeRitualPage({ records }: { records: HealingRecord[] }) {
 
   const [step, setStep] = useState(0);
   const [whisperIdx, setWhisperIdx] = useState(0);
+
+  // Closing whisper lines
+  const closingWhispers = [
+    '今天夠了，你可以休息了。',
+    '不用再想了，晚上先睡。',
+    '你已經很努力了。',
+    '明天的事，明天再說。',
+    '今晚，什麼都不用做。',
+    '你值得好好睡一覺。',
+    '辛苦了，晚安。',
+  ];
 
   const ritual = healingData?.bedtimeRitual;
   const totalSteps = ritual ? ritual.actions.length + 3 : 0; // scent + actions + mindset + whisper
@@ -4306,138 +4548,153 @@ function BedtimeRitualPage({ records }: { records: HealingRecord[] }) {
 
   return (
     <motion.div
-      className="space-y-5 min-h-screen -mx-4 -mt-6 px-4 pt-6 pb-6"
-      style={{ background: 'linear-gradient(180deg, #1A1A2E 0%, #2D2438 50%, #1A1A2E 100%)' }}
+      className="fixed inset-0 z-50 overflow-y-auto"
+      style={{
+        backgroundColor: '#0F0F1A',
+        color: '#E8E0D4',
+        paddingBottom: 'env(safe-area-inset-bottom)',
+      }}
       {...fadeInUp}
     >
-      {/* Header */}
-      <div className="text-center pt-4">
-        <motion.p
-          className="text-3xl mb-2"
-          animate={{ scale: [1, 1.1, 1] }}
-          transition={{ duration: 3, repeat: Infinity }}
-        >
-          🌙
-        </motion.p>
-        <h2 className="text-xl font-bold text-white">睡前儀式</h2>
-        <p className="text-xs mt-1" style={{ color: '#B8A8C8' }}>
-          {emoInfo.label}的夜晚，用香氛安放自己
-        </p>
-      </div>
+      <div className="min-h-screen space-y-5 px-4 pt-6 pb-6">
+        {/* Close button */}
+        {onClose && (
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={onClose}
+            className="absolute top-4 right-4 p-2 rounded-full"
+            style={{ backgroundColor: 'rgba(255,255,255,0.1)' }}
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M18 6l-12 12M6 6l12 12" />
+            </svg>
+          </motion.button>
+        )}
 
-      {/* Progress */}
-      <div className="flex justify-center gap-1">
-        {Array.from({ length: totalSteps }).map((_, i) => (
-          <div
-            key={i}
-            className="h-1 rounded-full transition-all"
-            style={{
-              width: step >= i ? '20px' : '8px',
-              backgroundColor: step >= i ? emoInfo.color : '#4A4458',
-            }}
-          />
-        ))}
-      </div>
+        {/* Header */}
+        <div className="text-center pt-4">
+          <h2 className="text-2xl font-bold mb-2" style={{ color: '#E8E0D4' }}>今晚，慢慢來</h2>
+          <p className="text-xs mt-1" style={{ color: '#B8A8C8' }}>
+            {emoInfo?.label ? `${emoInfo.label}的夜晚，用香氛安放自己` : '讓香氛陪你把今天放下'}
+          </p>
+        </div>
 
-      {/* Step 0: Scent */}
-      {step === 0 && (
-        <motion.div
-          key="scent"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="rounded-3xl p-6 text-center"
-          style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}
-        >
-          <p className="text-xs font-medium mb-3" style={{ color: '#C9A96E' }}>今晚的香氛</p>
-          <p className="text-lg font-bold text-white mb-2">{ritual.scent}</p>
-          <p className="text-sm mb-1" style={{ color: '#B8A8C8' }}>{ritual.usage}</p>
-          <p className="text-xs italic mt-2" style={{ color: '#8B7BA8' }}>「{ritual.scentNote}」</p>
-        </motion.div>
-      )}
+        {/* Progress */}
+        <div className="flex justify-center gap-1">
+          {Array.from({ length: totalSteps }).map((_, i) => (
+            <div
+              key={i}
+              className="h-1 rounded-full transition-all"
+              style={{
+                width: step >= i ? '16px' : '6px',
+                backgroundColor: step >= i ? (emoInfo?.color || '#8FA886') : '#4A4458',
+                opacity: step >= i ? 1 : 0.4,
+              }}
+            />
+          ))}
+        </div>
 
-      {/* Step 1~N: Actions */}
-      {step > 0 && step <= ritual.actions.length && (
-        <motion.div
-          key={`action-${step}`}
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="rounded-3xl p-6 text-center"
-          style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}
-        >
-          <p className="text-xs font-medium mb-3" style={{ color: '#C9A96E' }}>步驟 {step}</p>
-          <p className="text-base text-white leading-relaxed">{ritual.actions[step - 1]}</p>
-        </motion.div>
-      )}
+        {/* Step 0: Scent */}
+        {step === 0 && (
+          <motion.div
+            key="scent"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-3xl p-6 text-center"
+            style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}
+          >
+            <p className="text-xs font-medium mb-3" style={{ color: '#C9A96E' }}>今晚的香氛</p>
+            <p className="text-lg font-bold mb-2" style={{ color: '#E8E0D4' }}>{ritual.scent}</p>
+            <p className="text-sm mb-1" style={{ color: '#B8A8C8' }}>{ritual.usage}</p>
+            <p className="text-xs italic mt-2" style={{ color: '#8B7BA8' }}>「{ritual.scentNote}」</p>
+          </motion.div>
+        )}
 
-      {/* Step N+1: Mindset */}
-      {step === ritual.actions.length + 1 && (
-        <motion.div
-          key="mindset"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="rounded-3xl p-6 text-center"
-          style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}
-        >
-          <p className="text-xs font-medium mb-3" style={{ color: '#C9A96E' }}>心靈引導</p>
-          <p className="text-base text-white leading-relaxed italic">「{ritual.mindset}」</p>
-        </motion.div>
-      )}
+        {/* Step 1~N: Actions */}
+        {step > 0 && step <= ritual.actions.length && (
+          <motion.div
+            key={`action-${step}`}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-3xl p-6 text-center"
+            style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}
+          >
+            <p className="text-xs font-medium mb-3" style={{ color: '#C9A96E' }}>步驟 {step}</p>
+            <p className="text-base leading-relaxed" style={{ color: '#E8E0D4' }}>{ritual.actions[step - 1]}</p>
+          </motion.div>
+        )}
 
-      {/* Step N+2: Whispers */}
+        {/* Step N+1: Mindset */}
+        {step === ritual.actions.length + 1 && (
+          <motion.div
+            key="mindset"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-3xl p-6 text-center"
+            style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}
+          >
+            <p className="text-xs font-medium mb-3" style={{ color: '#C9A96E' }}>心靈引導</p>
+            <p className="text-base leading-relaxed italic" style={{ color: '#E8E0D4' }}>「{ritual.mindset}」</p>
+          </motion.div>
+        )}
+
+      {/* Step N+2: Closing Whisper */}
       {step === ritual.actions.length + 2 && (
         <motion.div
-          key="whisper"
+          key="closing"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="rounded-3xl p-8 text-center"
           style={{ backgroundColor: 'rgba(255,255,255,0.05)' }}
         >
-          <p className="text-xs font-medium mb-4" style={{ color: '#C9A96E' }}>晚安低語</p>
+          <p className="text-xs font-medium mb-4" style={{ color: '#C9A96E' }}>晚安</p>
           <AnimatePresence mode="wait">
             <motion.p
               key={whisperIdx}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="text-lg text-white italic leading-relaxed"
+              className="text-lg italic leading-relaxed"
+              style={{ color: '#E8E0D4' }}
             >
-              「{ritual.whispers[whisperIdx]}」
+              「{closingWhispers[whisperIdx % closingWhispers.length]}」
             </motion.p>
           </AnimatePresence>
         </motion.div>
       )}
 
-      {/* Navigation */}
-      <div className="flex gap-3 pt-2">
-        {step > 0 && (
-          <motion.button
-            whileTap={{ scale: 0.96 }}
-            onClick={() => setStep(s => s - 1)}
-            className="flex-1 rounded-2xl py-3 font-medium text-sm"
-            style={{ backgroundColor: 'rgba(255,255,255,0.1)', color: '#B8A8C8' }}
-          >
-            ← 上一步
-          </motion.button>
-        )}
-        {step < totalSteps - 1 ? (
-          <motion.button
-            whileTap={{ scale: 0.96 }}
-            onClick={() => setStep(s => s + 1)}
-            className="flex-1 rounded-2xl py-3 text-white font-medium text-sm"
-            style={{ backgroundColor: emoInfo.color || '#8FA886' }}
-          >
-            下一步 →
-          </motion.button>
-        ) : (
-          <motion.button
-            whileTap={{ scale: 0.96 }}
-            onClick={() => setStep(0)}
-            className="flex-1 rounded-2xl py-3 text-white font-medium text-sm"
-            style={{ backgroundColor: '#C9A96E' }}
-          >
-            🌙 晚安，好好休息
-          </motion.button>
-        )}
+        {/* Navigation */}
+        <div className="flex gap-3 pt-2">
+          {step > 0 && (
+            <motion.button
+              whileTap={{ scale: 0.96 }}
+              onClick={() => setStep(s => s - 1)}
+              className="flex-1 rounded-2xl py-3 font-medium text-sm"
+              style={{ backgroundColor: 'rgba(255,255,255,0.1)', color: '#B8A8C8' }}
+            >
+              ← 上一步
+            </motion.button>
+          )}
+          {step < totalSteps - 1 ? (
+            <motion.button
+              whileTap={{ scale: 0.96 }}
+              onClick={() => setStep(s => s + 1)}
+              className="flex-1 rounded-2xl py-3 text-white font-medium text-sm"
+              style={{ backgroundColor: emoInfo?.color || '#8FA886' }}
+            >
+              下一步 →
+            </motion.button>
+          ) : (
+            <motion.button
+              whileTap={{ scale: 0.96 }}
+              onClick={onClose}
+              className="flex-1 rounded-2xl py-3 text-white font-medium text-sm"
+              style={{ backgroundColor: '#8FA886' }}
+            >
+              晚安，好好休息
+            </motion.button>
+          )}
+        </div>
       </div>
     </motion.div>
   );
@@ -4445,18 +4702,27 @@ function BedtimeRitualPage({ records }: { records: HealingRecord[] }) {
 
 // ===================== PAGE: CARD =====================
 
-function CardPage({ onTaskComplete }: { onTaskComplete: (key: TaskKey) => void }) {
+function CardPage({ onTaskComplete, records }: { onTaskComplete: (key: TaskKey) => void; records: HealingRecord[] }) {
+  const todayRecord = records.find(r => r.date === getToday());
+  const todayEmoInfo = todayRecord?.emotion ? getEmotionInfo(todayRecord.emotion) : null;
+
   const [drawnCard, setDrawnCard] = useState<HealingCard | null>(null);
   const [isFlipped, setIsFlipped] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
   const [savedCards, setSavedCards] = useState<string[]>(loadSavedCards);
-  const [drawMode, setDrawMode] = useState<'random' | 'color'>('random');
-  const [selectedColor, setSelectedColor] = useState<CardColor | null>(null);
   const [imgLoaded, setImgLoaded] = useState(false);
 
-  const drawCard = (color?: CardColor) => {
+  const drawCard = () => {
     setImgLoaded(false);
-    const card = color ? drawCardByColor(color) : drawRandomCard();
+    // If today has emotion check-in, auto-select that emotion's color
+    let card: HealingCard;
+    if (todayRecord && todayEmoInfo) {
+      // Find a card matching the emotion's color
+      const emotionColor: CardColor = (todayEmoInfo.color.toLowerCase() as CardColor) || 'neutral';
+      card = drawCardByColor(emotionColor) || drawRandomCard();
+    } else {
+      card = drawRandomCard();
+    }
     setDrawnCard(card);
     setIsFlipped(false);
     setShowDetail(false);
@@ -4471,7 +4737,7 @@ function CardPage({ onTaskComplete }: { onTaskComplete: (key: TaskKey) => void }
     setShowDetail(false);
     setImgLoaded(false);
     setTimeout(() => {
-      const card = selectedColor ? drawCardByColor(selectedColor) : drawRandomCard();
+      const card = drawRandomCard();
       setDrawnCard(card);
       setTimeout(() => setIsFlipped(true), 400);
     }, 500);
@@ -4502,86 +4768,20 @@ function CardPage({ onTaskComplete }: { onTaskComplete: (key: TaskKey) => void }
     <motion.div className="space-y-5" {...fadeInUp}>
       {/* 標題 */}
       <div className="text-center">
-        <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>✦ 療癒卡牌 ✦</h2>
-        <p className="text-sm mt-1" style={{ color: '#8C7B72' }}>讓一張卡，接住今天的你</p>
+        <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>送你今天的一句話</h2>
+        <p className="text-sm mt-1" style={{ color: '#8C7B72' }}>每天一張，是這個 App 送你的小禮物</p>
       </div>
 
-      {/* 抽卡模式選擇 */}
+      {/* 抽卡 */}
       {!drawnCard && (
         <div className="space-y-4">
-          <div className="flex gap-2 justify-center">
-            <motion.button
-              whileTap={{ scale: 0.96 }}
-              onClick={() => { setDrawMode('random'); setSelectedColor(null); }}
-              className="px-4 py-2 rounded-full text-sm font-medium transition-all"
-              style={{
-                backgroundColor: drawMode === 'random' ? '#3D3530' : '#FFFEF9',
-                color: drawMode === 'random' ? '#FFFEF9' : '#3D3530',
-              }}
-            >
-              ✨ 隨機抽卡
-            </motion.button>
-            <motion.button
-              whileTap={{ scale: 0.96 }}
-              onClick={() => setDrawMode('color')}
-              className="px-4 py-2 rounded-full text-sm font-medium transition-all"
-              style={{
-                backgroundColor: drawMode === 'color' ? '#3D3530' : '#FFFEF9',
-                color: drawMode === 'color' ? '#FFFEF9' : '#3D3530',
-              }}
-            >
-              🎨 選擇情緒
-            </motion.button>
-          </div>
-
-          {/* 顏色選擇 */}
-          {drawMode === 'color' && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="grid grid-cols-2 gap-2"
-            >
-              {getAllColors().map(color => {
-                const cfg = CARD_COLOR_CONFIG[color];
-                const isSelected = selectedColor === color;
-                return (
-                  <motion.button
-                    key={color}
-                    whileTap={{ scale: 0.96 }}
-                    onClick={() => setSelectedColor(color)}
-                    className="rounded-2xl p-3 text-left transition-all"
-                    style={{
-                      backgroundColor: isSelected ? cfg.hex + '20' : '#FFFEF9',
-                      border: isSelected ? `2px solid ${cfg.hex}` : '2px solid transparent',
-                    }}
-                  >
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-4 h-4 rounded-full"
-                        style={{ backgroundColor: cfg.hex }}
-                      />
-                      <span className="text-sm font-medium" style={{ color: '#3D3530' }}>
-                        {cfg.label}
-                      </span>
-                    </div>
-                    <p className="text-xs mt-1" style={{ color: '#8C7B72' }}>{cfg.emotion}</p>
-                  </motion.button>
-                );
-              })}
-            </motion.div>
-          )}
-
-          {/* 抽卡按鈕 */}
           <motion.button
             whileTap={{ scale: 0.96 }}
-            onClick={() => drawCard(selectedColor || undefined)}
-            className="w-full rounded-2xl py-3.5 text-white font-medium text-sm shadow-sm"
-            style={{ backgroundColor: selectedColor ? CARD_COLOR_CONFIG[selectedColor].hex : '#8FA886' }}
+            onClick={drawCard}
+            className="w-full px-4 py-3 rounded-2xl text-sm font-medium text-white"
+            style={{ backgroundColor: '#8FA886' }}
           >
-            {drawMode === 'color' && selectedColor
-              ? `抽一張${CARD_COLOR_CONFIG[selectedColor].label}療癒卡`
-              : '✨ 抽出今日療癒卡'
-            }
+            隨緣抽一張
           </motion.button>
         </div>
       )}
@@ -5047,20 +5247,12 @@ function HealerPage({ records }: { records: HealingRecord[] }) {
 
 // ===================== BOTTOM NAV =====================
 
-const NAV_ITEMS: { key: PageType; emoji: string; label: string }[] = [
-  // 第一行 6 個
-  { key: 'home', emoji: '🏠', label: '首頁' },
-  { key: 'healing', emoji: '🌿', label: '處方' },
-  { key: 'diary', emoji: '📊', label: '心情' },
-  { key: 'sound', emoji: '🎵', label: '白噪音' },
-  { key: 'card', emoji: '🃏', label: '抽卡' },
-  { key: 'healer', emoji: '🌱', label: '療癒師' },
-  // 第二行 6 個（含客服 LINE）
-  { key: 'custom', emoji: '🧴', label: '客製化' },
-  { key: 'shop', emoji: '🛍️', label: '預約' },
-  { key: 'library', emoji: '📚', label: '圖書館' },
-  { key: 'calendar', emoji: '🗓️', label: '日曆' },
-  { key: 'member', emoji: '👤', label: '會員' },
+const NAV_ITEMS: { key: PageType; icon: string; label: string }[] = [
+  { key: 'home', icon: '☽', label: '陪伴' },
+  { key: 'sound', icon: '♪', label: '聆聽' },
+  { key: 'card', icon: '✦', label: '卡牌' },
+  { key: 'diary', icon: '◎', label: '紀錄' },
+  { key: 'member', icon: '♡', label: '我的' },
 ];
 
 // ===================== PAGE: 療癒圖書館 =====================
@@ -6270,11 +6462,7 @@ function CustomOilPage({ user, records }: { user: User | null; records: HealingR
 
 // ===================== BOTTOM NAV =====================
 
-function TopNav({ active, onChange }: { active: PageType; onChange: (p: PageType) => void }) {
-  // 第一行 6 個，第二行 5 個 + LINE 客服 = 6 個
-  const row1 = NAV_ITEMS.slice(0, 6);
-  const row2 = NAV_ITEMS.slice(6);
-
+function BottomNav({ active, onChange }: { active: PageType; onChange: (p: PageType) => void }) {
   const cellStyle: React.CSSProperties = {
     display: 'flex',
     flexDirection: 'column',
@@ -6282,24 +6470,27 @@ function TopNav({ active, onChange }: { active: PageType; onChange: (p: PageType
     justifyContent: 'center',
     gap: 0,
     position: 'relative',
-    padding: '4px 0',
+    padding: '6px 0',
   };
 
   return (
     <div
-      className="fixed top-0 left-0 right-0 z-40"
-      style={{ backgroundColor: '#FFFEF9', borderBottom: '1px solid #F0EDE8', boxShadow: '0 1px 4px rgba(0,0,0,0.04)' }}
+      className="fixed bottom-0 left-0 right-0 z-40"
+      style={{
+        backgroundColor: '#FFFEF9',
+        borderTop: '1px solid #F0EDE8',
+        paddingBottom: 'env(safe-area-inset-bottom)',
+      }}
     >
       <div className="max-w-md mx-auto">
-        {/* 第一行 6 個 — grid 等寬對齊 */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', height: 48 }}>
-          {row1.map(item => (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', height: 56 }}>
+          {NAV_ITEMS.map(item => (
             <button
               key={item.key}
               onClick={() => onChange(item.key)}
               style={cellStyle}
             >
-              <span className="text-base">{item.emoji}</span>
+              <span className="text-lg">{item.icon}</span>
               <span
                 className="text-[10px] font-medium"
                 style={{ color: active === item.key ? '#8FA886' : '#8C7B72' }}
@@ -6308,47 +6499,13 @@ function TopNav({ active, onChange }: { active: PageType; onChange: (p: PageType
               </span>
               {active === item.key && (
                 <motion.div
-                  layoutId="nav-indicator"
-                  className="absolute bottom-0 w-5 h-0.5 rounded-full"
+                  layoutId="bottom-nav-indicator"
+                  className="absolute bottom-1.5 w-1.5 h-1.5 rounded-full"
                   style={{ backgroundColor: '#8FA886' }}
                 />
               )}
             </button>
           ))}
-        </div>
-        {/* 第二行 5 個 + LINE 客服 = 6 個 — grid 等寬對齊 */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', height: 44, borderTop: '1px solid #F0EDE8' }}>
-          {row2.map(item => (
-            <button
-              key={item.key}
-              onClick={() => onChange(item.key)}
-              style={cellStyle}
-            >
-              <span className="text-base">{item.emoji}</span>
-              <span
-                className="text-[10px] font-medium"
-                style={{ color: active === item.key ? '#8FA886' : '#8C7B72' }}
-              >
-                {item.label}
-              </span>
-              {active === item.key && (
-                <motion.div
-                  layoutId="nav-indicator-extra"
-                  className="absolute bottom-0 w-5 h-0.5 rounded-full"
-                  style={{ backgroundColor: '#8FA886' }}
-                />
-              )}
-            </button>
-          ))}
-          <a
-            href="https://page.line.me/296yrpvh?openQrModal=true"
-            target="_blank"
-            rel="noopener noreferrer"
-            style={cellStyle}
-          >
-            <span className="text-base">💬</span>
-            <span className="text-[10px] font-medium" style={{ color: '#06C755' }}>客服</span>
-          </a>
         </div>
       </div>
     </div>
@@ -6375,6 +6532,7 @@ export default function HealingApp() {
   const [morningFlowEmotion, setMorningFlowEmotion] = useState<EmotionKey | null>(null);
   const [morningFlowLevel, setMorningFlowLevel] = useState<EmotionLevel>('L1');
   const [showMilestone, setShowMilestone] = useState<number | null>(null);
+  const [isBedtimeFullscreen, setIsBedtimeFullscreen] = useState(false);
 
   // Listen for auth changes and load Firestore records if logged in
   useEffect(() => {
@@ -6430,13 +6588,16 @@ export default function HealingApp() {
   }, [records]);
 
   const goToHealing = useCallback(() => setPage('healing'), []);
-  const goToBedtime = useCallback(() => setPage('bedtime'), []);
+  const goToBedtime = useCallback(() => {
+    setIsBedtimeFullscreen(true);
+    setPage('bedtime');
+  }, []);
   const goToSound = useCallback(() => setPage('sound'), []);
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#FAF8F5' }}>
-      <TopNav active={page} onChange={setPage} />
-      <div className="max-w-md mx-auto px-4 pt-28 pb-6">
+      {!isBedtimeFullscreen && <BottomNav active={page} onChange={setPage} />}
+      <div className="max-w-md mx-auto px-4 pt-4 pb-24">
         <AnimatePresence mode="wait">
           <motion.div
             key={page}
@@ -6453,6 +6614,7 @@ export default function HealingApp() {
                 onGoToBedtime={goToBedtime}
                 onGoToDiary={() => setPage('diary')}
                 onGoToCustom={() => setPage('custom')}
+                onGoToSound={goToSound}
                 user={user}
               />
             )}
@@ -6467,16 +6629,20 @@ export default function HealingApp() {
                 }} />}
             {page === 'sound' && <SoundPage recommendedEmotion={records.find(r => r.date === getToday())?.emotion} />}
             {page === 'healing' && (
-              <HealingPrescriptionPage
+              <HomePage
                 records={records}
                 onCheckIn={handleCheckIn}
-                onTaskComplete={completeTask}
-                onGoToSound={goToSound}
+                onGoToHealing={goToHealing}
                 onGoToBedtime={goToBedtime}
+                onGoToDiary={() => setPage('diary')}
+                onGoToCustom={() => setPage('custom')}
                 user={user}
               />
             )}
-            {page === 'bedtime' && <BedtimeRitualPage records={records} />}
+            {page === 'bedtime' && <BedtimeRitualPage records={records} onClose={() => {
+                  setIsBedtimeFullscreen(false);
+                  setPage('home');
+                }} />}
             {page === 'recipe' && (
               <RecipePage
                 records={records}
@@ -6485,12 +6651,12 @@ export default function HealingApp() {
                 user={user}
               />
             )}
-            {page === 'card' && <CardPage onTaskComplete={completeTask} />}
+            {page === 'card' && <CardPage onTaskComplete={completeTask} records={records} />}
             {page === 'healer' && <HealerPage records={records} />}
             {page === 'shop' && <ShopPage />}
             {page === 'library' && <HealingLibraryPage />}
             {page === 'calendar' && <FragranceCalendarPage />}
-            {page === 'member' && <MemberPage />}
+            {page === 'member' && <MemberPage records={records} onNavigate={(p) => setPage(p)} />}
             {page === 'custom' && <CustomOilPage user={user} records={records} />}
           </motion.div>
         </AnimatePresence>
