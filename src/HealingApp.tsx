@@ -147,6 +147,8 @@ function isInWishlist(productId: number): boolean {
 interface ServiceQuickItem {
   q: string;
   a: string;
+  navigateTo?: PageType;
+  shopCategory?: number; // jump to shop with specific category
 }
 
 interface ServiceCategory {
@@ -163,6 +165,11 @@ const SERVICE_CATEGORIES: ServiceCategory[] = [
     id: 'course', emoji: '🎨', title: '我想看看課程',
     sub: '手作、調香、花藝⋯⋯找到適合你的體驗',
     quickItems: [
+      {
+        q: '挑選課程',
+        a: '',
+        navigateTo: 'shop',
+      },
       {
         q: '適合新手嗎',
         a: '完全適合。我們的課程分成「平板自己做」和「老師教我做」兩種。平板自己做是跟著平板教學一步一步來，到目前為止還沒有人失敗過。老師教我做則有專業老師全程帶著你，不需要任何基礎，放心來就好。',
@@ -203,7 +210,8 @@ const SERVICE_CATEGORIES: ServiceCategory[] = [
       },
       {
         q: '想找放鬆的香氣',
-        a: '推薦可以看看薰衣草、佛手柑、雪松、檀香類的精油或擴香商品。我們也有調香體驗課（精油調香分類），可以現場聞過之後，調一瓶最適合你的。如果想在家慢慢用，商城「把我帶回家」分類裡有擴香石、蠟燭、精油可以選。',
+        a: '推薦可以看看薰衣草、佛手柑、雪松、檀香類的精油或擴香商品。我們也有調香體驗課，可以現場聞過之後，調一瓶最適合你的。如果想在家慢慢用，商城裡有擴香石、蠟燭、精油可以選。',
+        shopCategory: 173,
       },
       {
         q: '想找適合送禮的',
@@ -319,15 +327,7 @@ const SERVICE_CATEGORIES: ServiceCategory[] = [
     quickItems: [
       {
         q: '想辦團隊活動',
-        a: '我們已經辦過將近 1,000 場企業手作活動，17 大類、60 多種課程可以選。可以到我們的場地（最多 65 人），也可以派老師到你們公司。活動價格依人數和課程而定，基本從 NT$490/人起。請 LINE 或 email 告訴我們人數、預算和偏好，我們幫你規劃。',
-      },
-      {
-        q: '企業下午茶體驗',
-        a: '很受歡迎的方案！通常是 1.5-2 小時的手作體驗搭配下午茶，適合員工活動、部門聚餐、節慶活動。可以選蠟燭、花藝、調香、水晶手鍊等比較輕鬆的課程。我們也可以搭配主題佈置，詳細報價請聯繫我們。',
-      },
-      {
-        q: '員工福利方案',
-        a: '可以幫企業客製員工福利券（指定課程或金額），讓員工自己選時間來體驗。也可以做員工生日禮盒、節慶禮盒等。部分方案還可以搭配 ESG 環保主題課程（使用可回收材料），對企業永續報告也有幫助。',
+        a: '我們已經辦過將近 5,000 場企業手作活動，合作客戶涵蓋 Google、保時捷、南山人壽等知名品牌。17 大類、100 多種課程可選，門市最多容納 65 人，也可派老師至全台各地現場服務。活動價格依人數和課程而定，基本從 NT$690/人起。請 LINE 或 email 告訴我們人數、預算和偏好，我們幫你規劃。',
       },
       {
         q: '大量訂購',
@@ -6988,6 +6988,22 @@ function ServiceHallPage({ onNavigate }: { onNavigate: (p: PageType) => void }) 
                   <div className="px-4 pb-4 pt-1 space-y-2">
                     <p className="text-xs mb-1" style={{ color: '#B5AFA8' }}>先選一個最接近的方向：</p>
                     {cat.quickItems.map((item, i) => {
+                      // Direct navigation items (e.g. "挑選課程" → shop)
+                      if (item.navigateTo) {
+                        return (
+                          <motion.button
+                            key={i}
+                            whileTap={{ scale: 0.97 }}
+                            onClick={() => onNavigate(item.navigateTo!)}
+                            className="w-full text-left px-3 py-2.5 rounded-xl text-xs flex items-center justify-between font-medium"
+                            style={{ backgroundColor: '#8FA886', color: 'white' }}
+                          >
+                            <span>{item.q}</span>
+                            <span style={{ fontSize: 10 }}>→</span>
+                          </motion.button>
+                        );
+                      }
+
                       const answerKey = `${cat.id}-${i}`;
                       const isOpen = expandedAnswer === answerKey;
                       return (
@@ -7019,7 +7035,17 @@ function ServiceHallPage({ onNavigate }: { onNavigate: (p: PageType) => void }) 
                                   style={{ color: '#5C534C', backgroundColor: '#FAF8F500' }}
                                 >
                                   {item.a}
-                                  <div className="mt-2 pt-2 flex gap-2" style={{ borderTop: '1px solid #F0EDE8' }}>
+                                  <div className="mt-2 pt-2 flex gap-2 flex-wrap" style={{ borderTop: '1px solid #F0EDE8' }}>
+                                    {item.shopCategory && (
+                                      <motion.button
+                                        whileTap={{ scale: 0.95 }}
+                                        onClick={() => onNavigate('shop')}
+                                        className="px-3 py-1 rounded-full text-[10px] font-medium"
+                                        style={{ backgroundColor: '#8FA886', color: 'white' }}
+                                      >
+                                        去看看精油
+                                      </motion.button>
+                                    )}
                                     <motion.a
                                       whileTap={{ scale: 0.95 }}
                                       href="https://page.line.me/296yrpvh?openQrModal=true"
