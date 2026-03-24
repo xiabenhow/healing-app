@@ -3205,6 +3205,13 @@ function ShopProductsView({
                 ) : (
                   <div style={{ color: '#F0A878' }} className="text-4xl">📦</div>
                 )}
+                {/* Out of stock overlay */}
+                {product.stock_status === 'outofstock' && (
+                  <div className="absolute bottom-0 left-0 right-0 py-1 px-2 text-center"
+                    style={{ backgroundColor: 'rgba(61,53,48,0.75)', backdropFilter: 'blur(2px)' }}>
+                    <span className="text-[10px] font-bold text-white">預約包班</span>
+                  </div>
+                )}
                 {/* Wishlist Heart */}
                 <motion.div
                   whileTap={{ scale: 1.3 }}
@@ -3229,12 +3236,20 @@ function ShopProductsView({
                 >
                   {product.name}
                 </p>
-                <p
-                  className="text-sm font-bold mt-1"
-                  style={{ color: '#8FA886' }}
-                >
-                  NT${parseFloat(product.price).toLocaleString('zh-TW', { maximumFractionDigits: 0 })}
-                </p>
+                <div className="flex items-center gap-1.5 mt-1">
+                  <p
+                    className="text-sm font-bold"
+                    style={{ color: product.stock_status === 'outofstock' ? '#B5AFA8' : '#8FA886' }}
+                  >
+                    NT${parseFloat(product.price).toLocaleString('zh-TW', { maximumFractionDigits: 0 })}
+                  </p>
+                  {product.stock_status === 'outofstock' && (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full font-medium"
+                      style={{ backgroundColor: '#F0EDE8', color: '#8C7B72' }}>
+                      預約包班
+                    </span>
+                  )}
+                </div>
               </div>
             </motion.button>
           ))}
@@ -3427,10 +3442,15 @@ function ProductDetailView({ product, onBack, onAddToCart }: { product: WCProduc
           </div>
         )}
         {!product.manage_stock && product.stock_status === 'outofstock' && (
-          <div className="mb-3">
-            <span className="inline-block px-2 py-1 rounded-full text-xs font-medium" style={{ backgroundColor: '#FFE8E8', color: '#C62828' }}>
-              已售完
-            </span>
+          <div className="mb-3 p-3 rounded-xl" style={{ backgroundColor: '#FAF8F5', border: '1px solid #F0EDE8' }}>
+            <p className="text-xs font-bold" style={{ color: '#C9A96E' }}>目前無場次</p>
+            <p className="text-xs mt-0.5" style={{ color: '#8C7B72' }}>可與老師預約包班，LINE 或來電洽詢</p>
+          </div>
+        )}
+        {product.manage_stock && product.stock_quantity !== null && product.stock_quantity <= 0 && (
+          <div className="mb-3 p-3 rounded-xl" style={{ backgroundColor: '#FAF8F5', border: '1px solid #F0EDE8' }}>
+            <p className="text-xs font-bold" style={{ color: '#C9A96E' }}>目前無場次</p>
+            <p className="text-xs mt-0.5" style={{ color: '#8C7B72' }}>可與老師預約包班，LINE 或來電洽詢</p>
           </div>
         )}
         {product.short_description && (
@@ -3544,14 +3564,17 @@ function ProductDetailView({ product, onBack, onAddToCart }: { product: WCProduc
       </motion.div>
 
       {/* Add to Cart Button */}
-      {product.stock_status === 'outofstock' ? (
-        <motion.button
-          disabled
-          className="w-full py-3 rounded-xl font-bold text-white transition-all opacity-50 cursor-not-allowed"
-          style={{ backgroundColor: '#999' }}
+      {product.stock_status === 'outofstock' || (product.manage_stock && product.stock_quantity !== null && product.stock_quantity <= 0) ? (
+        <motion.a
+          whileTap={{ scale: 0.96 }}
+          href="https://page.line.me/296yrpvh?openQrModal=true"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block w-full py-3 rounded-xl font-bold text-white text-center transition-all"
+          style={{ backgroundColor: '#C9A96E' }}
         >
-          已售完
-        </motion.button>
+          預約包班 → LINE 聯繫
+        </motion.a>
       ) : (
         <motion.button
           whileTap={{ scale: 0.96 }}
