@@ -1,21 +1,29 @@
 // firebase-functions imported in index.ts
-import * as admin from "firebase-admin";
+import axios from "axios";
 import { Router } from "express";
 
 const router = Router();
 
-// 點數規則：消費金額 2%，每 1 點 = NT$1
-const POINTS_RATE = 0.02;
-const POINTS_VALUE = 1; // 1 點 = NT$1
+// WooCommerce 網站 URL
+const WC_SITE = process.env.WC_URL || "https://www.xiabenhow.com";
 
-interface MemberPointsQueryResponse {
+interface WCPointsResponse {
   email: string;
+  user_id: number;
+  display_name: string;
   points: number;
-  totalSpent: number;
-  lastUpdated: string;
+  points_collected: number;
+  points_to_redeem: number;
+  points_used: number;
+  total_spent: number;
+  history: Array<{
+    date: string;
+    description: string;
+    points: number;
+  }>;
 }
 
-// GET /api/member/points?email=xxx - 查詢點數
+// GET /api/member/points?email=xxx - 從 WooCommerce YITH 查詢真實紅利點數
 router.get("/points", async (req, res) => {
   try {
     const { email } = req.query as { email?: string };
@@ -25,206 +33,85 @@ router.get("/points", async (req, res) => {
       return;
     }
 
-    const db = admin.firestore();
+    // 呼叫 WordPress REST API 取得 YITH 紅利點數
+    const response = await axios.get<WCPointsResponse>(
+      `${WC_SITE}/wp-json/healing/v1/points`,
+      {
+        params: { email },
+        timeout: 10000,
+      }
+    );
 
-    // 查詢會員積分記錄
-    const memberDoc = await db.collection("members").doc(email).get();
+    const data = response.data;
 
-    if (!memberDoc.exists) {
-      // 新會員，初始化
-      const initialData = {
-        email: email,
-        points: 0,
-        totalSpent: 0,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      };
-      await memberDoc.ref.set(initialData);
-
-      const response: MemberPointsQueryResponse = {
-        email: email,
-        points: 0,
-        totalSpent: 0,
-        lastUpdated: new Date().toISOString(),
-      };
-      res.json(response);
-      return;
-    }
-
-    const data = memberDoc.data();
-    const response: MemberPointsQueryResponse = {
-      email: email,
-      points: data?.points || 0,
-      totalSpent: data?.totalSpent || 0,
-      lastUpdated: data?.updatedAt?.toDate?.().toISOString() || new Date().toISOString(),
-    };
-
-    res.json(response);
+    res.json({
+      email: data.email,
+      points: data.points,                     // 目前可用點數
+      pointsCollected: data.points_collected,   // 累計獲得點數
+      pointsToRedeem: data.points_to_redeem,    // 可兌換點數
+      pointsUsed: data.points_used,             // 已使用點數
+      totalSpent: data.total_spent,             // 消費總額
+      displayName: data.display_name,
+      history: data.history,
+    });
   } catch (error) {
     console.error("Query Points Error:", error);
-    res.status(500).json({ error: "Failed to query points" });
+    res.status(500).json({ error: "無法取得紅利點數" });
   }
 });
 
-interface EarnPointsRequest {
-  email: string;
-  amount: number;
-  orderId: string;
-  description?: string;
-}
-
-// POST /api/member/points/earn - 累積點數 (訂單完成時呼叫)
-router.post("/points/earn", async (req, res) => {
+// POST /api/member/points/sync - 接收 WooCommerce 訂單完成通知
+router.post("/points/sync", async (req, res) => {
   try {
-    const { email, amount, orderId, description } = req.body as EarnPointsRequest;
+    const { email, order_id, total, event } = req.body;
 
-    if (!email || !amount || amount <= 0 || !orderId) {
-      res.status(400).json({
-        error: "email, amount, orderId are required and amount must be > 0",
-      });
-      return;
-    }
+    console.log(`[Points Sync] 收到事件: ${event}, 訂單: #${order_id}, Email: ${email}, 金額: ${total}`);
 
-    const db = admin.firestore();
-
-    // 計算應獲得的點數（消費金額的 2%）
-    const pointsToEarn = Math.floor(amount * POINTS_RATE);
-
-    // 更新或建立會員記錄
-    const memberRef = db.collection("members").doc(email);
-
-    await db.runTransaction(async (transaction) => {
-      const memberDoc = await transaction.get(memberRef);
-
-      let currentPoints = 0;
-      let totalSpent = 0;
-
-      if (memberDoc.exists) {
-        currentPoints = memberDoc.data()?.points || 0;
-        totalSpent = memberDoc.data()?.totalSpent || 0;
-      }
-
-      const newPoints = currentPoints + pointsToEarn;
-      const newTotalSpent = totalSpent + amount;
-
-      transaction.set(
-        memberRef,
-        {
-          email: email,
-          points: newPoints,
-          totalSpent: newTotalSpent,
-          updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-        },
-        { merge: true }
-      );
-
-      // 記錄點數歷史
-      await transaction.set(
-        db.collection("points_history").doc(),
-        {
-          email: email,
-          orderId: orderId,
-          type: "earn",
-          pointsEarned: pointsToEarn,
-          amount: amount,
-          description: description || "Order completion",
-          balanceBefore: currentPoints,
-          balanceAfter: newPoints,
-          timestamp: admin.firestore.FieldValue.serverTimestamp(),
-        }
-      );
-    });
+    // 這裡可以做額外處理，例如：
+    // - 發送推播通知給 App 使用者
+    // - 更新本地快取
+    // - 記錄 analytics
 
     res.json({
       success: true,
-      email: email,
-      pointsEarned: pointsToEarn,
-      message: `Earned ${pointsToEarn} points from order ${orderId}`,
+      message: `已收到訂單 #${order_id} 完成通知`,
+      event: event,
     });
   } catch (error) {
-    console.error("Earn Points Error:", error);
-    res.status(500).json({ error: "Failed to earn points" });
+    console.error("Points Sync Error:", error);
+    res.status(500).json({ error: "Sync failed" });
   }
 });
 
-interface RedeemPointsRequest {
-  email: string;
-  points: number;
-  orderId: string;
-  description?: string;
-}
-
-// POST /api/member/points/redeem - 折抵點數
-router.post("/points/redeem", async (req, res) => {
+// POST /api/member/order-complete - 從 App 觸發訂單完成（寄出 WooCommerce 完成信件）
+router.post("/order-complete", async (req, res) => {
   try {
-    const { email, points, orderId, description } = req.body as RedeemPointsRequest;
+    const { order_id } = req.body;
 
-    if (!email || !points || points <= 0 || !orderId) {
-      res.status(400).json({
-        error: "email, points, orderId are required and points must be > 0",
-      });
+    if (!order_id) {
+      res.status(400).json({ error: "order_id is required" });
       return;
     }
 
-    const db = admin.firestore();
-    const memberRef = db.collection("members").doc(email);
-
-    let redeemSuccess = false;
-    let discountAmount = 0;
-
-    await db.runTransaction(async (transaction) => {
-      const memberDoc = await transaction.get(memberRef);
-
-      if (!memberDoc.exists) {
-        throw new Error("Member not found");
+    // 呼叫 WordPress REST API 觸發訂單完成 + 寄信
+    const response = await axios.post(
+      `${WC_SITE}/wp-json/healing/v1/order-completed`,
+      { order_id },
+      {
+        headers: { "Content-Type": "application/json" },
+        timeout: 15000,
       }
-
-      const currentPoints = memberDoc.data()?.points || 0;
-
-      if (currentPoints < points) {
-        throw new Error("Insufficient points");
-      }
-
-      const newPoints = currentPoints - points;
-      discountAmount = points * POINTS_VALUE; // 1 點 = NT$1
-
-      transaction.update(memberRef, {
-        points: newPoints,
-        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-
-      // 記錄點數歷史
-      await transaction.set(
-        db.collection("points_history").doc(),
-        {
-          email: email,
-          orderId: orderId,
-          type: "redeem",
-          pointsRedeemed: points,
-          discountAmount: discountAmount,
-          description: description || "Points redemption",
-          balanceBefore: currentPoints,
-          balanceAfter: newPoints,
-          timestamp: admin.firestore.FieldValue.serverTimestamp(),
-        }
-      );
-
-      redeemSuccess = true;
-    });
+    );
 
     res.json({
-      success: redeemSuccess,
-      email: email,
-      pointsRedeemed: points,
-      discountAmount: discountAmount,
-      message: `Redeemed ${points} points for NT$${discountAmount} discount`,
+      success: true,
+      order_id: order_id,
+      email_sent: response.data?.email_sent || false,
+      message: `訂單 #${order_id} 已標記完成，通知信已觸發`,
     });
   } catch (error) {
-    const err = error as Error;
-    console.error("Redeem Points Error:", err.message);
-    res.status(500).json({
-      error: err.message || "Failed to redeem points",
-    });
+    console.error("Order Complete Error:", error);
+    res.status(500).json({ error: "無法完成訂單" });
   }
 });
 

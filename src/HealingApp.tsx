@@ -3613,6 +3613,11 @@ function MemberPage({ records, onNavigate }: { records: HealingRecord[]; onNavig
   const [orders, setOrders] = useState<OrderItem[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [points, setPoints] = useState<number>(0);
+  const [pointsCollected, setPointsCollected] = useState<number>(0);
+  const [pointsToRedeem, setPointsToRedeem] = useState<number>(0);
+  const [pointsUsed, setPointsUsed] = useState<number>(0);
+  const [totalSpent, setTotalSpent] = useState<number>(0);
+  const [pointsHistory, setPointsHistory] = useState<Array<{ date: string; description: string; points: number }>>([]);
   const [pointsLoading, setPointsLoading] = useState(false);
   const [ordersError, setOrdersError] = useState<string | null>(null);
   const [pointsError, setPointsError] = useState<string | null>(null);
@@ -3676,6 +3681,11 @@ function MemberPage({ records, onNavigate }: { records: HealingRecord[]; onNavig
       }
       const data = await response.json();
       setPoints(data?.points || 0);
+      setPointsCollected(data?.pointsCollected || 0);
+      setPointsToRedeem(data?.pointsToRedeem || 0);
+      setPointsUsed(data?.pointsUsed || 0);
+      setTotalSpent(data?.totalSpent || 0);
+      setPointsHistory(data?.history || []);
     } catch (error) {
       console.error('Error loading points:', error);
       setPointsError('目前無法取得紅利點數');
@@ -3704,6 +3714,11 @@ function MemberPage({ records, onNavigate }: { records: HealingRecord[]; onNavig
       await signOut(auth);
       setOrders([]);
       setPoints(0);
+      setPointsCollected(0);
+      setPointsToRedeem(0);
+      setPointsUsed(0);
+      setTotalSpent(0);
+      setPointsHistory([]);
     } catch (error) {
       console.error('登出失敗:', error);
     }
@@ -3968,11 +3983,51 @@ function MemberPage({ records, onNavigate }: { records: HealingRecord[]; onNavig
         </div>
 
         {/* Points section */}
-        {!pointsLoading && !pointsError && (
+        {pointsLoading ? (
           <div>
             <p className="text-sm font-bold mb-2" style={{ color: '#3D3530' }}>紅利點數</p>
-            <p className="text-2xl font-bold" style={{ color: '#8FA886' }}>{points}</p>
-            <p className="text-xs mt-1" style={{ color: '#8C7B72' }}>每1點 = NT$1</p>
+            <p className="text-xs" style={{ color: '#8C7B72' }}>載入中...</p>
+          </div>
+        ) : pointsError ? (
+          <div>
+            <p className="text-sm font-bold mb-2" style={{ color: '#3D3530' }}>紅利點數</p>
+            <p className="text-xs" style={{ color: '#8C7B72' }}>{pointsError}</p>
+          </div>
+        ) : (
+          <div>
+            <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>紅利點數</p>
+            <p className="text-2xl font-bold" style={{ color: '#8FA886' }}>{points.toLocaleString()}</p>
+            <p className="text-xs mt-1 mb-3" style={{ color: '#8C7B72' }}>目前可用點數（每1點 = NT$1）</p>
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              <div className="p-2.5 rounded-xl" style={{ backgroundColor: '#FAF8F5' }}>
+                <p className="text-xs" style={{ color: '#8C7B72' }}>累計獲得</p>
+                <p className="text-sm font-bold" style={{ color: '#3D3530' }}>{pointsCollected.toLocaleString()}</p>
+              </div>
+              <div className="p-2.5 rounded-xl" style={{ backgroundColor: '#FAF8F5' }}>
+                <p className="text-xs" style={{ color: '#8C7B72' }}>已使用</p>
+                <p className="text-sm font-bold" style={{ color: '#3D3530' }}>{pointsUsed.toLocaleString()}</p>
+              </div>
+            </div>
+            {totalSpent > 0 && (
+              <p className="text-xs" style={{ color: '#8C7B72' }}>
+                累計消費 NT${totalSpent.toLocaleString()}
+              </p>
+            )}
+            {pointsHistory.length > 0 && (
+              <div className="mt-3 pt-3" style={{ borderTop: '1px solid #F0EDE8' }}>
+                <p className="text-xs font-medium mb-2" style={{ color: '#3D3530' }}>最近紀錄</p>
+                <div className="space-y-1.5">
+                  {pointsHistory.slice(0, 5).map((h, i) => (
+                    <div key={i} className="flex justify-between text-xs" style={{ color: '#8C7B72' }}>
+                      <span className="truncate flex-1 mr-2">{h.description || h.date}</span>
+                      <span style={{ color: h.points > 0 ? '#8FA886' : '#C48B6C', fontWeight: 600 }}>
+                        {h.points > 0 ? '+' : ''}{h.points}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
