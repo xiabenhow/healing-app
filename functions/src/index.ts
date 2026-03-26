@@ -8,6 +8,7 @@ import { ecpayRouter } from "./ecpay";
 import { linePayRouter } from "./linepay";
 import { invoiceRouter } from "./invoice";
 import { memberRouter } from "./member";
+import { healingAiRouter } from "./healing-ai";
 
 // 載入環境變數
 dotenv.config();
@@ -43,6 +44,7 @@ app.use("/api/ecpay", ecpayRouter);
 app.use("/api/linepay", linePayRouter);
 app.use("/api/invoice", invoiceRouter);
 app.use("/api/member", memberRouter);
+app.use("/api/healing", healingAiRouter);
 
 // 健康檢查
 app.get("/health", (req, res) => {
@@ -60,6 +62,7 @@ app.get("/", (req, res) => {
       linepay: "/api/linepay",
       invoice: "/api/invoice",
       member: "/api/member",
+      healing: "/api/healing",
       health: "/health",
     },
   });

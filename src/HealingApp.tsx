@@ -6807,29 +6807,386 @@ function HealerPage({ records }: { records: HealingRecord[] }) {
 // ===================== BOTTOM NAV =====================
 
 const NAV_ITEMS: { key: PageType; icon: string; label: string }[] = [
+  // Row 1
   { key: 'home', icon: '☽', label: '陪伴' },
-  { key: 'sound', icon: '♪', label: '聆聽' },
-  { key: 'card', icon: '✦', label: '卡牌' },
-  { key: 'shop', icon: '🎁', label: '陪伴選物' },
   { key: 'diary', icon: '◎', label: '紀錄' },
-  { key: 'library', icon: '✧', label: '懂你' },
+  { key: 'card', icon: '✦', label: '卡牌' },
   { key: 'healer', icon: '🌹', label: '療癒師' },
+  // Row 2
+  { key: 'sound', icon: '♪', label: '聆聽' },
+  { key: 'library', icon: '✧', label: '懂你' },
+  { key: 'shop', icon: '🎁', label: '陪伴禮物' },
   { key: 'member', icon: '♡', label: '我的' },
 ];
 
-// ===================== PAGE: 療癒圖書館 =====================
+// ===================== PAGE: 課後照顧中心 (Aftercare Center) =====================
 
-type LibraryView = 'home' | 'path' | 'oil-detail' | 'crystal-detail' | 'article' | 'practice' | 'search';
+// --- 課後照顧 Types ---
+interface PlantRecord {
+  id: string;
+  name: string;
+  lastWatered: string; // ISO date string
+  intervalDays: number;
+  emoji: string;
+}
 
-function HealingLibraryPage() {
+interface FragranceRecord {
+  id: string;
+  name: string;
+  date: string;
+  topNotes: string[];
+  middleNotes: string[];
+  baseNotes: string[];
+  memo: string;
+}
+
+interface MyWork {
+  id: string;
+  type: 'fragrance' | 'plant' | 'crystal' | 'leather' | 'candle' | 'other';
+  name: string;
+  date: string;
+  emoji: string;
+  memo: string;
+}
+
+type CourseType = 'fragrance' | 'plant' | 'crystal' | 'leather' | 'candle';
+
+// --- 課後照顧 知識內容 ---
+const AFTERCARE_KNOWLEDGE = {
+  plant: [
+    { id: 'pk1', emoji: '💧', title: '多肉多久澆一次水？', summary: '一般 7-10 天一次，夏天可縮短、冬天可拉長。觀察土壤乾燥程度是最好的判斷方式。', content: '多肉植物的澆水頻率取決於季節、環境和盆器材質。春秋季約 7 天一次，夏季高溫可能需要 5-7 天，冬季休眠期可延長至 14 天。最簡單的判斷方法是用手指插入土壤約 2 公分深，如果完全乾燥就可以澆水了。\n\n澆水時請澆透，讓水從盆底流出，但不要讓盆器泡在積水中。建議在早上或傍晚澆水，避免正午高溫時澆水。' },
+    { id: 'pk2', emoji: '🍃', title: '葉子皺皺的是缺水嗎？', summary: '通常是缺水的信號，但也可能是根部出了問題。輕輕碰觸葉片，如果軟軟的就是該喝水了。', content: '多肉葉片出現皺褶，最常見的原因確實是缺水。健康的多肉葉片應該飽滿有彈性，當水分不足時會開始萎縮。\n\n但也有其他可能：根部腐爛導致無法吸水、換盆後根系還沒恢復、或是曬傷。如果澆水後 2-3 天葉片沒有恢復飽滿，建議檢查根部是否健康。\n\n小提醒：底部老葉自然乾枯是正常的新陳代謝，不需要擔心。' },
+    { id: 'pk3', emoji: '☀️', title: '室內養多肉的注意事項', summary: '光照、通風、澆水頻率是三大關鍵。放在靠窗處，保持空氣流通最重要。', content: '室內養多肉最重要的三件事：\n\n光照：多肉需要充足的散射光，建議放在南向或東向窗台。如果葉片開始徒長（莖變長、葉片間距變大），表示光照不足。\n\n通風：保持空氣流通可以預防病蟲害和根部腐爛。避免放在完全密閉的角落。\n\n澆水：室內蒸發較慢，澆水頻率要比室外更低。寧可少澆，多肉比較怕澇不怕旱。\n\n額外提醒：冷氣直吹會讓多肉脫水，暖氣太近會過熱，請找一個溫度適中的位置。' },
+    { id: 'pk4', emoji: '🌱', title: '多肉的日照與通風小提醒', summary: '每天至少 4 小時散射光。通風不良容易引發黑腐病，記得偶爾開窗讓空氣流動。', content: '多肉植物原生於乾燥、光照充足的環境，所以充足的光照對它們來說非常重要。\n\n理想的光照條件是每天 4-6 小時的明亮散射光。直射的午後烈日可能會曬傷葉片（出現褐色斑點），建議用紗簾過濾。\n\n通風方面，多肉特別怕悶熱潮濕。如果環境不通風，澆水後水分蒸發慢，容易造成根部腐爛或黑腐病。建議每天至少有一段時間開窗通風，讓空氣自然流動。' },
+  ],
+  fragrance: [
+    { id: 'fk1', emoji: '🫧', title: '香水該怎麼保存？', summary: '避光、避熱、避潮濕。放在陰涼處，不要放浴室或車上。', content: '香水最怕三件事：光線、高溫、潮濕。\n\n保存建議：放在衣櫃、抽屜或化妝台等陰涼避光處。不要放在浴室（潮濕）、車上（高溫）或窗台邊（日曬）。\n\n開封後建議在 1-2 年內使用完畢。如果發現香味變酸、變色或出現沉澱，可能已經氧化變質。\n\n小技巧：噴在手腕、耳後、脖子兩側等脈搏處，體溫會幫助香味慢慢散發。' },
+    { id: 'fk2', emoji: '🌸', title: '什麼時候適合補香？', summary: '一般香水約 4-6 小時後開始淡化。下午是很好的補香時機，輕輕補一下就好。', content: '不同濃度的香水持香時間不同：淡香水（EDT）約 3-5 小時，淡香精（EDP）約 6-8 小時。\n\n建議的補香時機：午餐後或下午 3-4 點。輕輕在手腕或衣領噴一下即可，不需要大面積補噴。\n\n如果是自己調的香氛，天然精油的持香時間通常比合成香料短，可能 2-4 小時就會淡化。隨身攜帶滾珠瓶方便隨時補香。' },
+    { id: 'fk3', emoji: '📝', title: '精油入門：認識前中後調', summary: '前調清新易揮發，中調是主角，後調深沉持久。三者搭配才是完整的香氣旅程。', content: '調香就像譜一首曲子，前中後三個調性各有角色：\n\n前調（Top Notes）：第一印象，通常是柑橘、薄荷等清新香氣，揮發最快，約 15-30 分鐘。\n\n中調（Middle Notes）：香水的心臟，通常是花香或草本香氣，在前調消散後顯現，持續 2-4 小時。\n\n後調（Base Notes）：深沉持久的底蘊，通常是木質、樹脂或麝香類，持續 6 小時以上。\n\n調香時建議比例：前調 15-25%、中調 30-40%、後調 30-40%，但沒有絕對的規則，跟著感覺走也很好。' },
+  ],
+  crystal: [
+    { id: 'ck1', emoji: '🔮', title: '水晶需要消磁嗎？', summary: '建議定期消磁，讓水晶回到最純淨的狀態。常見方式有月光浴、鼠尾草煙燻、音缽淨化。', content: '水晶消磁是一種能量淨化的概念。當你覺得水晶能量變得沉重或不太對勁時，就是消磁的好時機。\n\n常見消磁方式：\n\n月光浴：滿月夜晚將水晶放在窗邊或陽台，讓月光照拂一整晚。\n\n鼠尾草煙燻：點燃鼠尾草，讓煙繞過水晶表面。\n\n音缽/音叉淨化：用頌缽的聲波震動淨化水晶能量。\n\n流水淨化：放在流動的清水下沖洗（注意：部分水晶不能碰水，如硒石、孔雀石等）。\n\n建議每 1-2 週消磁一次，或在你覺得需要的時候進行。' },
+    { id: 'ck2', emoji: '✨', title: '水晶手鍊怎麼保養？', summary: '避免碰水、碰化學品。洗手、洗澡前記得取下。定期用軟布輕拭。', content: '水晶手鍊的日常保養其實很簡單：\n\n避免碰水：洗手、洗澡、游泳前請取下。水分會讓串線老化、金屬配件氧化。\n\n避免化學品：香水、乳液、清潔劑都可能影響水晶光澤。建議先擦乳液、噴香水，等乾燥後再戴手鍊。\n\n存放方式：不戴時放在柔軟的布袋或首飾盒中，避免與其他飾品碰撞（硬度不同可能互相刮傷）。\n\n清潔方式：用柔軟的棉布或眼鏡布輕輕擦拭即可。如果需要深層清潔，可用微濕的布擦拭後立即擦乾。' },
+    { id: 'ck3', emoji: '💜', title: '今天適合哪種水晶能量？', summary: '根據你的狀態選擇：想安定選紫水晶、想開心選黃水晶、想被愛選粉晶。', content: '每種水晶都有它獨特的能量特質，你可以根據當下的需求來選擇：\n\n想要平靜安定 → 紫水晶：帶來內心的寧靜與直覺力。\n\n想要開心自信 → 黃水晶：增添陽光般的正面能量與自信。\n\n想要被愛包圍 → 粉晶：溫柔的愛的能量，療癒心輪。\n\n想要清晰專注 → 白水晶：淨化空間、提升專注力。\n\n想要勇氣行動 → 虎眼石：帶來勇氣與決斷力。\n\n沒有一定要很懂才能戴水晶。跟著直覺走，被哪顆吸引就選哪顆，通常就是你當下最需要的。' },
+  ],
+  leather: [
+    { id: 'lk1', emoji: '👜', title: '皮革作品的日常保養', summary: '定期擦拭、避免潮濕、適時上油。好的保養讓皮革越用越有味道。', content: '皮革是有生命力的材質，好好照顧它會越來越美：\n\n日常擦拭：每週用柔軟的棉布輕輕擦去灰塵和指紋。\n\n防潮：皮革怕潮濕，不用時放在通風處，可放入防潮袋。淋雨後用乾布吸乾水分，自然風乾（不要用吹風機）。\n\n上油保養：每 1-3 個月用皮革專用保養油薄薄擦一層。不要用嬰兒油或凡士林，可能會堵塞毛孔。\n\n避免：長時間日曬（會褪色龜裂）、接觸化學品、用力摩擦。\n\n皮革的變色和使用痕跡是它的故事，養出屬於你的獨特色澤是手作皮革最迷人的地方。' },
+  ],
+};
+
+// --- 課後照顧 localStorage helpers ---
+const STORAGE_KEYS = {
+  plants: 'healing_aftercare_plants',
+  fragrances: 'healing_aftercare_fragrances',
+  works: 'healing_aftercare_works',
+  courseTypes: 'healing_aftercare_course_types',
+};
+
+function loadFromStorage<T>(key: string, fallback: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch { return fallback; }
+}
+
+function saveToStorage<T>(key: string, data: T) {
+  try { localStorage.setItem(key, JSON.stringify(data)); } catch { /* ignore */ }
+}
+
+// --- 澆水天數計算 ---
+function getWateringStatus(lastWatered: string, intervalDays: number): { daysLeft: number; message: string; urgent: boolean } {
+  const last = new Date(lastWatered);
+  const now = new Date();
+  const diffMs = now.getTime() - last.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const daysLeft = intervalDays - diffDays;
+  if (daysLeft <= 0) return { daysLeft: 0, message: '今天可以幫它補充水分了', urgent: true };
+  if (daysLeft === 1) return { daysLeft: 1, message: '明天就可以喝水了', urgent: false };
+  return { daysLeft, message: `還有 ${daysLeft} 天後喝水`, urgent: false };
+}
+
+// --- 今日提醒生成 ---
+function generateDailyReminders(plants: PlantRecord[], fragrances: FragranceRecord[]): { emoji: string; message: string; type: string }[] {
+  const reminders: { emoji: string; message: string; type: string }[] = [];
+  const today = new Date();
+  const dayOfWeek = today.getDay();
+  const dayOfMonth = today.getDate();
+
+  // 植物澆水提醒
+  plants.forEach(p => {
+    const status = getWateringStatus(p.lastWatered, p.intervalDays);
+    if (status.urgent) {
+      reminders.push({ emoji: '💧', message: `${p.name || '你的多肉'}今天可以喝水了`, type: 'plant' });
+    } else if (status.daysLeft === 1) {
+      reminders.push({ emoji: '🌱', message: `${p.name || '你的多肉'}明天就該澆水了，記得準備`, type: 'plant' });
+    }
+  });
+
+  // 補香提醒 (下午時段)
+  if (today.getHours() >= 14 && today.getHours() <= 17) {
+    reminders.push({ emoji: '🫧', message: '下午了，今天適合幫自己補點香氣', type: 'fragrance' });
+  }
+
+  // 水晶消磁提醒 (每週日)
+  if (dayOfWeek === 0) {
+    reminders.push({ emoji: '🔮', message: '週末了，可以幫水晶做個小小淨化', type: 'crystal' });
+  }
+
+  // 皮革保養提醒 (每月1號和15號)
+  if (dayOfMonth === 1 || dayOfMonth === 15) {
+    reminders.push({ emoji: '👜', message: '記得看看皮革作品，需要擦拭保養嗎？', type: 'leather' });
+  }
+
+  // 如果沒有任何提醒，給一個溫暖的默認提醒
+  if (reminders.length === 0) {
+    const defaultMessages = [
+      { emoji: '🌿', message: '今天也別忘了看看你的作品們', type: 'general' },
+      { emoji: '✨', message: '每一件作品都值得被好好對待', type: 'general' },
+      { emoji: '🌸', message: '今天想先照顧哪一個作品？', type: 'general' },
+    ];
+    reminders.push(defaultMessages[dayOfMonth % defaultMessages.length]);
+  }
+
+  return reminders;
+}
+
+type LibraryView = 'home' | 'oil-detail' | 'crystal-detail' | 'article' | 'practice' | 'search'
+  | 'care-fragrance' | 'care-plant' | 'care-crystal' | 'care-leather' | 'care-candle'
+  | 'my-works' | 'add-plant' | 'add-fragrance' | 'knowledge-detail' | 'plant-detail';
+
+function HealingLibraryPage({ userEmail }: { userEmail: string | null }) {
   const [view, setView] = useState<LibraryView>('home');
-  const [selectedPath, setSelectedPath] = useState<HealingPath | null>(null);
   const [selectedOil, setSelectedOil] = useState<OilLibraryItem | null>(null);
   const [selectedCrystal, setSelectedCrystal] = useState<CrystalItem | null>(null);
   const [selectedArticle, setSelectedArticle] = useState<LibraryArticle | null>(null);
   const [selectedPractice, setSelectedPractice] = useState<LibraryPractice | null>(null);
   const [search, setSearch] = useState('');
-  const [filterTab, setFilterTab] = useState<'all' | 'oil' | 'crystal' | 'sound' | 'article' | 'practice'>('all');
+  const [filterTab, setFilterTab] = useState<'all' | 'oil' | 'crystal'>('all');
+
+  // 課後照顧 State
+  const [plants, setPlants] = useState<PlantRecord[]>(() => loadFromStorage(STORAGE_KEYS.plants, []));
+  const [fragrances, setFragrances] = useState<FragranceRecord[]>(() => loadFromStorage(STORAGE_KEYS.fragrances, []));
+  const [works, setWorks] = useState<MyWork[]>(() => loadFromStorage(STORAGE_KEYS.works, []));
+  const [courseTypes, setCourseTypes] = useState<CourseType[]>(() => loadFromStorage(STORAGE_KEYS.courseTypes, []));
+  const [courseRecords, setCourseRecords] = useState<Array<{ orderId: number; orderDate: string; productName: string; courseType: string | null }>>([]);
+  const [loadingCourses, setLoadingCourses] = useState(false);
+  const [courseSynced, setCourseSynced] = useState(false);
+
+  // 自動從 WooCommerce 訂單抓取課程紀錄
+  useEffect(() => {
+    if (!userEmail || courseSynced) return;
+
+    const fetchCourseHistory = async () => {
+      setLoadingCourses(true);
+      try {
+        const resp = await fetch(`${API_BASE}/api/wc/my-courses?email=${encodeURIComponent(userEmail)}`);
+        if (!resp.ok) throw new Error('fetch failed');
+        const data = await resp.json();
+
+        if (data.courseTypes && data.courseTypes.length > 0) {
+          // 合併已有的 courseTypes（保留手動標記的）
+          setCourseTypes(prev => {
+            const merged = new Set([...prev, ...data.courseTypes]);
+            return Array.from(merged) as CourseType[];
+          });
+        }
+
+        if (data.courseRecords && data.courseRecords.length > 0) {
+          setCourseRecords(data.courseRecords);
+
+          // 自動產生 works 紀錄（去重，避免重複新增）
+          const existingWorkIds = new Set(works.map(w => w.id));
+          const newWorks: MyWork[] = [];
+          for (const rec of data.courseRecords) {
+            const workId = `wc-order-${rec.orderId}-${rec.productId}`;
+            if (!existingWorkIds.has(workId)) {
+              const typeMap: Record<string, MyWork['type']> = {
+                fragrance: 'fragrance', plant: 'plant', crystal: 'crystal',
+                leather: 'leather', candle: 'candle',
+              };
+              const emojiMap: Record<string, string> = {
+                fragrance: '🫧', plant: '🌱', crystal: '💎',
+                leather: '👜', candle: '🕯️',
+              };
+              newWorks.push({
+                id: workId,
+                type: typeMap[rec.courseType] || 'other',
+                name: rec.productName,
+                date: rec.orderDate?.slice(0, 10) || new Date().toISOString().slice(0, 10),
+                emoji: emojiMap[rec.courseType] || '✨',
+                memo: `訂單 #${rec.orderId}`,
+              });
+            }
+          }
+          if (newWorks.length > 0) {
+            setWorks(prev => [...prev, ...newWorks]);
+          }
+        }
+
+        setCourseSynced(true);
+      } catch (e) {
+        console.error('Failed to fetch course history:', e);
+      } finally {
+        setLoadingCourses(false);
+      }
+    };
+
+    fetchCourseHistory();
+  }, [userEmail, courseSynced]);
+
+  // 新增植物表單
+  const [newPlantName, setNewPlantName] = useState('');
+  const [newPlantDate, setNewPlantDate] = useState(new Date().toISOString().slice(0, 10));
+  const [newPlantInterval, setNewPlantInterval] = useState(7);
+  const [newPlantEmoji, setNewPlantEmoji] = useState('🪴');
+
+  // 新增調香表單
+  const [newFragName, setNewFragName] = useState('');
+  const [newFragDate, setNewFragDate] = useState(new Date().toISOString().slice(0, 10));
+  const [newFragTop, setNewFragTop] = useState('');
+  const [newFragMiddle, setNewFragMiddle] = useState('');
+  const [newFragBase, setNewFragBase] = useState('');
+  const [newFragMemo, setNewFragMemo] = useState('');
+
+  // 知識文章 detail
+  const [selectedKnowledge, setSelectedKnowledge] = useState<{ emoji: string; title: string; content: string } | null>(null);
+
+  // 選中的植物
+  const [selectedPlant, setSelectedPlant] = useState<PlantRecord | null>(null);
+
+  // ===== AI 個人化內容 =====
+  const [aiContent, setAiContent] = useState<{
+    weather_banner?: { text: string; weather: string; temperature_c: number };
+    today_message?: string;
+    care_tips?: Array<{ category: string; text: string }>;
+    ritual?: { text: string; category: string; time_of_day: string };
+    recommendations?: Array<{ type: string; title: string; reason: string }>;
+    plant_recommendation?: { name: string; why: string; care: string; healing_quote: string } | null;
+  } | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [plantDiagnosisResult, setPlantDiagnosisResult] = useState<string | null>(null);
+  const [plantDiagnosisLoading, setPlantDiagnosisLoading] = useState(false);
+
+  // AI 個人化內容載入
+  useEffect(() => {
+    const fetchAiContent = async () => {
+      setAiLoading(true);
+      try {
+        const hour = new Date().getHours();
+        const timeOfDay = hour < 12 ? 'morning' : hour < 18 ? 'afternoon' : 'evening';
+        const interests: Record<string, number> = {};
+        if (courseTypes.includes('plant') || plants.length > 0) interests.plant = 5;
+        if (courseTypes.includes('fragrance')) interests.scent = 4;
+        if (courseTypes.includes('crystal')) interests.crystal = 3;
+        if (courseTypes.includes('candle')) interests.scent = Math.max(interests.scent || 0, 3);
+        if (courseTypes.includes('leather')) interests.leather = 2;
+
+        const body = {
+          user: { nickname: '', location: '台灣', lastActiveDays: 0 },
+          courses: courseRecords.map(r => ({
+            source: 'order' as const,
+            category: r.courseType || 'other',
+            subCategory: r.courseType || '',
+            courseName: r.productName,
+            courseDate: r.orderDate?.slice(0, 10) || '',
+          })),
+          plants: plants.map(p => ({
+            name: p.name,
+            lastWatered: p.lastWatered,
+            intervalDays: p.intervalDays,
+          })),
+          interests,
+          context: {
+            weather: '晴',
+            today: new Date().toISOString().slice(0, 10),
+            timeOfDay,
+            temperatureC: 25,
+          },
+          history: {
+            lastRecommendedPlants: [],
+            lastRecommendedArticles: [],
+            lastPushType: '',
+          },
+        };
+
+        const resp = await fetch(`${API_BASE}/api/healing/companion`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+
+        if (!resp.ok) {
+          const errData = await resp.json().catch(() => ({}));
+          if (errData.fallback) {
+            setAiContent(errData.fallback.healing_home || null);
+          }
+          return;
+        }
+
+        const result = await resp.json();
+        if (result.success && result.data) {
+          setAiContent({
+            ...result.data.healing_home,
+            plant_recommendation: result.data.plant_recommendation,
+          });
+        }
+      } catch (e) {
+        console.error('AI content fetch failed:', e);
+      } finally {
+        setAiLoading(false);
+      }
+    };
+
+    // 只在有課程或植物紀錄時才呼叫 AI
+    if (courseTypes.length > 0 || plants.length > 0) {
+      fetchAiContent();
+    }
+  }, [courseTypes.length, plants.length]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 植物照片診斷
+  const handlePlantDiagnosis = async (file: File, plantName?: string) => {
+    setPlantDiagnosisLoading(true);
+    setPlantDiagnosisResult(null);
+    try {
+      const reader = new FileReader();
+      const base64 = await new Promise<string>((resolve, reject) => {
+        reader.onload = () => {
+          const result = reader.result as string;
+          resolve(result.split(',')[1]); // 移除 data:image/... prefix
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const resp = await fetch(`${API_BASE}/api/healing/plant-diagnosis`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          imageBase64: base64,
+          imageMediaType: file.type || 'image/jpeg',
+          plantName,
+        }),
+      });
+
+      if (!resp.ok) throw new Error('Diagnosis failed');
+      const result = await resp.json();
+      setPlantDiagnosisResult(result.diagnosis);
+    } catch (e) {
+      console.error('Plant diagnosis failed:', e);
+      setPlantDiagnosisResult('診斷暫時無法使用，請稍後再試');
+    } finally {
+      setPlantDiagnosisLoading(false);
+    }
+  };
+
+  // Persist to localStorage
+  useEffect(() => { saveToStorage(STORAGE_KEYS.plants, plants); }, [plants]);
+  useEffect(() => { saveToStorage(STORAGE_KEYS.fragrances, fragrances); }, [fragrances]);
+  useEffect(() => { saveToStorage(STORAGE_KEYS.works, works); }, [works]);
+  useEffect(() => { saveToStorage(STORAGE_KEYS.courseTypes, courseTypes); }, [courseTypes]);
+
+  // 今日提醒
+  const dailyReminders = useMemo(() => generateDailyReminders(plants, fragrances), [plants, fragrances]);
 
   // 搜尋結果
   const searchResults = useMemo(() => {
@@ -6837,24 +7194,50 @@ function HealingLibraryPage() {
     const q = search.toLowerCase();
     const oils = OIL_LIBRARY.filter(o => o.name.includes(q) || o.en.toLowerCase().includes(q) || o.tags.some(t => t.includes(q)));
     const crystals = CRYSTAL_LIBRARY.filter(c => c.name.includes(q) || c.en.toLowerCase().includes(q) || c.tags.some(t => t.includes(q)));
-    const sounds = LIBRARY_SOUNDS.filter(s => s.title.includes(q) || s.tags.some(t => t.includes(q)));
-    const articles = LIBRARY_ARTICLES.filter(a => a.title.includes(q) || a.tags.some(t => t.includes(q)));
-    const practices = LIBRARY_PRACTICES.filter(p => p.title.includes(q) || p.tags.some(t => t.includes(q)));
-    const paths = HEALING_PATHS.filter(p => p.title.includes(q) || p.tags.some(t => t.includes(q)));
-    return { oils, crystals, sounds, articles, practices, paths };
+    return { oils, crystals };
   }, [search]);
 
-  // 返回按鈕
+  // 動態排序：根據上過的課排序照顧入口
+  const careEntries = useMemo(() => {
+    const allEntries: { key: CourseType; emoji: string; title: string; subtitle: string; color: string }[] = [
+      { key: 'fragrance', emoji: '🫧', title: '調香照顧', subtitle: '查看配方、補香提醒與香味日記', color: '#E8D5B7' },
+      { key: 'plant', emoji: '🌱', title: '植栽照顧', subtitle: '澆水提醒、照顧知識與植物狀態', color: '#C5D9B2' },
+      { key: 'crystal', emoji: '💎', title: '水晶照顧', subtitle: '消磁音頻、能量功效與佩戴建議', color: '#D4C5E2' },
+      { key: 'leather', emoji: '👜', title: '皮革保養', subtitle: '使用提醒與日常保養方式', color: '#D9C5B2' },
+      { key: 'candle', emoji: '🕯️', title: '蠟燭 / 擴香照顧', subtitle: '燃燒須知、擴香石保養與使用建議', color: '#F0E0C8' },
+    ];
+    // 上過的課排前面
+    const attended = allEntries.filter(e => courseTypes.includes(e.key));
+    const notAttended = allEntries.filter(e => !courseTypes.includes(e.key));
+    return [...attended, ...notAttended];
+  }, [courseTypes]);
+
+  // 我的作品快捷入口
+  const quickAccessCards = useMemo(() => {
+    const cards: { emoji: string; title: string; count: number; action: () => void }[] = [];
+    if (fragrances.length > 0 || courseTypes.includes('fragrance')) {
+      cards.push({ emoji: '🫧', title: '我的調香配方', count: fragrances.length, action: () => setView('care-fragrance') });
+    }
+    if (plants.length > 0 || courseTypes.includes('plant')) {
+      cards.push({ emoji: '🌱', title: '我的植物提醒', count: plants.length, action: () => setView('care-plant') });
+    }
+    if (courseTypes.includes('crystal')) {
+      cards.push({ emoji: '💎', title: '我的水晶手鍊', count: works.filter(w => w.type === 'crystal').length, action: () => setView('care-crystal') });
+    }
+    cards.push({ emoji: '📋', title: '我的作品總覽', count: works.length + fragrances.length + plants.length, action: () => setView('my-works') });
+    return cards.slice(0, 4); // 最多4張
+  }, [fragrances, plants, works, courseTypes]);
+
+  // 返回
   const goBack = () => {
-    if (view === 'oil-detail' || view === 'crystal-detail' || view === 'article' || view === 'practice') {
-      if (selectedPath) {
-        setView('path');
-      } else {
-        setView('home');
-      }
-    } else if (view === 'path') {
+    if (view === 'oil-detail' || view === 'crystal-detail' || view === 'article' || view === 'practice' || view === 'knowledge-detail') {
       setView('home');
-      setSelectedPath(null);
+    } else if (view === 'add-plant') {
+      setView('care-plant');
+    } else if (view === 'add-fragrance') {
+      setView('care-fragrance');
+    } else if (view === 'plant-detail') {
+      setView('care-plant');
     } else if (view === 'search') {
       setView('home');
       setSearch('');
@@ -6865,322 +7248,672 @@ function HealingLibraryPage() {
     setSelectedCrystal(null);
     setSelectedArticle(null);
     setSelectedPractice(null);
+    setSelectedKnowledge(null);
+    setSelectedPlant(null);
   };
 
-  const openPath = (path: HealingPath) => {
-    setSelectedPath(path);
-    setView('path');
+  // 新增植物
+  const addPlant = () => {
+    if (!newPlantDate) return;
+    const plant: PlantRecord = {
+      id: Date.now().toString(),
+      name: newPlantName || '我的多肉',
+      lastWatered: newPlantDate,
+      intervalDays: newPlantInterval,
+      emoji: newPlantEmoji,
+    };
+    setPlants(prev => [...prev, plant]);
+    if (!courseTypes.includes('plant')) setCourseTypes(prev => [...prev, 'plant']);
+    setNewPlantName('');
+    setNewPlantDate(new Date().toISOString().slice(0, 10));
+    setNewPlantInterval(7);
+    setView('care-plant');
   };
 
-  const openOilByName = (name: string) => {
-    const oil = OIL_LIBRARY.find(o => o.name === name);
-    if (oil) { setSelectedOil(oil); setView('oil-detail'); }
+  // 標記澆水
+  const waterPlant = (plantId: string) => {
+    setPlants(prev => prev.map(p => p.id === plantId ? { ...p, lastWatered: new Date().toISOString().slice(0, 10) } : p));
   };
 
-  const openCrystalByName = (name: string) => {
-    const crystal = CRYSTAL_LIBRARY.find(c => c.name === name);
-    if (crystal) { setSelectedCrystal(crystal); setView('crystal-detail'); }
+  // 刪除植物
+  const removePlant = (plantId: string) => {
+    setPlants(prev => prev.filter(p => p.id !== plantId));
   };
 
-  // ========== Layer 1: 首頁 ==========
-  if (view === 'home' || view === 'search') {
+  // 新增調香配方
+  const addFragrance = () => {
+    if (!newFragName && !newFragTop && !newFragMiddle && !newFragBase) return;
+    const frag: FragranceRecord = {
+      id: Date.now().toString(),
+      name: newFragName || '我的香氣',
+      date: newFragDate,
+      topNotes: newFragTop.split(/[,，、]/).map(s => s.trim()).filter(Boolean),
+      middleNotes: newFragMiddle.split(/[,，、]/).map(s => s.trim()).filter(Boolean),
+      baseNotes: newFragBase.split(/[,，、]/).map(s => s.trim()).filter(Boolean),
+      memo: newFragMemo,
+    };
+    setFragrances(prev => [...prev, frag]);
+    if (!courseTypes.includes('fragrance')) setCourseTypes(prev => [...prev, 'fragrance']);
+    setNewFragName('');
+    setNewFragTop('');
+    setNewFragMiddle('');
+    setNewFragBase('');
+    setNewFragMemo('');
+    setView('care-fragrance');
+  };
+
+  // 切換課程類型
+  const toggleCourseType = (type: CourseType) => {
+    setCourseTypes(prev => prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]);
+  };
+
+  // 共用 card style
+  const cardStyle = { backgroundColor: '#FFFEF9' };
+  const subtleBg = { backgroundColor: '#FAF8F5' };
+
+  // ========== 子頁面：新增植物 ==========
+  if (view === 'add-plant') {
     return (
-      <motion.div className="space-y-5" {...fadeInUp}>
-        {/* Header */}
+      <motion.div className="space-y-5" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.25 }}>
         <div>
-          <p className="text-xs tracking-widest" style={{ color: '#C9A96E' }}>HEALING LIBRARY</p>
-          <h2 className="text-xl font-bold mt-1" style={{ color: '#3D3530' }}>📚 療癒圖書館</h2>
-          <p className="text-sm mt-0.5" style={{ color: '#8C7B72' }}>今天的你，想被什麼溫柔接住？</p>
+          <motion.button whileTap={{ scale: 0.95 }} onClick={goBack}
+            className="flex items-center gap-1 text-sm mb-3" style={{ color: '#C9A96E' }}>← 返回</motion.button>
+          <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>🌱 新增植物</h2>
+          <p className="text-sm mt-1" style={{ color: '#8C7B72' }}>幫你的植物建立照顧提醒</p>
         </div>
 
-        {/* 搜尋框 */}
-        <div className="flex items-center gap-2 rounded-2xl px-4 py-2.5 shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
-          <span style={{ color: '#8C7B72' }}>🔍</span>
-          <input
-            type="text"
-            placeholder="搜尋精油、水晶、文章..."
-            value={search}
-            onChange={e => { setSearch(e.target.value); if (e.target.value) setView('search'); else setView('home'); }}
-            className="flex-1 text-sm bg-transparent outline-none"
-            style={{ color: '#3D3530' }}
-          />
-          {search && <button onClick={() => { setSearch(''); setView('home'); }} style={{ color: '#8C7B72' }}>✕</button>}
-        </div>
+        <div className="rounded-3xl p-5 shadow-sm space-y-4" style={cardStyle}>
+          <div>
+            <label className="text-xs font-medium block mb-1.5" style={{ color: '#8C7B72' }}>植物名稱（可選）</label>
+            <input type="text" value={newPlantName} onChange={e => setNewPlantName(e.target.value)}
+              placeholder="例如：小胖多肉、窗邊那盆"
+              className="w-full rounded-2xl px-4 py-3 text-sm outline-none" style={{ backgroundColor: '#FAF8F5', color: '#3D3530' }} />
+          </div>
 
-        {/* 搜尋結果 */}
-        {searchResults && view === 'search' ? (
-          <div className="space-y-4">
-            {/* 搜尋分類 tab */}
-            <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
-              {(['all', 'oil', 'crystal', 'sound', 'article', 'practice'] as const).map(tab => {
-                const labels: Record<string, string> = { all: '全部', oil: '精油', crystal: '水晶', sound: '音景', article: '文章', practice: '練習' };
-                const counts: Record<string, number> = {
-                  all: (searchResults.oils.length + searchResults.crystals.length + searchResults.sounds.length + searchResults.articles.length + searchResults.practices.length),
-                  oil: searchResults.oils.length, crystal: searchResults.crystals.length,
-                  sound: searchResults.sounds.length, article: searchResults.articles.length, practice: searchResults.practices.length,
-                };
-                return (
-                  <button key={tab} onClick={() => setFilterTab(tab)}
-                    className="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium"
-                    style={filterTab === tab ? { backgroundColor: '#C9A96E', color: '#fff' } : { backgroundColor: '#FFFEF9', color: '#8C7B72' }}>
-                    {labels[tab]} ({counts[tab]})
-                  </button>
-                );
-              })}
+          <div>
+            <label className="text-xs font-medium block mb-1.5" style={{ color: '#8C7B72' }}>選一個代表它的表情</label>
+            <div className="flex gap-2 flex-wrap">
+              {['🪴', '🌱', '🌵', '🌿', '🍀', '🪻'].map(e => (
+                <button key={e} onClick={() => setNewPlantEmoji(e)}
+                  className="w-11 h-11 rounded-2xl text-xl flex items-center justify-center transition-all"
+                  style={newPlantEmoji === e ? { backgroundColor: '#8FA88630', boxShadow: '0 0 0 2px #8FA886' } : { backgroundColor: '#FAF8F5' }}>
+                  {e}
+                </button>
+              ))}
             </div>
+          </div>
 
-            {/* 情緒路徑結果 */}
-            {searchResults.paths.length > 0 && (filterTab === 'all') && (
-              <div>
-                <p className="text-sm font-bold mb-2" style={{ color: '#3D3530' }}>🎯 情緒入口</p>
-                <div className="grid grid-cols-2 gap-3">
-                  {searchResults.paths.map(path => (
-                    <motion.button key={path.id} whileTap={{ scale: 0.96 }} onClick={() => openPath(path)}
-                      className="rounded-2xl p-4 text-left shadow-sm" style={{ backgroundColor: path.color + '15' }}>
-                      <span className="text-2xl">{path.emoji}</span>
-                      <p className="text-sm font-bold mt-1" style={{ color: '#3D3530' }}>{path.title}</p>
-                      <p className="text-xs mt-0.5" style={{ color: '#8C7B72' }}>{path.shortDescription}</p>
-                    </motion.button>
-                  ))}
-                </div>
-              </div>
-            )}
+          <div>
+            <label className="text-xs font-medium block mb-1.5" style={{ color: '#8C7B72' }}>上次澆水日期</label>
+            <input type="date" value={newPlantDate} onChange={e => setNewPlantDate(e.target.value)}
+              className="w-full rounded-2xl px-4 py-3 text-sm outline-none" style={{ backgroundColor: '#FAF8F5', color: '#3D3530' }} />
+          </div>
 
-            {/* 精油結果 */}
-            {searchResults.oils.length > 0 && (filterTab === 'all' || filterTab === 'oil') && (
-              <div>
-                <p className="text-sm font-bold mb-2" style={{ color: '#3D3530' }}>🌿 精油</p>
-                <div className="grid grid-cols-2 gap-3">
-                  {searchResults.oils.map((oil, i) => (
-                    <motion.button key={oil.name} whileTap={{ scale: 0.96 }} onClick={() => { setSelectedOil(oil); setView('oil-detail'); }}
-                      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
-                      className="rounded-2xl p-4 text-left shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
-                      <span className="text-2xl">{oil.emoji}</span>
-                      <p className="text-sm font-bold mt-1" style={{ color: '#3D3530' }}>{oil.name}</p>
-                      <p className="text-xs" style={{ color: '#8C7B72' }}>{oil.en}</p>
-                    </motion.button>
-                  ))}
-                </div>
-              </div>
-            )}
+          <div>
+            <label className="text-xs font-medium block mb-1.5" style={{ color: '#8C7B72' }}>澆水間隔（天）</label>
+            <div className="flex gap-2">
+              {[5, 7, 10, 14].map(d => (
+                <button key={d} onClick={() => setNewPlantInterval(d)}
+                  className="flex-1 rounded-2xl py-2.5 text-sm font-medium transition-all"
+                  style={newPlantInterval === d ? { backgroundColor: '#8FA886', color: '#fff' } : { backgroundColor: '#FAF8F5', color: '#8C7B72' }}>
+                  {d} 天
+                </button>
+              ))}
+            </div>
+          </div>
 
-            {/* 水晶結果 */}
-            {searchResults.crystals.length > 0 && (filterTab === 'all' || filterTab === 'crystal') && (
-              <div>
-                <p className="text-sm font-bold mb-2" style={{ color: '#3D3530' }}>💎 水晶</p>
-                <div className="grid grid-cols-2 gap-3">
-                  {searchResults.crystals.map((crystal, i) => (
-                    <motion.button key={crystal.name} whileTap={{ scale: 0.96 }} onClick={() => { setSelectedCrystal(crystal); setView('crystal-detail'); }}
-                      initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.03 }}
-                      className="rounded-2xl p-4 text-left shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
-                      <span className="text-2xl">{crystal.emoji}</span>
-                      <p className="text-sm font-bold mt-1" style={{ color: '#3D3530' }}>{crystal.name}</p>
-                      <p className="text-xs" style={{ color: '#8C7B72' }}>{crystal.en}</p>
-                    </motion.button>
-                  ))}
-                </div>
-              </div>
-            )}
+          <motion.button whileTap={{ scale: 0.97 }} onClick={addPlant}
+            className="w-full rounded-2xl py-3.5 text-sm font-bold text-white"
+            style={{ backgroundColor: '#8FA886' }}>
+            新增植物
+          </motion.button>
+        </div>
+      </motion.div>
+    );
+  }
 
-            {/* 音景結果 */}
-            {searchResults.sounds.length > 0 && (filterTab === 'all' || filterTab === 'sound') && (
-              <div>
-                <p className="text-sm font-bold mb-2" style={{ color: '#3D3530' }}>🎵 音景</p>
-                {searchResults.sounds.map(s => (
-                  <div key={s.id} className="rounded-2xl p-3 mb-2 shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xl">{s.emoji}</span>
-                      <div>
-                        <p className="text-sm font-bold" style={{ color: '#3D3530' }}>{s.title}</p>
-                        <p className="text-xs" style={{ color: '#8C7B72' }}>{s.description}</p>
-                      </div>
-                    </div>
+  // ========== 子頁面：新增調香配方 ==========
+  if (view === 'add-fragrance') {
+    return (
+      <motion.div className="space-y-5" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.25 }}>
+        <div>
+          <motion.button whileTap={{ scale: 0.95 }} onClick={goBack}
+            className="flex items-center gap-1 text-sm mb-3" style={{ color: '#C9A96E' }}>← 返回</motion.button>
+          <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>🫧 記錄調香配方</h2>
+          <p className="text-sm mt-1" style={{ color: '#8C7B72' }}>讓你的香氣被好好保存</p>
+        </div>
+
+        <div className="rounded-3xl p-5 shadow-sm space-y-4" style={cardStyle}>
+          <div>
+            <label className="text-xs font-medium block mb-1.5" style={{ color: '#8C7B72' }}>香氣名稱</label>
+            <input type="text" value={newFragName} onChange={e => setNewFragName(e.target.value)}
+              placeholder="例如：夏日午後、我的第一瓶香水"
+              className="w-full rounded-2xl px-4 py-3 text-sm outline-none" style={{ backgroundColor: '#FAF8F5', color: '#3D3530' }} />
+          </div>
+
+          <div>
+            <label className="text-xs font-medium block mb-1.5" style={{ color: '#8C7B72' }}>調香日期</label>
+            <input type="date" value={newFragDate} onChange={e => setNewFragDate(e.target.value)}
+              className="w-full rounded-2xl px-4 py-3 text-sm outline-none" style={{ backgroundColor: '#FAF8F5', color: '#3D3530' }} />
+          </div>
+
+          <div>
+            <label className="text-xs font-medium block mb-1.5" style={{ color: '#C9A96E' }}>前調 Top Notes</label>
+            <input type="text" value={newFragTop} onChange={e => setNewFragTop(e.target.value)}
+              placeholder="用逗號分隔，例如：佛手柑、檸檬"
+              className="w-full rounded-2xl px-4 py-3 text-sm outline-none" style={{ backgroundColor: '#FAF8F5', color: '#3D3530' }} />
+          </div>
+
+          <div>
+            <label className="text-xs font-medium block mb-1.5" style={{ color: '#8FA886' }}>中調 Middle Notes</label>
+            <input type="text" value={newFragMiddle} onChange={e => setNewFragMiddle(e.target.value)}
+              placeholder="例如：薰衣草、玫瑰"
+              className="w-full rounded-2xl px-4 py-3 text-sm outline-none" style={{ backgroundColor: '#FAF8F5', color: '#3D3530' }} />
+          </div>
+
+          <div>
+            <label className="text-xs font-medium block mb-1.5" style={{ color: '#8C7B72' }}>後調 Base Notes</label>
+            <input type="text" value={newFragBase} onChange={e => setNewFragBase(e.target.value)}
+              placeholder="例如：檀香、雪松"
+              className="w-full rounded-2xl px-4 py-3 text-sm outline-none" style={{ backgroundColor: '#FAF8F5', color: '#3D3530' }} />
+          </div>
+
+          <div>
+            <label className="text-xs font-medium block mb-1.5" style={{ color: '#8C7B72' }}>備註</label>
+            <textarea value={newFragMemo} onChange={e => setNewFragMemo(e.target.value)}
+              placeholder="任何想記下的感受或筆記..."
+              rows={3}
+              className="w-full rounded-2xl px-4 py-3 text-sm outline-none resize-none" style={{ backgroundColor: '#FAF8F5', color: '#3D3530' }} />
+          </div>
+
+          <motion.button whileTap={{ scale: 0.97 }} onClick={addFragrance}
+            className="w-full rounded-2xl py-3.5 text-sm font-bold text-white"
+            style={{ backgroundColor: '#C9A96E' }}>
+            儲存配方
+          </motion.button>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // ========== 子頁面：植物詳情 ==========
+  if (view === 'plant-detail' && selectedPlant) {
+    const status = getWateringStatus(selectedPlant.lastWatered, selectedPlant.intervalDays);
+    return (
+      <motion.div className="space-y-5" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.25 }}>
+        <div>
+          <motion.button whileTap={{ scale: 0.95 }} onClick={goBack}
+            className="flex items-center gap-1 text-sm mb-3" style={{ color: '#C9A96E' }}>← 返回</motion.button>
+        </div>
+
+        <div className="rounded-3xl p-6 shadow-sm text-center" style={{ backgroundColor: status.urgent ? '#8FA88618' : '#FFFEF9' }}>
+          <span className="text-5xl">{selectedPlant.emoji}</span>
+          <h3 className="text-lg font-bold mt-3" style={{ color: '#3D3530' }}>{selectedPlant.name}</h3>
+          <p className="text-sm mt-2" style={{ color: status.urgent ? '#8FA886' : '#8C7B72' }}>{status.message}</p>
+
+          <div className="flex items-center justify-center gap-6 mt-4">
+            <div className="text-center">
+              <p className="text-2xl font-bold" style={{ color: '#8FA886' }}>{status.daysLeft}</p>
+              <p className="text-xs" style={{ color: '#8C7B72' }}>天後澆水</p>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold" style={{ color: '#C9A96E' }}>{selectedPlant.intervalDays}</p>
+              <p className="text-xs" style={{ color: '#8C7B72' }}>天澆一次</p>
+            </div>
+          </div>
+
+          <div className="flex gap-3 mt-5">
+            <motion.button whileTap={{ scale: 0.97 }} onClick={() => { waterPlant(selectedPlant.id); setSelectedPlant({ ...selectedPlant, lastWatered: new Date().toISOString().slice(0, 10) }); }}
+              className="flex-1 rounded-2xl py-3 text-sm font-bold text-white"
+              style={{ backgroundColor: '#8FA886' }}>
+              💧 已澆水
+            </motion.button>
+            <motion.button whileTap={{ scale: 0.97 }} onClick={() => { removePlant(selectedPlant.id); goBack(); }}
+              className="rounded-2xl py-3 px-5 text-sm font-medium"
+              style={{ backgroundColor: '#F0EDE8', color: '#8C7B72' }}>
+              移除
+            </motion.button>
+          </div>
+        </div>
+
+        <div className="rounded-3xl p-5 shadow-sm" style={cardStyle}>
+          <p className="text-sm font-bold mb-1" style={{ color: '#3D3530' }}>上次澆水</p>
+          <p className="text-sm" style={{ color: '#8C7B72' }}>{new Date(selectedPlant.lastWatered).toLocaleDateString('zh-TW', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // ========== 子頁面：調香照顧 ==========
+  if (view === 'care-fragrance') {
+    return (
+      <motion.div className="space-y-5" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.25 }}>
+        <div>
+          <motion.button whileTap={{ scale: 0.95 }} onClick={goBack}
+            className="flex items-center gap-1 text-sm mb-3" style={{ color: '#C9A96E' }}>← 返回</motion.button>
+          <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>🫧 調香照顧</h2>
+          <p className="text-sm mt-1" style={{ color: '#8C7B72' }}>你的香氣，值得被好好記住</p>
+        </div>
+
+        {/* 我的配方 */}
+        {fragrances.length > 0 ? (
+          <div className="space-y-3">
+            <p className="text-sm font-bold" style={{ color: '#3D3530' }}>我的配方</p>
+            {fragrances.map(f => (
+              <motion.div key={f.id} whileTap={{ scale: 0.98 }}
+                className="rounded-2xl p-4 shadow-sm" style={cardStyle}>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-sm font-bold" style={{ color: '#3D3530' }}>🫧 {f.name}</p>
+                    <p className="text-xs mt-0.5" style={{ color: '#8C7B72' }}>{new Date(f.date).toLocaleDateString('zh-TW')}</p>
                   </div>
-                ))}
-              </div>
-            )}
-
-            {/* 文章結果 */}
-            {searchResults.articles.length > 0 && (filterTab === 'all' || filterTab === 'article') && (
-              <div>
-                <p className="text-sm font-bold mb-2" style={{ color: '#3D3530' }}>📖 文章</p>
-                {searchResults.articles.map(a => (
-                  <motion.button key={a.id} whileTap={{ scale: 0.97 }} onClick={() => { setSelectedArticle(a); setView('article'); }}
-                    className="w-full rounded-2xl p-3 mb-2 shadow-sm text-left" style={{ backgroundColor: '#FFFEF9' }}>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xl">{a.emoji}</span>
-                      <div className="flex-1">
-                        <p className="text-sm font-bold" style={{ color: '#3D3530' }}>{a.title}</p>
-                        <p className="text-xs" style={{ color: '#8C7B72' }}>{a.summary}</p>
-                      </div>
-                      <span className="text-xs" style={{ color: '#B5AFA8' }}>{a.readTime}</span>
-                    </div>
-                  </motion.button>
-                ))}
-              </div>
-            )}
-
-            {/* 練習結果 */}
-            {searchResults.practices.length > 0 && (filterTab === 'all' || filterTab === 'practice') && (
-              <div>
-                <p className="text-sm font-bold mb-2" style={{ color: '#3D3530' }}>🧘 練習</p>
-                {searchResults.practices.map(p => (
-                  <motion.button key={p.id} whileTap={{ scale: 0.97 }} onClick={() => { setSelectedPractice(p); setView('practice'); }}
-                    className="w-full rounded-2xl p-3 mb-2 shadow-sm text-left" style={{ backgroundColor: '#FFFEF9' }}>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xl">{p.emoji}</span>
-                      <div className="flex-1">
-                        <p className="text-sm font-bold" style={{ color: '#3D3530' }}>{p.title}</p>
-                        <p className="text-xs" style={{ color: '#8C7B72' }}>{p.description}</p>
-                      </div>
-                      <span className="text-xs" style={{ color: '#B5AFA8' }}>{p.duration}</span>
-                    </div>
-                  </motion.button>
-                ))}
-              </div>
-            )}
-
-            {/* 無結果 */}
-            {(searchResults.oils.length + searchResults.crystals.length + searchResults.sounds.length + searchResults.articles.length + searchResults.practices.length + searchResults.paths.length) === 0 && (
-              <div className="text-center py-8">
-                <p className="text-3xl mb-2">🔍</p>
-                <p className="text-sm" style={{ color: '#8C7B72' }}>找不到相關結果</p>
-                <p className="text-xs mt-1" style={{ color: '#B5AFA8' }}>試試其他關鍵字？</p>
-              </div>
-            )}
+                  <button onClick={() => setFragrances(prev => prev.filter(x => x.id !== f.id))}
+                    className="text-xs px-2 py-1 rounded-xl" style={{ color: '#B5AFA8' }}>移除</button>
+                </div>
+                {f.topNotes.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    <span className="text-xs font-medium" style={{ color: '#C9A96E' }}>前調：</span>
+                    {f.topNotes.map(n => <span key={n} className="text-xs px-2 py-0.5 rounded-xl" style={{ backgroundColor: '#C9A96E18', color: '#C9A96E' }}>{n}</span>)}
+                  </div>
+                )}
+                {f.middleNotes.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-1.5">
+                    <span className="text-xs font-medium" style={{ color: '#8FA886' }}>中調：</span>
+                    {f.middleNotes.map(n => <span key={n} className="text-xs px-2 py-0.5 rounded-xl" style={{ backgroundColor: '#8FA88618', color: '#8FA886' }}>{n}</span>)}
+                  </div>
+                )}
+                {f.baseNotes.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-1.5">
+                    <span className="text-xs font-medium" style={{ color: '#8C7B72' }}>後調：</span>
+                    {f.baseNotes.map(n => <span key={n} className="text-xs px-2 py-0.5 rounded-xl" style={{ backgroundColor: '#F0EDE8', color: '#8C7B72' }}>{n}</span>)}
+                  </div>
+                )}
+                {f.memo && <p className="text-xs mt-2 leading-relaxed" style={{ color: '#B5AFA8' }}>{f.memo}</p>}
+              </motion.div>
+            ))}
           </div>
         ) : (
-          <>
-            {/* 情緒入口 Grid */}
-            <div>
-              <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>🎯 我現在怎麼了？</p>
-              <div className="grid grid-cols-2 gap-3">
-                {HEALING_PATHS.map((path, i) => (
-                  <motion.button
-                    key={path.id}
-                    initial={{ opacity: 0, y: 15 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.05 }}
-                    whileTap={{ scale: 0.96 }}
-                    onClick={() => openPath(path)}
-                    className="rounded-2xl p-4 text-left shadow-sm relative overflow-hidden"
-                    style={{ backgroundColor: path.color + '15' }}
-                  >
-                    <div className="absolute top-2 right-2 text-4xl opacity-10">{path.emoji}</div>
-                    <span className="text-2xl">{path.emoji}</span>
-                    <p className="text-sm font-bold mt-2" style={{ color: '#3D3530' }}>{path.title}</p>
-                    <p className="text-xs mt-0.5 leading-relaxed" style={{ color: '#8C7B72' }}>{path.shortDescription}</p>
-                  </motion.button>
-                ))}
-              </div>
-            </div>
+          <div className="rounded-3xl p-8 shadow-sm text-center" style={cardStyle}>
+            <p className="text-3xl mb-2">🫧</p>
+            <p className="text-sm" style={{ color: '#8C7B72' }}>還沒有配方紀錄</p>
+            <p className="text-xs mt-1" style={{ color: '#B5AFA8' }}>上完調香課後，來這裡記錄你的香氣吧</p>
+          </div>
+        )}
 
-            {/* 快速瀏覽區 */}
-            <div>
-              <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>📖 療癒知識</p>
-              <div className="space-y-2">
-                {LIBRARY_ARTICLES.slice(0, 3).map(a => (
-                  <motion.button key={a.id} whileTap={{ scale: 0.97 }}
-                    onClick={() => { setSelectedArticle(a); setView('article'); }}
-                    className="w-full rounded-2xl p-3 shadow-sm text-left flex items-center gap-3"
-                    style={{ backgroundColor: '#FFFEF9' }}>
-                    <span className="text-xl">{a.emoji}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate" style={{ color: '#3D3530' }}>{a.title}</p>
-                      <p className="text-xs truncate" style={{ color: '#8C7B72' }}>{a.summary}</p>
-                    </div>
-                    <span className="text-xs flex-shrink-0" style={{ color: '#B5AFA8' }}>{a.readTime}</span>
-                  </motion.button>
-                ))}
-              </div>
-            </div>
+        <motion.button whileTap={{ scale: 0.97 }} onClick={() => setView('add-fragrance')}
+          className="w-full rounded-2xl py-3.5 text-sm font-bold text-white shadow-sm"
+          style={{ backgroundColor: '#C9A96E' }}>
+          + 新增調香配方
+        </motion.button>
 
-            {/* 快速瀏覽：精油百科 */}
-            <div>
-              <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>🌿 精油百科 ({OIL_LIBRARY.length})</p>
-              <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
-                {OIL_LIBRARY.slice(0, 8).map(oil => (
-                  <motion.button key={oil.name} whileTap={{ scale: 0.95 }}
-                    onClick={() => { setSelectedOil(oil); setView('oil-detail'); }}
-                    className="flex-shrink-0 w-24 rounded-2xl p-3 shadow-sm text-center"
-                    style={{ backgroundColor: '#FFFEF9' }}>
-                    <span className="text-2xl">{oil.emoji}</span>
-                    <p className="text-xs font-bold mt-1 truncate" style={{ color: '#3D3530' }}>{oil.name}</p>
-                    <p className="text-xs truncate" style={{ color: '#8C7B72' }}>{oil.en}</p>
-                  </motion.button>
-                ))}
-              </div>
-            </div>
+        {/* 調香知識 */}
+        <div>
+          <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>調香小知識</p>
+          <div className="space-y-2">
+            {AFTERCARE_KNOWLEDGE.fragrance.map(k => (
+              <motion.button key={k.id} whileTap={{ scale: 0.97 }}
+                onClick={() => { setSelectedKnowledge(k); setView('knowledge-detail'); }}
+                className="w-full rounded-2xl p-3.5 shadow-sm text-left flex items-center gap-3" style={cardStyle}>
+                <span className="text-xl">{k.emoji}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate" style={{ color: '#3D3530' }}>{k.title}</p>
+                  <p className="text-xs truncate" style={{ color: '#8C7B72' }}>{k.summary}</p>
+                </div>
+              </motion.button>
+            ))}
+          </div>
+        </div>
 
-            {/* 快速瀏覽：水晶百科 */}
-            <div>
-              <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>💎 水晶百科 ({CRYSTAL_LIBRARY.length})</p>
-              <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
-                {CRYSTAL_LIBRARY.slice(0, 8).map(crystal => (
-                  <motion.button key={crystal.name} whileTap={{ scale: 0.95 }}
-                    onClick={() => { setSelectedCrystal(crystal); setView('crystal-detail'); }}
-                    className="flex-shrink-0 w-24 rounded-2xl p-3 shadow-sm text-center"
-                    style={{ backgroundColor: '#FFFEF9' }}>
-                    <span className="text-2xl">{crystal.emoji}</span>
-                    <p className="text-xs font-bold mt-1 truncate" style={{ color: '#3D3530' }}>{crystal.name}</p>
-                    <p className="text-xs truncate" style={{ color: '#8C7B72' }}>{crystal.en}</p>
-                  </motion.button>
-                ))}
+        {/* 精油百科入口 */}
+        <div>
+          <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>🌿 精油百科</p>
+          <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+            {OIL_LIBRARY.slice(0, 8).map(oil => (
+              <motion.button key={oil.name} whileTap={{ scale: 0.95 }}
+                onClick={() => { setSelectedOil(oil); setView('oil-detail'); }}
+                className="flex-shrink-0 w-24 rounded-2xl p-3 shadow-sm text-center" style={cardStyle}>
+                <span className="text-2xl">{oil.emoji}</span>
+                <p className="text-xs font-bold mt-1 truncate" style={{ color: '#3D3530' }}>{oil.name}</p>
+                <p className="text-xs truncate" style={{ color: '#8C7B72' }}>{oil.en}</p>
+              </motion.button>
+            ))}
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // ========== 子頁面：植栽照顧 ==========
+  if (view === 'care-plant') {
+    return (
+      <motion.div className="space-y-5" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.25 }}>
+        <div>
+          <motion.button whileTap={{ scale: 0.95 }} onClick={goBack}
+            className="flex items-center gap-1 text-sm mb-3" style={{ color: '#C9A96E' }}>← 返回</motion.button>
+          <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>🌱 植栽照顧</h2>
+          <p className="text-sm mt-1" style={{ color: '#8C7B72' }}>你的植物朋友，今天還好嗎？</p>
+        </div>
+
+        {/* 我的植物列表 */}
+        {plants.length > 0 ? (
+          <div className="space-y-3">
+            <p className="text-sm font-bold" style={{ color: '#3D3530' }}>我的植物</p>
+            {plants.map(p => {
+              const status = getWateringStatus(p.lastWatered, p.intervalDays);
+              return (
+                <motion.button key={p.id} whileTap={{ scale: 0.98 }}
+                  onClick={() => { setSelectedPlant(p); setView('plant-detail'); }}
+                  className="w-full rounded-2xl p-4 shadow-sm text-left flex items-center gap-3"
+                  style={{ backgroundColor: status.urgent ? '#8FA88612' : '#FFFEF9' }}>
+                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl"
+                    style={{ backgroundColor: status.urgent ? '#8FA88620' : '#FAF8F5' }}>
+                    {p.emoji}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold truncate" style={{ color: '#3D3530' }}>{p.name}</p>
+                    <p className="text-xs mt-0.5" style={{ color: status.urgent ? '#8FA886' : '#8C7B72' }}>
+                      {status.urgent ? '💧 ' : ''}{status.message}
+                    </p>
+                  </div>
+                  {status.urgent && (
+                    <motion.button whileTap={{ scale: 0.9 }}
+                      onClick={(e) => { e.stopPropagation(); waterPlant(p.id); }}
+                      className="rounded-xl px-3 py-1.5 text-xs font-bold text-white"
+                      style={{ backgroundColor: '#8FA886' }}>
+                      澆水
+                    </motion.button>
+                  )}
+                </motion.button>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="rounded-3xl p-8 shadow-sm text-center" style={cardStyle}>
+            <p className="text-3xl mb-2">🌱</p>
+            <p className="text-sm" style={{ color: '#8C7B72' }}>還沒有植物紀錄</p>
+            <p className="text-xs mt-1" style={{ color: '#B5AFA8' }}>上完植栽課，把你的小夥伴加進來吧</p>
+          </div>
+        )}
+
+        <motion.button whileTap={{ scale: 0.97 }} onClick={() => setView('add-plant')}
+          className="w-full rounded-2xl py-3.5 text-sm font-bold text-white shadow-sm"
+          style={{ backgroundColor: '#8FA886' }}>
+          + 新增植物
+        </motion.button>
+
+        {/* 多肉知識 */}
+        <div>
+          <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>多肉小知識</p>
+          <div className="space-y-2">
+            {AFTERCARE_KNOWLEDGE.plant.map(k => (
+              <motion.button key={k.id} whileTap={{ scale: 0.97 }}
+                onClick={() => { setSelectedKnowledge(k); setView('knowledge-detail'); }}
+                className="w-full rounded-2xl p-3.5 shadow-sm text-left flex items-center gap-3" style={cardStyle}>
+                <span className="text-xl">{k.emoji}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate" style={{ color: '#3D3530' }}>{k.title}</p>
+                  <p className="text-xs truncate" style={{ color: '#8C7B72' }}>{k.summary}</p>
+                </div>
+              </motion.button>
+            ))}
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // ========== 子頁面：水晶照顧 ==========
+  if (view === 'care-crystal') {
+    return (
+      <motion.div className="space-y-5" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.25 }}>
+        <div>
+          <motion.button whileTap={{ scale: 0.95 }} onClick={goBack}
+            className="flex items-center gap-1 text-sm mb-3" style={{ color: '#C9A96E' }}>← 返回</motion.button>
+          <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>💎 水晶照顧</h2>
+          <p className="text-sm mt-1" style={{ color: '#8C7B72' }}>你的水晶，也需要被溫柔對待</p>
+        </div>
+
+        {/* 水晶知識 */}
+        <div>
+          <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>水晶照顧知識</p>
+          <div className="space-y-2">
+            {AFTERCARE_KNOWLEDGE.crystal.map(k => (
+              <motion.button key={k.id} whileTap={{ scale: 0.97 }}
+                onClick={() => { setSelectedKnowledge(k); setView('knowledge-detail'); }}
+                className="w-full rounded-2xl p-3.5 shadow-sm text-left flex items-center gap-3" style={cardStyle}>
+                <span className="text-xl">{k.emoji}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate" style={{ color: '#3D3530' }}>{k.title}</p>
+                  <p className="text-xs truncate" style={{ color: '#8C7B72' }}>{k.summary}</p>
+                </div>
+              </motion.button>
+            ))}
+          </div>
+        </div>
+
+        {/* 水晶百科 */}
+        <div>
+          <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>💎 水晶能量百科</p>
+          <div className="grid grid-cols-2 gap-3">
+            {CRYSTAL_LIBRARY.slice(0, 8).map(crystal => (
+              <motion.button key={crystal.name} whileTap={{ scale: 0.95 }}
+                onClick={() => { setSelectedCrystal(crystal); setView('crystal-detail'); }}
+                className="rounded-2xl p-4 shadow-sm text-center" style={{ backgroundColor: crystal.color + '10' }}>
+                <span className="text-2xl">{crystal.emoji}</span>
+                <p className="text-sm font-bold mt-1" style={{ color: '#3D3530' }}>{crystal.name}</p>
+                <p className="text-xs mt-0.5" style={{ color: '#8C7B72' }}>{crystal.en}</p>
+              </motion.button>
+            ))}
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // ========== 子頁面：皮革保養 ==========
+  if (view === 'care-leather') {
+    return (
+      <motion.div className="space-y-5" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.25 }}>
+        <div>
+          <motion.button whileTap={{ scale: 0.95 }} onClick={goBack}
+            className="flex items-center gap-1 text-sm mb-3" style={{ color: '#C9A96E' }}>← 返回</motion.button>
+          <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>👜 皮革保養</h2>
+          <p className="text-sm mt-1" style={{ color: '#8C7B72' }}>好好照顧，讓皮革陪你更久</p>
+        </div>
+
+        <div className="space-y-2">
+          {AFTERCARE_KNOWLEDGE.leather.map(k => (
+            <motion.button key={k.id} whileTap={{ scale: 0.97 }}
+              onClick={() => { setSelectedKnowledge(k); setView('knowledge-detail'); }}
+              className="w-full rounded-2xl p-4 shadow-sm text-left" style={cardStyle}>
+              <div className="flex items-start gap-3">
+                <span className="text-2xl">{k.emoji}</span>
+                <div>
+                  <p className="text-sm font-bold" style={{ color: '#3D3530' }}>{k.title}</p>
+                  <p className="text-xs mt-1 leading-relaxed" style={{ color: '#8C7B72' }}>{k.summary}</p>
+                </div>
               </div>
+            </motion.button>
+          ))}
+        </div>
+      </motion.div>
+    );
+  }
+
+  // ========== 子頁面：蠟燭/擴香照顧 ==========
+  if (view === 'care-candle') {
+    return (
+      <motion.div className="space-y-5" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.25 }}>
+        <div>
+          <motion.button whileTap={{ scale: 0.95 }} onClick={goBack}
+            className="flex items-center gap-1 text-sm mb-3" style={{ color: '#C9A96E' }}>← 返回</motion.button>
+          <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>🕯️ 蠟燭 / 擴香照顧</h2>
+          <p className="text-sm mt-1" style={{ color: '#8C7B72' }}>讓香氣持續陪伴你的日常</p>
+        </div>
+
+        <div className="rounded-3xl p-5 shadow-sm space-y-4" style={cardStyle}>
+          <div className="rounded-2xl p-4" style={subtleBg}>
+            <p className="text-sm font-bold mb-2" style={{ color: '#3D3530' }}>🕯️ 蠟燭使用須知</p>
+            <div className="space-y-2">
+              {['第一次點燃時，讓蠟面完全融化再熄滅，避免產生記憶環', '每次燃燒不超過 4 小時', '修剪燭芯至 0.5 公分再點燃', '遠離易燃物品，放在平穩處', '熄滅時用蓋子或工具，不要用嘴吹'].map((tip, i) => (
+                <div key={i} className="flex items-start gap-2">
+                  <span className="text-xs mt-0.5" style={{ color: '#C9A96E' }}>●</span>
+                  <p className="text-xs leading-relaxed" style={{ color: '#8C7B72' }}>{tip}</p>
+                </div>
+              ))}
             </div>
-          </>
+          </div>
+
+          <div className="rounded-2xl p-4" style={subtleBg}>
+            <p className="text-sm font-bold mb-2" style={{ color: '#3D3530' }}>🪨 擴香石保養</p>
+            <div className="space-y-2">
+              {['擴香石可重複滴加精油使用', '建議每次滴 3-5 滴即可', '放在通風處讓香氣自然擴散', '不同精油交替使用前，可先放置數日讓前一種味道消散'].map((tip, i) => (
+                <div key={i} className="flex items-start gap-2">
+                  <span className="text-xs mt-0.5" style={{ color: '#C9A96E' }}>●</span>
+                  <p className="text-xs leading-relaxed" style={{ color: '#8C7B72' }}>{tip}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // ========== 子頁面：我的作品總覽 ==========
+  if (view === 'my-works') {
+    const allWorks = [
+      ...fragrances.map(f => ({ id: f.id, type: 'fragrance' as const, emoji: '🫧', name: f.name, date: f.date })),
+      ...plants.map(p => ({ id: p.id, type: 'plant' as const, emoji: p.emoji, name: p.name, date: p.lastWatered })),
+      ...works.map(w => ({ id: w.id, type: w.type, emoji: w.emoji, name: w.name, date: w.date })),
+    ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    return (
+      <motion.div className="space-y-5" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.25 }}>
+        <div>
+          <motion.button whileTap={{ scale: 0.95 }} onClick={goBack}
+            className="flex items-center gap-1 text-sm mb-3" style={{ color: '#C9A96E' }}>← 返回</motion.button>
+          <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>📋 我的作品總覽</h2>
+          <p className="text-sm mt-1" style={{ color: '#8C7B72' }}>每一件作品，都是你的療癒痕跡</p>
+        </div>
+
+        {/* 上過的課程標籤 */}
+        <div>
+          <p className="text-sm font-bold mb-2" style={{ color: '#3D3530' }}>我上過的課程類型</p>
+          <p className="text-xs mb-3" style={{ color: '#8C7B72' }}>點選標記你上過的課，首頁會依此調整顯示順序</p>
+          <div className="flex flex-wrap gap-2">
+            {([
+              { key: 'fragrance' as CourseType, emoji: '🫧', label: '調香' },
+              { key: 'plant' as CourseType, emoji: '🌱', label: '植栽' },
+              { key: 'crystal' as CourseType, emoji: '💎', label: '水晶' },
+              { key: 'leather' as CourseType, emoji: '👜', label: '皮革' },
+              { key: 'candle' as CourseType, emoji: '🕯️', label: '蠟燭' },
+            ]).map(ct => (
+              <motion.button key={ct.key} whileTap={{ scale: 0.95 }}
+                onClick={() => toggleCourseType(ct.key)}
+                className="flex items-center gap-1.5 px-3.5 py-2 rounded-2xl text-sm font-medium transition-all"
+                style={courseTypes.includes(ct.key)
+                  ? { backgroundColor: '#8FA886', color: '#fff' }
+                  : { backgroundColor: '#FAF8F5', color: '#8C7B72' }}>
+                <span>{ct.emoji}</span> {ct.label}
+              </motion.button>
+            ))}
+          </div>
+        </div>
+
+        {/* 作品時間軸 */}
+        {allWorks.length > 0 ? (
+          <div className="space-y-3">
+            <p className="text-sm font-bold" style={{ color: '#3D3530' }}>作品時間軸</p>
+            {allWorks.map(w => (
+              <div key={w.id + w.type} className="rounded-2xl p-4 shadow-sm flex items-center gap-3" style={cardStyle}>
+                <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-xl" style={subtleBg}>
+                  {w.emoji}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate" style={{ color: '#3D3530' }}>{w.name}</p>
+                  <p className="text-xs" style={{ color: '#8C7B72' }}>{new Date(w.date).toLocaleDateString('zh-TW')}</p>
+                </div>
+                <span className="text-xs px-2.5 py-1 rounded-xl font-medium"
+                  style={{ backgroundColor: '#F0EDE8', color: '#8C7B72' }}>
+                  {{ fragrance: '調香', plant: '植栽', crystal: '水晶', leather: '皮革', candle: '蠟燭', other: '其他' }[w.type]}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-3xl p-8 shadow-sm text-center" style={cardStyle}>
+            <p className="text-3xl mb-2">📋</p>
+            <p className="text-sm" style={{ color: '#8C7B72' }}>還沒有作品紀錄</p>
+            <p className="text-xs mt-1" style={{ color: '#B5AFA8' }}>上完課後，來記錄你做過的每一件作品吧</p>
+          </div>
         )}
       </motion.div>
     );
   }
 
-  // ========== Layer 2: 情緒路徑頁 ==========
-  if (view === 'path' && selectedPath) {
-    const pathOils = selectedPath.recommendedIds.oils.map(name => OIL_LIBRARY.find(o => o.name === name)).filter(Boolean) as OilLibraryItem[];
-    const pathCrystals = selectedPath.recommendedIds.crystals.map(name => CRYSTAL_LIBRARY.find(c => c.name === name)).filter(Boolean) as CrystalItem[];
-    const pathSounds = selectedPath.recommendedIds.sounds.map(id => LIBRARY_SOUNDS.find(s => s.id === id)).filter(Boolean) as LibrarySoundItem[];
-    const pathPractices = selectedPath.recommendedIds.practices.map(id => LIBRARY_PRACTICES.find(p => p.id === id)).filter(Boolean) as LibraryPractice[];
-    const pathArticles = selectedPath.recommendedIds.articles.map(id => LIBRARY_ARTICLES.find(a => a.id === id)).filter(Boolean) as LibraryArticle[];
-
+  // ========== 子頁面：知識文章 detail ==========
+  if (view === 'knowledge-detail' && selectedKnowledge) {
     return (
       <motion.div className="space-y-5" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.25 }}>
-        {/* 返回 + Header */}
         <div>
           <motion.button whileTap={{ scale: 0.95 }} onClick={goBack}
-            className="flex items-center gap-1 text-sm mb-3" style={{ color: '#C9A96E' }}>
-            ← 返回
-          </motion.button>
-          <div className="rounded-3xl p-6 shadow-sm" style={{ background: `linear-gradient(135deg, ${selectedPath.color}20, ${selectedPath.color}08)` }}>
-            <span className="text-4xl">{selectedPath.emoji}</span>
-            <h2 className="text-xl font-bold mt-3" style={{ color: '#3D3530' }}>{selectedPath.title}</h2>
-            <p className="text-sm mt-2 leading-relaxed" style={{ color: '#8C7B72' }}>{selectedPath.heroMessage}</p>
-          </div>
+            className="flex items-center gap-1 text-sm mb-3" style={{ color: '#C9A96E' }}>← 返回</motion.button>
+        </div>
+        <div className="rounded-3xl p-6 shadow-sm" style={cardStyle}>
+          <span className="text-3xl">{selectedKnowledge.emoji}</span>
+          <h3 className="text-lg font-bold mt-3" style={{ color: '#3D3530' }}>{selectedKnowledge.title}</h3>
+        </div>
+        <div className="rounded-2xl p-5 shadow-sm" style={cardStyle}>
+          <p className="text-sm whitespace-pre-line leading-relaxed" style={{ color: '#3D3530' }}>{selectedKnowledge.content}</p>
+        </div>
+      </motion.div>
+    );
+  }
+
+  // ========== 搜尋結果 ==========
+  if (view === 'search' && searchResults) {
+    return (
+      <motion.div className="space-y-5" {...fadeInUp}>
+        <div>
+          <motion.button whileTap={{ scale: 0.95 }} onClick={goBack}
+            className="flex items-center gap-1 text-sm mb-3" style={{ color: '#C9A96E' }}>← 返回</motion.button>
+        </div>
+        <div className="flex items-center gap-2 rounded-2xl px-4 py-2.5 shadow-sm" style={cardStyle}>
+          <span style={{ color: '#8C7B72' }}>🔍</span>
+          <input type="text" placeholder="搜尋精油、水晶..."
+            value={search}
+            onChange={e => { setSearch(e.target.value); if (!e.target.value) setView('home'); }}
+            className="flex-1 text-sm bg-transparent outline-none" style={{ color: '#3D3530' }} />
+          {search && <button onClick={() => { setSearch(''); setView('home'); }} style={{ color: '#8C7B72' }}>✕</button>}
         </div>
 
-        {/* Quick Actions */}
-        <div className="rounded-3xl p-5 shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
-          <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>⚡ 立即可以做的事</p>
-          <div className="space-y-2">
-            {selectedPath.quickActions.map((action, i) => (
-              <div key={i} className="flex items-start gap-2 rounded-2xl p-3" style={{ backgroundColor: '#FAF8F5' }}>
-                <span className="text-sm mt-0.5" style={{ color: selectedPath.color }}>●</span>
-                <p className="text-sm leading-relaxed" style={{ color: '#3D3530' }}>{action}</p>
-              </div>
-            ))}
-          </div>
+        <div className="flex gap-2">
+          {(['all', 'oil', 'crystal'] as const).map(tab => {
+            const labels: Record<string, string> = { all: '全部', oil: '精油', crystal: '水晶' };
+            const counts: Record<string, number> = {
+              all: searchResults.oils.length + searchResults.crystals.length,
+              oil: searchResults.oils.length, crystal: searchResults.crystals.length,
+            };
+            return (
+              <button key={tab} onClick={() => setFilterTab(tab)}
+                className="px-3 py-1.5 rounded-xl text-xs font-medium"
+                style={filterTab === tab ? { backgroundColor: '#C9A96E', color: '#fff' } : { backgroundColor: '#FFFEF9', color: '#8C7B72' }}>
+                {labels[tab]} ({counts[tab]})
+              </button>
+            );
+          })}
         </div>
 
-        {/* 推薦精油 */}
-        {pathOils.length > 0 && (
-          <div className="rounded-3xl p-5 shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
-            <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>🌿 推薦精油</p>
-            <div className="flex gap-3 overflow-x-auto pb-1 no-scrollbar">
-              {pathOils.map(oil => (
-                <motion.button key={oil.name} whileTap={{ scale: 0.95 }}
-                  onClick={() => { setSelectedOil(oil); setView('oil-detail'); }}
-                  className="flex-shrink-0 w-28 rounded-2xl p-3 shadow-sm text-center" style={{ backgroundColor: '#FAF8F5' }}>
+        {searchResults.oils.length > 0 && (filterTab === 'all' || filterTab === 'oil') && (
+          <div>
+            <p className="text-sm font-bold mb-2" style={{ color: '#3D3530' }}>🌿 精油</p>
+            <div className="grid grid-cols-2 gap-3">
+              {searchResults.oils.map(oil => (
+                <motion.button key={oil.name} whileTap={{ scale: 0.96 }} onClick={() => { setSelectedOil(oil); setView('oil-detail'); }}
+                  className="rounded-2xl p-4 text-left shadow-sm" style={cardStyle}>
                   <span className="text-2xl">{oil.emoji}</span>
-                  <p className="text-xs font-bold mt-1" style={{ color: '#3D3530' }}>{oil.name}</p>
+                  <p className="text-sm font-bold mt-1" style={{ color: '#3D3530' }}>{oil.name}</p>
                   <p className="text-xs" style={{ color: '#8C7B72' }}>{oil.en}</p>
                 </motion.button>
               ))}
@@ -7188,17 +7921,15 @@ function HealingLibraryPage() {
           </div>
         )}
 
-        {/* 推薦水晶 */}
-        {pathCrystals.length > 0 && (
-          <div className="rounded-3xl p-5 shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
-            <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>💎 推薦水晶</p>
-            <div className="flex gap-3 overflow-x-auto pb-1 no-scrollbar">
-              {pathCrystals.map(crystal => (
-                <motion.button key={crystal.name} whileTap={{ scale: 0.95 }}
-                  onClick={() => { setSelectedCrystal(crystal); setView('crystal-detail'); }}
-                  className="flex-shrink-0 w-28 rounded-2xl p-3 shadow-sm text-center" style={{ backgroundColor: crystal.color + '12' }}>
+        {searchResults.crystals.length > 0 && (filterTab === 'all' || filterTab === 'crystal') && (
+          <div>
+            <p className="text-sm font-bold mb-2" style={{ color: '#3D3530' }}>💎 水晶</p>
+            <div className="grid grid-cols-2 gap-3">
+              {searchResults.crystals.map(crystal => (
+                <motion.button key={crystal.name} whileTap={{ scale: 0.96 }} onClick={() => { setSelectedCrystal(crystal); setView('crystal-detail'); }}
+                  className="rounded-2xl p-4 text-left shadow-sm" style={cardStyle}>
                   <span className="text-2xl">{crystal.emoji}</span>
-                  <p className="text-xs font-bold mt-1" style={{ color: '#3D3530' }}>{crystal.name}</p>
+                  <p className="text-sm font-bold mt-1" style={{ color: '#3D3530' }}>{crystal.name}</p>
                   <p className="text-xs" style={{ color: '#8C7B72' }}>{crystal.en}</p>
                 </motion.button>
               ))}
@@ -7206,65 +7937,300 @@ function HealingLibraryPage() {
           </div>
         )}
 
-        {/* 推薦音景 */}
-        {pathSounds.length > 0 && (
-          <div className="rounded-3xl p-5 shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
-            <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>🎵 推薦音景</p>
-            <div className="space-y-2">
-              {pathSounds.map(s => (
-                <div key={s.id} className="flex items-center gap-3 rounded-2xl p-3" style={{ backgroundColor: '#FAF8F5' }}>
-                  <span className="text-xl">{s.emoji}</span>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium" style={{ color: '#3D3530' }}>{s.title}</p>
-                    <p className="text-xs" style={{ color: '#8C7B72' }}>{s.description}</p>
-                  </div>
-                </div>
-              ))}
+        {searchResults.oils.length + searchResults.crystals.length === 0 && (
+          <div className="text-center py-8">
+            <p className="text-3xl mb-2">🔍</p>
+            <p className="text-sm" style={{ color: '#8C7B72' }}>找不到相關結果</p>
+          </div>
+        )}
+      </motion.div>
+    );
+  }
+
+  // ========== Layer 1: 課後照顧中心首頁 ==========
+  if (view === 'home') {
+    return (
+      <motion.div className="space-y-6" {...fadeInUp}>
+        {/* Header */}
+        <div>
+          <p className="text-xs tracking-widest" style={{ color: '#C9A96E' }}>KNOW YOU</p>
+          <h2 className="text-xl font-bold mt-1" style={{ color: '#3D3530' }}>懂你</h2>
+          <p className="text-sm mt-1 leading-relaxed" style={{ color: '#8C7B72' }}>把作品帶回家後，陪伴才正要開始</p>
+        </div>
+
+        {/* AI 天氣關懷橫幅 */}
+        {aiContent?.weather_banner && (
+          <motion.div
+            initial={{ opacity: 0, y: -8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-2xl px-4 py-3.5 flex items-center gap-3"
+            style={{ background: 'linear-gradient(135deg, #E8F5E9 0%, #FFF8E1 100%)' }}
+          >
+            <span className="text-2xl">{aiContent.weather_banner.weather === '晴' ? '☀️' : aiContent.weather_banner.weather === '雨' ? '🌧️' : aiContent.weather_banner.weather === '陰' ? '☁️' : '⛅'}</span>
+            <div className="flex-1">
+              <p className="text-sm leading-relaxed" style={{ color: '#3D3530' }}>{aiContent.weather_banner.text}</p>
+              <p className="text-xs mt-0.5" style={{ color: '#8C7B72' }}>{aiContent.weather_banner.temperature_c}°C・{aiContent.weather_banner.weather}</p>
             </div>
+          </motion.div>
+        )}
+
+        {/* AI 今日陪伴語 */}
+        {aiContent?.today_message && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.1 }}
+            className="rounded-2xl px-4 py-3 text-center"
+            style={{ backgroundColor: '#C9A96E0F' }}
+          >
+            <p className="text-sm leading-relaxed" style={{ color: '#8C7B72', fontStyle: 'italic' }}>「{aiContent.today_message}」</p>
+          </motion.div>
+        )}
+
+        {/* AI 載入中 */}
+        {aiLoading && (
+          <div className="flex items-center gap-2 rounded-2xl px-4 py-3" style={{ backgroundColor: '#8FA88612' }}>
+            <div className="w-4 h-4 border-2 rounded-full animate-spin" style={{ borderColor: '#C9A96E', borderTopColor: 'transparent' }} />
+            <p className="text-xs" style={{ color: '#8C7B72' }}>正在為你準備今日內容...</p>
           </div>
         )}
 
-        {/* 推薦練習 */}
-        {pathPractices.length > 0 && (
-          <div className="rounded-3xl p-5 shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
-            <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>🧘 推薦練習</p>
-            <div className="space-y-2">
-              {pathPractices.map(p => (
-                <motion.button key={p.id} whileTap={{ scale: 0.97 }}
-                  onClick={() => { setSelectedPractice(p); setView('practice'); }}
-                  className="w-full flex items-center gap-3 rounded-2xl p-3 text-left" style={{ backgroundColor: '#FAF8F5' }}>
-                  <span className="text-xl">{p.emoji}</span>
-                  <div className="flex-1">
-                    <p className="text-sm font-medium" style={{ color: '#3D3530' }}>{p.title}</p>
-                    <p className="text-xs" style={{ color: '#8C7B72' }}>{p.description}</p>
-                  </div>
-                  <span className="text-xs" style={{ color: '#B5AFA8' }}>{p.duration}</span>
-                </motion.button>
-              ))}
-            </div>
+        {/* 搜尋框 */}
+        <div className="flex items-center gap-2 rounded-2xl px-4 py-2.5 shadow-sm" style={cardStyle}>
+          <span style={{ color: '#8C7B72' }}>🔍</span>
+          <input type="text" placeholder="搜尋精油、水晶百科..."
+            value={search}
+            onChange={e => { setSearch(e.target.value); if (e.target.value) setView('search'); }}
+            className="flex-1 text-sm bg-transparent outline-none" style={{ color: '#3D3530' }} />
+        </div>
+
+        {/* 課程同步狀態 */}
+        {loadingCourses && (
+          <div className="flex items-center gap-2 rounded-2xl px-4 py-3" style={{ backgroundColor: '#8FA88612' }}>
+            <div className="w-4 h-4 border-2 rounded-full animate-spin" style={{ borderColor: '#8FA886', borderTopColor: 'transparent' }} />
+            <p className="text-xs" style={{ color: '#8FA886' }}>正在同步你的課程紀錄...</p>
           </div>
         )}
 
-        {/* 延伸閱讀 */}
-        {pathArticles.length > 0 && (
-          <div className="rounded-3xl p-5 shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
-            <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>📖 延伸閱讀</p>
-            <div className="space-y-2">
-              {pathArticles.map(a => (
-                <motion.button key={a.id} whileTap={{ scale: 0.97 }}
-                  onClick={() => { setSelectedArticle(a); setView('article'); }}
-                  className="w-full flex items-center gap-3 rounded-2xl p-3 text-left" style={{ backgroundColor: '#FAF8F5' }}>
-                  <span className="text-xl">{a.emoji}</span>
+        {!userEmail && !loadingCourses && (
+          <div className="rounded-2xl px-4 py-3.5 flex items-center gap-3" style={{ backgroundColor: '#C9A96E12' }}>
+            <span className="text-lg">💡</span>
+            <p className="text-xs leading-relaxed" style={{ color: '#8C7B72' }}>登入後可自動同步你的訂單與課程紀錄，首頁會依你上過的課個人化顯示</p>
+          </div>
+        )}
+
+        {courseSynced && courseRecords.length > 0 && (
+          <div className="rounded-2xl px-4 py-3 flex items-center gap-2" style={{ backgroundColor: '#8FA88612' }}>
+            <span className="text-sm">✅</span>
+            <p className="text-xs" style={{ color: '#8FA886' }}>已同步 {courseRecords.length} 筆課程紀錄</p>
+          </div>
+        )}
+
+        {/* Section 1: 我的課後照顧（快捷入口） */}
+        <div>
+          <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>今天想先照顧哪一個作品？</p>
+          <div className="grid grid-cols-2 gap-3">
+            {quickAccessCards.map((card, i) => (
+              <motion.button
+                key={card.title}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.06 }}
+                whileTap={{ scale: 0.96 }}
+                onClick={card.action}
+                className="rounded-2xl p-4 text-left shadow-sm relative overflow-hidden"
+                style={cardStyle}
+              >
+                <span className="text-2xl">{card.emoji}</span>
+                <p className="text-sm font-bold mt-2" style={{ color: '#3D3530' }}>{card.title}</p>
+                {card.count > 0 && (
+                  <p className="text-xs mt-0.5" style={{ color: '#8FA886' }}>{card.count} 筆紀錄</p>
+                )}
+                <div className="absolute -bottom-2 -right-2 text-5xl opacity-[0.06]">{card.emoji}</div>
+              </motion.button>
+            ))}
+          </div>
+        </div>
+
+        {/* Section 2: 今日提醒 */}
+        <div>
+          <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>今日小提醒</p>
+          <div className="rounded-3xl p-4 shadow-sm space-y-2.5" style={{ backgroundColor: '#FAF8F5' }}>
+            {dailyReminders.map((r, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: i * 0.08 }}
+                className="flex items-center gap-3 rounded-2xl px-3.5 py-3"
+                style={cardStyle}
+              >
+                <span className="text-lg">{r.emoji}</span>
+                <p className="text-sm leading-relaxed" style={{ color: '#3D3530' }}>{r.message}</p>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+
+        {/* Section 3: 作品分類照顧入口 */}
+        <div>
+          <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>作品照顧分類</p>
+          <div className="space-y-2.5">
+            {careEntries.map((entry, i) => {
+              const viewMap: Record<CourseType, LibraryView> = {
+                fragrance: 'care-fragrance', plant: 'care-plant', crystal: 'care-crystal',
+                leather: 'care-leather', candle: 'care-candle',
+              };
+              const isAttended = courseTypes.includes(entry.key);
+              return (
+                <motion.button
+                  key={entry.key}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: i * 0.04 }}
+                  whileTap={{ scale: 0.97 }}
+                  onClick={() => setView(viewMap[entry.key])}
+                  className="w-full rounded-2xl p-4 shadow-sm text-left flex items-center gap-3.5"
+                  style={cardStyle}
+                >
+                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl flex-shrink-0"
+                    style={{ backgroundColor: entry.color + '30' }}>
+                    {entry.emoji}
+                  </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate" style={{ color: '#3D3530' }}>{a.title}</p>
-                    <p className="text-xs truncate" style={{ color: '#8C7B72' }}>{a.summary}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-bold" style={{ color: '#3D3530' }}>{entry.title}</p>
+                      {isAttended && (
+                        <span className="text-xs px-1.5 py-0.5 rounded-lg font-medium" style={{ backgroundColor: '#8FA88620', color: '#8FA886' }}>已上課</span>
+                      )}
+                    </div>
+                    <p className="text-xs mt-0.5 leading-relaxed" style={{ color: '#8C7B72' }}>{entry.subtitle}</p>
                   </div>
-                  <span className="text-xs flex-shrink-0" style={{ color: '#B5AFA8' }}>{a.readTime}</span>
+                  <span style={{ color: '#C9A96E' }}>›</span>
                 </motion.button>
-              ))}
-            </div>
+              );
+            })}
           </div>
+        </div>
+
+        {/* Section 4: 課後知識區 */}
+        <div>
+          <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>課後小知識</p>
+          <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+            {[
+              ...AFTERCARE_KNOWLEDGE.plant.slice(0, 2),
+              ...AFTERCARE_KNOWLEDGE.fragrance.slice(0, 1),
+              ...AFTERCARE_KNOWLEDGE.crystal.slice(0, 1),
+            ].map(k => (
+              <motion.button key={k.id} whileTap={{ scale: 0.95 }}
+                onClick={() => { setSelectedKnowledge(k); setView('knowledge-detail'); }}
+                className="flex-shrink-0 w-44 rounded-2xl p-4 shadow-sm text-left" style={cardStyle}>
+                <span className="text-xl">{k.emoji}</span>
+                <p className="text-xs font-bold mt-2 leading-snug" style={{ color: '#3D3530' }}>{k.title}</p>
+                <p className="text-xs mt-1 leading-relaxed line-clamp-2" style={{ color: '#8C7B72' }}>{k.summary}</p>
+              </motion.button>
+            ))}
+          </div>
+        </div>
+
+        {/* Section 5: AI 今日儀式推薦 */}
+        {aiContent?.ritual && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+            <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>💛 今日小儀式</p>
+            <div className="rounded-2xl p-4 shadow-sm" style={{ background: 'linear-gradient(135deg, #FFFEF9 0%, #FFF8E1 100%)' }}>
+              <p className="text-sm leading-relaxed" style={{ color: '#3D3530' }}>{aiContent.ritual.text}</p>
+              <p className="text-xs mt-2" style={{ color: '#C9A96E' }}>只需要 2 分鐘</p>
+            </div>
+          </motion.div>
         )}
+
+        {/* Section 6: AI 植物推薦 */}
+        {aiContent?.plant_recommendation && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
+            <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>🌿 也許你會喜歡</p>
+            <div className="rounded-2xl p-4 shadow-sm" style={{ backgroundColor: '#C5D9B218' }}>
+              <p className="text-base font-bold" style={{ color: '#3D3530' }}>{aiContent.plant_recommendation.name}</p>
+              <p className="text-sm mt-1 leading-relaxed" style={{ color: '#8C7B72' }}>{aiContent.plant_recommendation.why}</p>
+              <p className="text-sm mt-1 leading-relaxed" style={{ color: '#8C7B72' }}>照顧方式：{aiContent.plant_recommendation.care}</p>
+              <p className="text-xs mt-2 italic" style={{ color: '#C9A96E' }}>「{aiContent.plant_recommendation.healing_quote}」</p>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Section 7: 植物照片 AI 診斷 */}
+        {(courseTypes.includes('plant') || plants.length > 0) && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+            <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>📸 拍照問問 AI</p>
+            <div className="rounded-2xl p-4 shadow-sm space-y-3" style={cardStyle}>
+              <p className="text-xs leading-relaxed" style={{ color: '#8C7B72' }}>上傳植物照片，讓 AI 幫你看看它的狀況</p>
+              <label className="flex items-center justify-center gap-2 rounded-xl py-2.5 cursor-pointer"
+                style={{ backgroundColor: '#8FA88618', color: '#8FA886' }}>
+                <span className="text-sm">📷</span>
+                <span className="text-sm font-medium">選擇照片</span>
+                <input type="file" accept="image/*" className="hidden"
+                  onChange={e => {
+                    const file = e.target.files?.[0];
+                    if (file) handlePlantDiagnosis(file, plants[0]?.name);
+                    e.target.value = '';
+                  }} />
+              </label>
+              {plantDiagnosisLoading && (
+                <div className="flex items-center gap-2 py-2">
+                  <div className="w-4 h-4 border-2 rounded-full animate-spin" style={{ borderColor: '#8FA886', borderTopColor: 'transparent' }} />
+                  <p className="text-xs" style={{ color: '#8C7B72' }}>AI 正在仔細看...</p>
+                </div>
+              )}
+              {plantDiagnosisResult && (
+                <div className="rounded-xl p-3" style={{ backgroundColor: '#F0EDE8' }}>
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: '#3D3530' }}>{plantDiagnosisResult}</p>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+
+        {/* Section 8: AI 延伸推薦 / 靜態推薦 */}
+        <div>
+          <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>你可能也會喜歡</p>
+          <div className="space-y-2.5">
+            {aiContent?.recommendations && aiContent.recommendations.length > 0 ? (
+              aiContent.recommendations.map((item, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.3 + i * 0.08 }}
+                  className="rounded-2xl px-4 py-3.5"
+                  style={{ backgroundColor: '#C5D9B218' }}
+                >
+                  <p className="text-sm font-medium" style={{ color: '#3D3530' }}>{item.title}</p>
+                  <p className="text-xs mt-0.5 leading-relaxed" style={{ color: '#8C7B72' }}>{item.reason}</p>
+                  <span className="inline-block mt-1.5 px-2 py-0.5 rounded-lg text-xs" style={{ backgroundColor: '#8FA88618', color: '#8FA886' }}>{item.type === 'article' ? '文章' : item.type === 'course' ? '課程' : item.type === 'plant' ? '植物' : '推薦'}</span>
+                </motion.div>
+              ))
+            ) : (
+              [{emoji: '🌿', text: '喜歡調香的你，也許會想體驗芳療客製服務', color: '#E8D5B7'},
+               {emoji: '💎', text: '做過水晶手鍊的你，也適合看看高階晶礦手鍊', color: '#D4C5E2'},
+               {emoji: '🌱', text: '喜歡植栽的你，也可以延伸體驗其他自然療癒課程', color: '#C5D9B2'},
+              ].map((item, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.3 + i * 0.08 }}
+                  className="rounded-2xl px-4 py-3.5 flex items-center gap-3"
+                  style={{ backgroundColor: item.color + '18' }}
+                >
+                  <span className="text-lg">{item.emoji}</span>
+                  <p className="text-xs leading-relaxed" style={{ color: '#8C7B72' }}>{item.text}</p>
+                </motion.div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* 底部留白 */}
+        <div className="h-4" />
       </motion.div>
     );
   }
@@ -8718,7 +9684,7 @@ export default function HealingApp() {
             {page === 'card' && <CardPage onTaskComplete={completeTask} records={records} />}
             {page === 'healer' && <HealerPage records={records} />}
             {page === 'shop' && <ShopPage />}
-            {page === 'library' && <HealingLibraryPage />}
+            {page === 'library' && <HealingLibraryPage userEmail={user?.email || null} />}
             {page === 'calendar' && <FragranceCalendarPage />}
             {page === 'member' && <MemberPage records={records} onNavigate={(p) => setPage(p)} />}
             {page === 'custom' && <CustomOilPage user={user} records={records} />}

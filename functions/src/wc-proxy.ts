@@ -343,4 +343,162 @@ router.get("/customers", async (req, res) => {
   }
 });
 
+// ===================== 課後照顧：根據已完成訂單抓取課程類型 =====================
+
+// WC 分類 ID → 課程類型對照
+const CATEGORY_TO_COURSE_TYPE: Record<number, string> = {
+  // 調香 / 精油
+  173: 'fragrance', // 精油調香
+  18: 'candle',     // 香氛蠟燭
+  // 植栽
+  22: 'plant',      // 多肉植栽
+  // 水晶 / 飾品
+  21: 'crystal',    // 手作飾品
+  200: 'crystal',   // 下班隨手飾
+  // 皮革
+  211: 'leather',   // 皮革
+  212: 'leather',   // 皮革子分類
+  // 其他課程類型（歸為最接近的類型）
+  149: 'candle',    // 環氧樹脂 → candle（手作香氛類）
+  25: 'plant',      // 花藝 → plant
+  150: 'leather',   // 梭織 → leather（手作質感類）
+  151: 'plant',     // 藍染 → plant（自然類）
+  24: 'crystal',    // 畫畫 → crystal（創作類）
+};
+
+// 所有課程分類 ID（用來判斷是否為課程商品）
+const ALL_COURSE_CAT_IDS = [17, 18, 19, 21, 22, 24, 25, 32, 61, 128, 133, 149, 150, 151, 173, 200, 211, 212];
+
+// GET /api/wc/my-courses?email=xxx - 查詢會員已完成訂單中的課程類型
+router.get("/my-courses", async (req, res) => {
+  try {
+    const { email } = req.query;
+
+    if (!email) {
+      res.status(400).json({ error: "email is required" });
+      return;
+    }
+
+    // 查詢已完成（completed）和處理中（processing）的訂單 — 這些都是已付款的
+    const params: Record<string, unknown> = {
+      per_page: 100,
+      orderby: "date",
+      order: "desc",
+      search: email as string,
+      status: "completed,processing",
+    };
+
+    const orderResponse = await wcApi.get("/orders", { params });
+
+    // 過濾確保只取該 email 的訂單
+    const orders = (orderResponse.data as any[]).filter((o: any) =>
+      o.billing?.email?.toLowerCase() === (email as string).toLowerCase()
+    );
+
+    if (orders.length === 0) {
+      res.json({
+        courseTypes: [],
+        courseRecords: [],
+        totalOrders: 0,
+      });
+      return;
+    }
+
+    // 收集所有 line_items 的 product_id
+    const productIds = new Set<number>();
+    const orderItems: Array<{
+      orderId: number;
+      orderDate: string;
+      productId: number;
+      productName: string;
+      quantity: number;
+    }> = [];
+
+    for (const order of orders) {
+      for (const item of (order.line_items || [])) {
+        const pid = item.product_id as number;
+        productIds.add(pid);
+        orderItems.push({
+          orderId: order.id,
+          orderDate: order.date_created,
+          productId: pid,
+          productName: item.name,
+          quantity: item.quantity || 1,
+        });
+      }
+    }
+
+    // 批次查詢商品，取得分類（每次最多100個）
+    const pidArray = Array.from(productIds);
+    const productCategories: Record<number, number[]> = {};
+
+    // WC API 支持 include 參數批次查詢
+    for (let i = 0; i < pidArray.length; i += 100) {
+      const batch = pidArray.slice(i, i + 100);
+      try {
+        const prodResp = await wcApi.get("/products", {
+          params: {
+            include: batch.join(","),
+            per_page: 100,
+          },
+        });
+        for (const prod of (prodResp.data as any[])) {
+          productCategories[prod.id] = (prod.categories || []).map((c: any) => c.id);
+        }
+      } catch (e) {
+        console.error("Failed to fetch product batch:", e);
+      }
+    }
+
+    // 判斷課程類型
+    const detectedCourseTypes = new Set<string>();
+    const courseRecords: Array<{
+      orderId: number;
+      orderDate: string;
+      productId: number;
+      productName: string;
+      courseType: string | null;
+      categories: number[];
+    }> = [];
+
+    for (const item of orderItems) {
+      const cats = productCategories[item.productId] || [];
+      // 判斷是否為課程商品
+      const isCourse = cats.some((cid: number) => ALL_COURSE_CAT_IDS.includes(cid));
+
+      if (isCourse) {
+        let courseType: string | null = null;
+        for (const cid of cats) {
+          if (CATEGORY_TO_COURSE_TYPE[cid]) {
+            courseType = CATEGORY_TO_COURSE_TYPE[cid];
+            detectedCourseTypes.add(courseType);
+            break;
+          }
+        }
+
+        courseRecords.push({
+          orderId: item.orderId,
+          orderDate: item.orderDate,
+          productId: item.productId,
+          productName: item.productName,
+          courseType,
+          categories: cats,
+        });
+      }
+    }
+
+    res.json({
+      courseTypes: Array.from(detectedCourseTypes),
+      courseRecords,
+      totalOrders: orders.length,
+    });
+  } catch (error) {
+    const err = error as AxiosError<WCErrorResponse>;
+    console.error("WC My Courses Error:", err.message);
+    res.status(err.response?.status || 500).json({
+      error: err.response?.data?.message || "Failed to fetch course history",
+    });
+  }
+});
+
 export { router as wcProxyRouter };
