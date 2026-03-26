@@ -9660,32 +9660,51 @@ export default function HealingApp() {
           style={{ paddingTop: 'env(safe-area-inset-top)' }}
         >
           <div className="max-w-md mx-auto px-3 py-2">
-            <div className="rounded-2xl px-4 py-3 flex items-center gap-3 shadow-lg" style={{ backgroundColor: '#FFFEF9', border: '1px solid #E8E0D8' }}>
-              <span className="text-xl">📲</span>
-              <div className="flex-1">
-                <p className="text-xs font-bold" style={{ color: '#3D3530' }}>
-                  把「隨手作」加到主畫面
-                </p>
-                <p className="text-[10px]" style={{ color: '#8C7B72' }}>
-                  {isIOS ? '點下方分享按鈕 → 加入主畫面' : '像 App 一樣使用，隨時打開'}
-                </p>
-              </div>
-              {canInstall && (
+            <div className="rounded-2xl px-4 py-3 shadow-lg" style={{ backgroundColor: '#FFFEF9', border: '1px solid #E8E0D8' }}>
+              <div className="flex items-center gap-3">
+                <span className="text-xl">📲</span>
+                <div className="flex-1">
+                  <p className="text-xs font-bold" style={{ color: '#3D3530' }}>
+                    把「隨手作」加到主畫面
+                  </p>
+                  <p className="text-[10px]" style={{ color: '#8C7B72' }}>
+                    {isIOS ? '像 App 一樣使用' : '像 App 一樣使用，隨時打開'}
+                  </p>
+                </div>
+                {canInstall && (
+                  <button
+                    onClick={triggerInstall}
+                    className="px-3 py-1.5 rounded-full text-xs font-bold"
+                    style={{ backgroundColor: '#8FA886', color: 'white' }}
+                  >
+                    安裝
+                  </button>
+                )}
                 <button
-                  onClick={triggerInstall}
-                  className="px-3 py-1.5 rounded-full text-xs font-bold"
-                  style={{ backgroundColor: '#8FA886', color: 'white' }}
+                  onClick={() => setShowInstallBanner(false)}
+                  className="text-xs px-1"
+                  style={{ color: '#8C7B72' }}
                 >
-                  安裝
+                  ✕
                 </button>
+              </div>
+              {/* iOS 專用安裝步驟引導 */}
+              {isIOS && (
+                <div className="mt-3 pt-3 space-y-2" style={{ borderTop: '1px solid #F0EDE8' }}>
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold" style={{ backgroundColor: '#8FA88620', color: '#8FA886' }}>1</span>
+                    <p className="text-[11px]" style={{ color: '#3D3530' }}>點 Safari 底部的 <span style={{ fontSize: '14px', verticalAlign: 'middle' }}>⬆</span> 分享按鈕</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold" style={{ backgroundColor: '#8FA88620', color: '#8FA886' }}>2</span>
+                    <p className="text-[11px]" style={{ color: '#3D3530' }}>往下滑，找到「加入主畫面」</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold" style={{ backgroundColor: '#8FA88620', color: '#8FA886' }}>3</span>
+                    <p className="text-[11px]" style={{ color: '#3D3530' }}>點「新增」就完成了！</p>
+                  </div>
+                </div>
               )}
-              <button
-                onClick={() => setShowInstallBanner(false)}
-                className="text-xs px-1"
-                style={{ color: '#8C7B72' }}
-              >
-                ✕
-              </button>
             </div>
           </div>
         </motion.div>
