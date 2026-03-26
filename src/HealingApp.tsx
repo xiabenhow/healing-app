@@ -7135,9 +7135,11 @@ interface CommunityWork {
   imageUrl: string;
   thumbUrl?: string;
   caption: string;
-  workType: string; // 'plant' | 'fragrance' | 'crystal' | 'leather' | 'candle' | 'other'
+  workType: string;
+  tags: string[];
   likeCount: number;
   commentCount: number;
+  featured?: boolean;
   createdAt: string;
 }
 
@@ -7154,8 +7156,22 @@ const TOPICS = [
   { key: 'plant', label: '植栽', emoji: '🌱', color: '#C5D9B2' },
   { key: 'fragrance', label: '調香', emoji: '🫧', color: '#E8D5B7' },
   { key: 'crystal', label: '水晶', emoji: '💎', color: '#D4C5E2' },
-  { key: 'lifestyle', label: '生活', emoji: '🌿', color: '#B8D4C8' },
   { key: 'candle', label: '蠟燭', emoji: '🕯️', color: '#F0E0C8' },
+  { key: 'leather', label: '皮革', emoji: '👜', color: '#D9C5B2' },
+  { key: 'soap', label: '手工皂', emoji: '🧼', color: '#D4E8E0' },
+  { key: 'floral', label: '花藝', emoji: '💐', color: '#F0D4E8' },
+  { key: 'resin', label: '樹脂', emoji: '✨', color: '#C8E0F0' },
+  { key: 'diffuser', label: '擴香石', emoji: '🪨', color: '#E0D8D0' },
+  { key: 'painting', label: '畫畫', emoji: '🎨', color: '#E8D0D4' },
+  { key: 'weaving', label: '編織', emoji: '🧶', color: '#E0C8B8' },
+  { key: 'indigo', label: '藍染', emoji: '🫐', color: '#B8C8E0' },
+  { key: 'lifestyle', label: '生活療癒', emoji: '🌿', color: '#B8D4C8' },
+];
+
+const WORK_TAGS = [
+  '#第一次做', '#送給朋友', '#母親節禮物', '#情人節', '#生日禮物',
+  '#下班療癒', '#週末手作', '#閨蜜同樂', '#親子手作', '#企業團建',
+  '#超滿意', '#意外驚喜', '#配色控', '#香氣迷人', '#獨一無二',
 ];
 
 function HealingLibraryPage({ userEmail }: { userEmail: string | null }) {
@@ -8154,8 +8170,13 @@ function HealingLibraryPage({ userEmail }: { userEmail: string | null }) {
       <motion.div className="space-y-6" {...fadeInUp}>
         {/* Header */}
         <div>
-          <p className="text-xs tracking-widest" style={{ color: '#C9A96E' }}>KNOW YOU</p>
-          <h2 className="text-xl font-bold mt-1" style={{ color: '#3D3530' }}>懂你</h2>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs tracking-widest" style={{ color: '#C9A96E' }}>KNOW YOU</p>
+              <h2 className="text-xl font-bold mt-1" style={{ color: '#3D3530' }}>懂你</h2>
+            </div>
+            {userEmail && <PointsBadge userEmail={userEmail} />}
+          </div>
           <p className="text-sm mt-1 leading-relaxed" style={{ color: '#8C7B72' }}>把作品帶回家後，陪伴才正要開始</p>
         </div>
 
@@ -8332,6 +8353,25 @@ function HealingLibraryPage({ userEmail }: { userEmail: string | null }) {
               </motion.button>
             ))}
           </div>
+        </div>
+
+        {/* Section 4.3: 主題訂閱 */}
+        {userEmail && (
+          <div className="rounded-2xl p-4 shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
+            <p className="text-sm font-bold mb-2" style={{ color: '#3D3530' }}>🔔 訂閱感興趣的主題</p>
+            <p className="text-xs mb-3" style={{ color: '#8C7B72' }}>勾選主題，系統會優先推送相關內容給你</p>
+            <TopicSubscriptionBlock userEmail={userEmail} />
+          </div>
+        )}
+
+        {/* Section 4.4: 本週精選作品 */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-bold" style={{ color: '#3D3530' }}>⭐ 本週精選作品</p>
+            <motion.button whileTap={{ scale: 0.95 }} onClick={() => setView('community-works-board')}
+              className="text-xs" style={{ color: '#C9A96E' }}>看更多 ›</motion.button>
+          </div>
+          <WeeklyFeaturedWorks />
         </div>
 
         {/* Section 4.5: 知識文章 & 社群作品入口 */}
@@ -8845,6 +8885,12 @@ function PlantPhotoTimelineView({ plant, userEmail, goBack }: {
       await updateDoc(doc(db, 'plant_diaries', diaryId), { photoCount: increment(1) });
       setNewNote('');
       hapticSuccess();
+
+      // 積分：拍照記錄 +5
+      if (userEmail) {
+        const pointsRef = doc(db, 'user_points', userEmail);
+        await setDoc(pointsRef, { total: increment(5), lastAction: 'plant_photo', lastActionAt: new Date().toISOString() }, { merge: true });
+      }
     } catch (e) { console.error('Upload failed:', e); }
     setUploading(false);
   };
@@ -9216,6 +9262,7 @@ function KnowledgeArticlesGridView({ userEmail, goBack }: {
   const [selectedTopic, setSelectedTopic] = useState<string>('all');
   const [selectedArticle, setSelectedArticle] = useState<KnowledgeArticle | null>(null);
   const [subscribedTopics, setSubscribedTopics] = useState<string[]>([]);
+  const [bookmarks, setBookmarks] = useState<string[]>([]);
 
   // Load articles
   useEffect(() => {
@@ -9227,11 +9274,14 @@ function KnowledgeArticlesGridView({ userEmail, goBack }: {
     return unsub;
   }, []);
 
-  // Load subscriptions
+  // Load subscriptions & bookmarks
   useEffect(() => {
     if (!userEmail) return;
     const unsub = onSnapshot(doc(db, 'user_subscriptions', userEmail), (snap) => {
-      if (snap.exists()) setSubscribedTopics(snap.data().topics || []);
+      if (snap.exists()) {
+        setSubscribedTopics(snap.data().topics || []);
+        setBookmarks(snap.data().bookmarks || []);
+      }
     });
     return unsub;
   }, [userEmail]);
@@ -9251,16 +9301,55 @@ function KnowledgeArticlesGridView({ userEmail, goBack }: {
     hapticLight();
   };
 
+  const toggleBookmark = async (articleId: string) => {
+    if (!userEmail) return;
+    const newBookmarks = bookmarks.includes(articleId)
+      ? bookmarks.filter(b => b !== articleId)
+      : [...bookmarks, articleId];
+    setBookmarks(newBookmarks);
+    await setDoc(doc(db, 'user_subscriptions', userEmail), { bookmarks: newBookmarks }, { merge: true });
+    hapticLight();
+  };
+
   const filtered = selectedTopic === 'all' ? articles : articles.filter(a => a.topic === selectedTopic);
 
   // 內建範例文章（當 Firestore 無資料時顯示）
   const sampleArticles: KnowledgeArticle[] = [
-    { id: 'sample-1', title: '多肉換盆的最佳時機', coverUrl: '', coverThumbUrl: '', topic: 'plant', summary: '春秋兩季是最適合換盆的時機，避開夏季高溫和冬季休眠期...', content: '春秋兩季是最適合換盆的時機。這時候多肉的根系活性最強，換盆後恢復快。建議選擇天氣穩定、溫度在15-25°C之間的日子進行。\n\n換盆步驟：\n1. 停止澆水3-5天，讓土壤乾燥\n2. 輕輕取出植株，抖掉老土\n3. 檢查根系，修剪枯根\n4. 晾根1-2天\n5. 放入新盆新土，先不澆水\n6. 3-5天後少量澆水', authorName: '隨手作老師', authorEmoji: '🌱', likeCount: 28, createdAt: '2026-03-20' },
-    { id: 'sample-2', title: '居家擴香的五個小秘密', coverUrl: '', coverThumbUrl: '', topic: 'fragrance', summary: '讓空間香氣持久又自然的擴香技巧分享...', content: '1. 擴香石的正確使用：滴 3-5 滴精油，放在通風處讓香氣自然擴散。\n\n2. 不同空間不同香氣：客廳用柑橘類提振精神，臥室用薰衣草助眠。\n\n3. 擴香瓶保養：定期翻轉藤條，讓香氣持續。\n\n4. 季節搭配：夏天選清爽的薄荷、尤加利；冬天選溫暖的雪松、檀香。\n\n5. 香氣層次：可混合2-3種精油創造獨特香氛。', authorName: '隨手作老師', authorEmoji: '🫧', likeCount: 42, createdAt: '2026-03-18' },
-    { id: 'sample-3', title: '水晶手鍊斷了怎麼辦？', coverUrl: '', coverThumbUrl: '', topic: 'crystal', summary: '手鍊斷裂不用慌，教你DIY修復和重新穿線...', content: '水晶手鍊的彈力線使用久了會老化、失去彈性，斷裂是正常的。\n\n修復方式：\n- 準備0.8mm彈力線和打火機\n- 將水晶按原來的順序排好\n- 穿線時預留10cm打結\n- 打2-3個結，用打火機微燒固定\n- 多餘的線頭塞入珠子孔中\n\n如果不想DIY，也可以帶回工作室，我們免費幫你穿線！', authorName: '隨手作老師', authorEmoji: '💎', likeCount: 35, createdAt: '2026-03-15' },
-    { id: 'sample-4', title: '蠟燭第一次點燃很重要', coverUrl: '', coverThumbUrl: '', topic: 'candle', summary: '第一次點蠟燭的方式會決定它之後的壽命...', content: '第一次燃燒蠟燭時，一定要讓蠟池（融化的蠟）擴展到整個容器邊緣。這通常需要1-2小時。\n\n如果第一次沒有讓蠟池完全擴展，會形成「記憶環」，之後每次點燃都只會融化那個範圍，浪費邊緣的蠟。\n\n其他小技巧：每次點燃不超過4小時、修剪燭芯至0.5-0.8cm、遠離風口。', authorName: '隨手作老師', authorEmoji: '🕯️', likeCount: 51, createdAt: '2026-03-12' },
-    { id: 'sample-5', title: '手作療癒的心理學', coverUrl: '', coverThumbUrl: '', topic: 'lifestyle', summary: '為什麼動手做東西會讓人感到放鬆和療癒？', content: '心理學研究發現，手作活動能啟動「心流狀態」(Flow)，讓大腦暫時放下焦慮和壓力。\n\n當我們專注於手中的工作時，前額葉皮質的活動會改變，讓我們進入一種類似冥想的狀態。觸覺刺激（揉捏、撫摸材料）也會促進大腦分泌血清素和多巴胺。\n\n這就是為什麼下班後來做手作，比滑手機更能讓你感到放鬆和充實。', authorName: '隨手作老師', authorEmoji: '🌿', likeCount: 67, createdAt: '2026-03-10' },
-    { id: 'sample-6', title: '植物葉插繁殖教學', coverUrl: '', coverThumbUrl: '', topic: 'plant', summary: '用一片葉子就能種出一盆新多肉！簡單的葉插步驟...', content: '葉插是多肉植物最簡單的繁殖方式：\n\n1. 選擇健康飽滿的葉片，輕輕左右搖動摘下（要完整帶蒂）\n2. 將葉片放在乾燥通風處晾1-2天，讓傷口癒合\n3. 平放在微濕的土面上（不要插入土裡）\n4. 放在明亮散射光處\n5. 每3-4天用噴霧輕噴土面保持微濕\n6. 約2-4週會長出小根和芽\n\n成功率約60-80%，多試幾片就好！', authorName: '隨手作老師', authorEmoji: '🌱', likeCount: 39, createdAt: '2026-03-08' },
+    // 植栽
+    { id: 'sa-1', title: '多肉換盆的最佳時機', coverUrl: '', coverThumbUrl: '', topic: 'plant', summary: '春秋兩季是最適合換盆的時機，避開夏季高溫和冬季休眠期', content: '春秋兩季是最適合換盆的時機。這時候多肉的根系活性最強，換盆後恢復快。建議選擇天氣穩定、溫度在15-25°C之間的日子進行。\n\n換盆步驟：\n1. 停止澆水3-5天，讓土壤乾燥\n2. 輕輕取出植株，抖掉老土\n3. 檢查根系，修剪枯根\n4. 晾根1-2天\n5. 放入新盆新土，先不澆水\n6. 3-5天後少量澆水', authorName: '隨手作老師', authorEmoji: '🌱', likeCount: 28, createdAt: '2026-03-20' },
+    { id: 'sa-2', title: '葉插繁殖全攻略', coverUrl: '', coverThumbUrl: '', topic: 'plant', summary: '用一片葉子就能種出一盆新多肉！', content: '葉插是多肉植物最簡單的繁殖方式：\n\n1. 選擇健康飽滿的葉片，輕輕左右搖動摘下（要完整帶蒂）\n2. 將葉片放在乾燥通風處晾1-2天，讓傷口癒合\n3. 平放在微濕的土面上（不要插入土裡）\n4. 放在明亮散射光處\n5. 每3-4天用噴霧輕噴土面保持微濕\n6. 約2-4週會長出小根和芽\n\n成功率約60-80%，多試幾片就好！', authorName: '隨手作老師', authorEmoji: '🌱', likeCount: 39, createdAt: '2026-03-08' },
+    { id: 'sa-3', title: '微景觀組盆的配色美學', coverUrl: '', coverThumbUrl: '', topic: 'plant', summary: '學會這幾個配色原則，你的組盆作品立刻升級', content: '組盆不只是把多肉塞在一起，配色是關鍵：\n\n漸層法：選同色系但深淺不同的品種，例如從淺綠到深綠。\n\n對比法：互補色搭配，例如紫色系搭黃綠色系。\n\n點綴法：大面積用同色系，搭配一小株亮色系當視覺焦點。\n\n高低錯落：把高的放後面、矮的放前面，營造層次感。\n\n留白很重要：不要塞太滿，適當留白讓視覺更舒服。', authorName: '隨手作老師', authorEmoji: '🌱', likeCount: 45, createdAt: '2026-03-05' },
+    // 調香
+    { id: 'sa-4', title: '居家擴香的五個小秘密', coverUrl: '', coverThumbUrl: '', topic: 'fragrance', summary: '讓空間香氣持久又自然的擴香技巧', content: '1. 擴香石的正確使用：滴 3-5 滴精油，放在通風處讓香氣自然擴散。\n\n2. 不同空間不同香氣：客廳用柑橘類提振精神，臥室用薰衣草助眠。\n\n3. 擴香瓶保養：定期翻轉藤條，讓香氣持續。\n\n4. 季節搭配：夏天選清爽的薄荷、尤加利；冬天選溫暖的雪松、檀香。\n\n5. 香氣層次：可混合2-3種精油創造獨特香氛。', authorName: '隨手作老師', authorEmoji: '🫧', likeCount: 42, createdAt: '2026-03-18' },
+    { id: 'sa-5', title: '認識前中後調：調香入門', coverUrl: '', coverThumbUrl: '', topic: 'fragrance', summary: '前調清新、中調花香、後調深沉，三者搭配才完整', content: '調香就像譜一首曲子，前中後三個調性各有角色：\n\n前調（Top Notes）：第一印象，柑橘、薄荷等清新香氣，約15-30分鐘。\n\n中調（Middle Notes）：香水的心臟，花香或草本香氣，持續2-4小時。\n\n後調（Base Notes）：深沉持久的底蘊，木質、樹脂或麝香類，持續6小時以上。\n\n建議比例：前調15-25%、中調30-40%、後調30-40%。', authorName: '隨手作老師', authorEmoji: '🫧', likeCount: 56, createdAt: '2026-03-01' },
+    // 水晶
+    { id: 'sa-6', title: '水晶手鍊斷了怎麼辦？', coverUrl: '', coverThumbUrl: '', topic: 'crystal', summary: '手鍊斷裂不用慌，教你DIY修復', content: '水晶手鍊的彈力線使用久了會老化、斷裂是正常的。\n\n修復方式：\n- 準備0.8mm彈力線和打火機\n- 將水晶按原來的順序排好\n- 穿線時預留10cm打結\n- 打2-3個結，用打火機微燒固定\n- 多餘的線頭塞入珠子孔中\n\n如果不想DIY，也可以帶回工作室，我們免費幫你穿線！', authorName: '隨手作老師', authorEmoji: '💎', likeCount: 35, createdAt: '2026-03-15' },
+    { id: 'sa-7', title: '生命靈數與水晶的搭配', coverUrl: '', coverThumbUrl: '', topic: 'crystal', summary: '根據你的生命靈數，找到最適合的水晶能量', content: '生命靈數是把出生年月日的數字加總到個位數：\n\n1號人（領導者）→ 虎眼石：增強自信與決斷力\n2號人（和平者）→ 月光石：增進直覺與溫柔\n3號人（表達者）→ 黃水晶：帶來歡樂與創造力\n4號人（建構者）→ 黑曜石：穩定與保護\n5號人（自由者）→ 海藍寶：勇氣與表達\n6號人（照顧者）→ 粉晶：愛與療癒\n7號人（探索者）→ 紫水晶：智慧與靈性\n8號人（成就者）→ 綠幽靈：財富與成長\n9號人（奉獻者）→ 白水晶：淨化與連結', authorName: '隨手作老師', authorEmoji: '💎', likeCount: 72, createdAt: '2026-02-28' },
+    // 蠟燭
+    { id: 'sa-8', title: '蠟燭第一次點燃很重要', coverUrl: '', coverThumbUrl: '', topic: 'candle', summary: '第一次點蠟燭的方式會決定它之後的壽命', content: '第一次燃燒蠟燭時，一定要讓蠟池擴展到整個容器邊緣。這通常需要1-2小時。\n\n如果第一次沒有讓蠟池完全擴展，會形成「記憶環」，之後每次點燃都只會融化那個範圍。\n\n其他小技巧：每次點燃不超過4小時、修剪燭芯至0.5-0.8cm、遠離風口。', authorName: '隨手作老師', authorEmoji: '🕯️', likeCount: 51, createdAt: '2026-03-12' },
+    { id: 'sa-9', title: '大豆蠟 vs 蜂蠟 vs 石蠟：你的蠟燭用什麼做的？', coverUrl: '', coverThumbUrl: '', topic: 'candle', summary: '不同蠟材的特性和使用差異', content: '大豆蠟：植物性、燃燒乾�淨、容易清洗，但凝固後表面可能不平整。最適合容器蠟燭。\n\n蜂蠟：天然蜂巢香氣、燃燒時間最長、能淨化空氣。價格較高，適合柱狀蠟燭。\n\n石蠟：最便宜、顏色鮮豔、表面光滑。但燃燒時可能產生微量有害物質。\n\n椰子蠟：質地柔軟、擴香效果最好、燃燒均勻。是目前高級蠟燭的首選。\n\n我們工作室使用的是大豆蠟，環保又安全。', authorName: '隨手作老師', authorEmoji: '🕯️', likeCount: 38, createdAt: '2026-02-25' },
+    // 皮革
+    { id: 'sa-10', title: '皮革作品的日常保養指南', coverUrl: '', coverThumbUrl: '', topic: 'leather', summary: '好好照顧，讓皮革越用越有味道', content: '皮革是有生命力的材質：\n\n日常擦拭：每週用柔軟棉布輕拭灰塵。\n\n防潮：不用時放在通風處，可放防潮袋。淋雨後用乾布吸水，自然風乾。\n\n上油保養：每1-3個月用皮革專用保養油薄塗一層。\n\n避免：長時間日曬、接觸化學品、用力摩擦。\n\n皮革的變色和使用痕跡是它的故事，養出屬於你的獨特色澤是手作皮革最迷人的地方。', authorName: '隨手作老師', authorEmoji: '👜', likeCount: 33, createdAt: '2026-03-10' },
+    { id: 'sa-11', title: '手縫皮革的基本針法', coverUrl: '', coverThumbUrl: '', topic: 'leather', summary: '雙針縫法是手作皮革最常用的技法', content: '手縫皮革使用「鞍針縫法」（Saddle Stitch）：\n\n1. 準備兩支針，線長約縫合長度的3.5倍\n2. 線穿過兩支針，一針在上一針在下\n3. 第一針從正面穿入，拉到中間\n4. 第二針從背面同一個孔穿入\n5. 兩邊均勻拉緊，力道要一致\n\n重點：菱斬打洞要直、針距要均勻、拉線力道要一致。\n\n手縫比機縫更耐用，因為即使斷了一針，其他針腳也不會散開。', authorName: '隨手作老師', authorEmoji: '👜', likeCount: 29, createdAt: '2026-02-20' },
+    // 手工皂
+    { id: 'sa-12', title: '手工皂的熟成等待', coverUrl: '', coverThumbUrl: '', topic: 'soap', summary: '為什麼手工皂要等 4-6 週才能用？', content: '手工皂需要「熟成期」（Curing）：\n\n冷製皂在脫模後，皂化反應還在持續。pH值仍然偏高，直接使用會刺激皮膚。\n\n熟成期間，多餘水分蒸發、皂體變硬、pH值降低到適合肌膚的範圍（約pH 8-9）。\n\n保存方式：放在通風陰涼處，底部墊烘焙紙，每週翻面一次。\n\n判斷熟成：表面乾燥不黏手、切面顏色均勻、用試紙測pH值在9以下。\n\n等待是值得的，熟成後的手工皂泡沫綿密、洗感溫和。', authorName: '隨手作老師', authorEmoji: '🧼', likeCount: 41, createdAt: '2026-03-06' },
+    { id: 'sa-13', title: '手工皂添加物指南：花草、精油、色粉', coverUrl: '', coverThumbUrl: '', topic: 'soap', summary: '如何讓你的手工皂更美更香更好用', content: '花草入皂：乾燥花瓣可灑在皂面裝飾，但大部分花材入皂後會變色變咖啡。建議只做表面裝飾。\n\n精油用量：一般以油重的2-3%計算。薰衣草、茶樹等溫和精油適合新手。柑橘類精油要注意光敏性。\n\n天然色粉：可可粉（咖啡色）、抹茶粉（綠色）、紫草根粉（紫色）、薑黃粉（黃色）。\n\n礦泥：法國綠泥（控油）、粉紅泥（敏感肌）、白高嶺土（溫和去角質）。\n\n注意：食用色素入皂會褪色，請用專用皂用色粉。', authorName: '隨手作老師', authorEmoji: '🧼', likeCount: 36, createdAt: '2026-02-22' },
+    // 花藝
+    { id: 'sa-14', title: '鮮花買回家怎麼養更久？', coverUrl: '', coverThumbUrl: '', topic: 'floral', summary: '五個延長花期的實用技巧', content: '1. 斜切花莖：45度角斜切，增加吸水面積。每2-3天重新修剪一次。\n\n2. 清水換新：每天換水，加入保鮮劑或幾滴漂白水（500ml水+1滴）。\n\n3. 去除浸水葉片：水面以下的葉片全部去掉，防止細菌滋生。\n\n4. 避開直射陽光：放在陰涼通風處，遠離水果（水果會釋放乙烯加速花朵凋謝）。\n\n5. 花材分類照顧：玫瑰喜歡溫水、百合要去花蕊（防止花粉沾染）、繡球可以整朵泡水急救。', authorName: '隨手作老師', authorEmoji: '💐', likeCount: 58, createdAt: '2026-03-14' },
+    { id: 'sa-15', title: '乾燥花製作入門', coverUrl: '', coverThumbUrl: '', topic: 'floral', summary: '在家就能做的三種乾燥花方法', content: '自然風乾法（最簡單）：\n把花束倒掛在通風陰暗處，等待1-2週。適合滿天星、尤加利、薰衣草。\n\n矽膠乾燥法（保色最好）：\n把花材埋入矽膠乾燥劑中，3-7天完成。適合玫瑰、繡球等需要保持形狀的花。\n\n壓花法（最有文藝感）：\n把花材放在書本中壓平，2-3週後取出。適合做卡片、手機殼、書籤。\n\n小技巧：在花朵半開時就開始乾燥，效果最好。', authorName: '隨手作老師', authorEmoji: '💐', likeCount: 47, createdAt: '2026-02-15' },
+    // 樹脂
+    { id: 'sa-16', title: 'UV 樹脂 vs 環氧樹脂：怎麼選？', coverUrl: '', coverThumbUrl: '', topic: 'resin', summary: '兩種樹脂的特性、適用場景和注意事項', content: 'UV 樹脂：\n- 紫外線照射 2-5 分鐘即硬化\n- 適合小型飾品、薄層作品\n- 每層不超過 3mm\n- 操作簡單，適合新手\n\n環氧樹脂（AB膠）：\n- A劑+B劑混合後 24-48 小時硬化\n- 可做大型、厚層作品\n- 透明度更高\n- 需要精確的比例（通常 1:1 或 2:1）\n\n共通注意：戴手套操作、保持通風、避免氣泡（可用熱風槍消泡）。', authorName: '隨手作老師', authorEmoji: '✨', likeCount: 44, createdAt: '2026-03-03' },
+    // 擴香石
+    { id: 'sa-17', title: '擴香石的正確使用方式', coverUrl: '', coverThumbUrl: '', topic: 'diffuser', summary: '讓你的擴香石發揮最大效果', content: '擴香石是用石膏或水泥製成的多孔材質，能吸收精油並緩慢釋放香氣。\n\n使用方式：\n- 每次滴 3-5 滴精油在石頭表面\n- 放在通風處或冷氣出風口附近\n- 香氣約持續 2-3 天\n\n保養方式：\n- 顏色變深是正常的（吸收了精油）\n- 想換香味時，先讓它自然揮發 3-5 天\n- 不要用水沖洗，會破壞多孔結構\n- 放在盤子上，避免沾染桌面', authorName: '隨手作老師', authorEmoji: '🪨', likeCount: 32, createdAt: '2026-02-18' },
+    // 畫畫
+    { id: 'sa-18', title: '流體畫的魔法：零基礎也能創作', coverUrl: '', coverThumbUrl: '', topic: 'painting', summary: '不需要繪畫技巧，讓顏料自己流動出美', content: '流體畫（Fluid Art）是近年最受歡迎的零基礎繪畫體驗：\n\n材料：壓克力顏料 + 助流劑（Pouring Medium）+ 畫布\n\n基本技法：\n- 髒倒法：把不同顏色倒在同一個杯子裡，一次倒出\n- 翻杯法：把杯子倒扣在畫布上，掀開讓顏料流動\n- 吹畫法：用吹風機或吸管吹出方向感\n\n配色建議：選3-4個顏色就好，太多會變灰。\n\n加入矽油可以產生美麗的細胞紋路！', authorName: '隨手作老師', authorEmoji: '🎨', likeCount: 53, createdAt: '2026-03-09' },
+    // 編織
+    { id: 'sa-19', title: 'Macramé 編織：最療癒的手作之一', coverUrl: '', coverThumbUrl: '', topic: 'weaving', summary: '重複的打結動作本身就是一種冥想', content: 'Macramé 是用繩結編織的工藝，基本結法只有四種：\n\n1. 平結（Square Knot）：最基本也最常用\n2. 螺旋結（Spiral Knot）：做出螺旋效果\n3. 半結（Half Hitch）：可做出斜線圖案\n4. 卷結（Gathering Knot）：收束用\n\n新手推薦從杯墊或小掛飾開始，棉繩選3-4mm粗的最好操作。\n\n編織的過程非常療癒，重複的動作讓大腦放鬆，就像動態冥想。', authorName: '隨手作老師', authorEmoji: '🧶', likeCount: 37, createdAt: '2026-02-12' },
+    // 藍染
+    { id: 'sa-20', title: '藍染的迷人之處：每件都是唯一', coverUrl: '', coverThumbUrl: '', topic: 'indigo', summary: '天然藍染的魅力在於不可預測的美', content: '藍染是台灣傳統工藝之一，使用天然藍靛植物染料。\n\n基本技法：\n- 綁染（Shibori）：用橡皮筋、夾子綁出圖案\n- 板染：用木板夾出幾何圖案\n- 蠟染：用蠟畫出圖案再染色\n\n特別之處：\n- 每次浸染的時間、溫度不同，顏色都不一樣\n- 需要反覆浸染-氧化 5-10 次才能達到深藍\n- 剛染好的是綠色，接觸空氣氧化後才會變藍\n\n這種不可控的美，就是藍染最迷人的地方。', authorName: '隨手作老師', authorEmoji: '🫐', likeCount: 46, createdAt: '2026-02-10' },
+    // 生活療癒
+    { id: 'sa-21', title: '手作療癒的心理學', coverUrl: '', coverThumbUrl: '', topic: 'lifestyle', summary: '為什麼動手做東西會讓人感到放鬆？', content: '心理學研究發現，手作活動能啟動「心流狀態」(Flow)，讓大腦暫時放下焦慮。\n\n當我們專注於手中的工作時，前額葉皮質的活動改變，進入類似冥想的狀態。觸覺刺激也會促進血清素和多巴胺分泌。\n\n這就是為什麼下班後來做手作，比滑手機更能讓你感到放鬆和充實。', authorName: '隨手作老師', authorEmoji: '🌿', likeCount: 67, createdAt: '2026-03-10' },
+    { id: 'sa-22', title: '打造你的居家療癒角落', coverUrl: '', coverThumbUrl: '', topic: 'lifestyle', summary: '不需要大空間，一個小角落就能讓你回到平靜', content: '療癒角落的三個元素：\n\n視覺：一盆小植物、一幅喜歡的畫、柔和的燈光。\n\n嗅覺：擴香石滴上喜歡的精油、點一支蠟燭。\n\n觸覺：一條柔軟的毯子、一個舒服的靠墊。\n\n不需要很大的空間，窗邊一個角落、書桌旁的小桌子都可以。\n\n重要的是：這個角落只屬於你，是你放下一切、回到自己的地方。\n\n把你在隨手作帶回家的作品擺在這裡，每次看到都會想起那個放鬆的午後。', authorName: '隨手作老師', authorEmoji: '🌿', likeCount: 61, createdAt: '2026-02-08' },
   ];
 
   const displayArticles = articles.length > 0 ? filtered : (selectedTopic === 'all' ? sampleArticles : sampleArticles.filter(a => a.topic === selectedTopic));
@@ -9293,6 +9382,12 @@ function KnowledgeArticlesGridView({ userEmail, goBack }: {
                 className="flex items-center gap-1 text-sm" style={{ color: '#C9A96E' }}>
                 ❤️ {selectedArticle.likeCount}
               </motion.button>
+              {userEmail && (
+                <motion.button whileTap={{ scale: 0.9 }} onClick={() => toggleBookmark(selectedArticle.id)}
+                  className="flex items-center gap-1 text-sm" style={{ color: bookmarks.includes(selectedArticle.id) ? '#C9A96E' : '#B5AFA8' }}>
+                  {bookmarks.includes(selectedArticle.id) ? '🔖 已收藏' : '📑 收藏'}
+                </motion.button>
+              )}
             </div>
           </div>
         </div>
@@ -9376,7 +9471,10 @@ function KnowledgeArticlesGridView({ userEmail, goBack }: {
                       <span className="text-xs">{article.authorEmoji}</span>
                       <p className="text-xs" style={{ color: '#B5AFA8' }}>{article.authorName}</p>
                     </div>
-                    <p className="text-xs" style={{ color: '#C9A96E' }}>❤️ {article.likeCount}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-xs" style={{ color: '#C9A96E' }}>❤️ {article.likeCount}</p>
+                      {bookmarks.includes(article.id) && <span className="text-xs">🔖</span>}
+                    </div>
                   </div>
                 </div>
               </motion.button>
@@ -9424,10 +9522,14 @@ function CommunityWorksBoardView({ userEmail, goBack, setView }: {
 
   // 範例作品（無資料時）
   const sampleWorks: CommunityWork[] = [
-    { id: 'sw-1', userId: 'demo', userName: '小花', userEmoji: '🌸', imageUrl: '', thumbUrl: '', caption: '今天做的多肉組盆，選了三種不同顏色的多肉搭配在一起，好療癒', workType: 'plant', likeCount: 12, commentCount: 3, createdAt: '2026-03-25' },
-    { id: 'sw-2', userId: 'demo', userName: '阿翔', userEmoji: '🌿', imageUrl: '', thumbUrl: '', caption: '自己調的晚安香氣，薰衣草+雪松+佛手柑，聞了好放鬆', workType: 'fragrance', likeCount: 18, commentCount: 5, createdAt: '2026-03-24' },
-    { id: 'sw-3', userId: 'demo', userName: '小魚', userEmoji: '💎', imageUrl: '', thumbUrl: '', caption: '紫水晶+月光石的手鍊完成！好喜歡這個配色', workType: 'crystal', likeCount: 24, commentCount: 7, createdAt: '2026-03-23' },
-    { id: 'sw-4', userId: 'demo', userName: '小米', userEmoji: '🕯️', imageUrl: '', thumbUrl: '', caption: '第一次做大豆蠟蠟燭，選了最喜歡的粉色', workType: 'candle', likeCount: 15, commentCount: 2, createdAt: '2026-03-22' },
+    { id: 'sw-1', userId: 'demo', userName: '小花', userEmoji: '🌸', imageUrl: '', thumbUrl: '', caption: '今天做的多肉組盆，選了三種不同顏色的多肉搭配在一起，好療癒', workType: 'plant', tags: ['#第一次做', '#超滿意'], likeCount: 12, commentCount: 3, createdAt: '2026-03-25' },
+    { id: 'sw-2', userId: 'demo', userName: '阿翔', userEmoji: '🌿', imageUrl: '', thumbUrl: '', caption: '自己調的晚安香氣，薰衣草+雪松+佛手柑，聞了好放鬆', workType: 'fragrance', tags: ['#下班療癒', '#香氣迷人'], likeCount: 18, commentCount: 5, createdAt: '2026-03-24' },
+    { id: 'sw-3', userId: 'demo', userName: '小魚', userEmoji: '💎', imageUrl: '', thumbUrl: '', caption: '紫水晶+月光石的手鍊完成！好喜歡這個配色', workType: 'crystal', tags: ['#配色控', '#獨一無二'], likeCount: 24, commentCount: 7, featured: true, createdAt: '2026-03-23' },
+    { id: 'sw-4', userId: 'demo', userName: '小米', userEmoji: '🕯️', imageUrl: '', thumbUrl: '', caption: '第一次做大豆蠟蠟燭，選了最喜歡的粉色', workType: 'candle', tags: ['#第一次做', '#意外驚喜'], likeCount: 15, commentCount: 2, createdAt: '2026-03-22' },
+    { id: 'sw-5', userId: 'demo', userName: '阿芳', userEmoji: '🧼', imageUrl: '', thumbUrl: '', caption: '母親節禮物準備好了！玫瑰天竺葵手工皂', workType: 'soap', tags: ['#母親節禮物', '#送給朋友'], likeCount: 31, commentCount: 8, featured: true, createdAt: '2026-03-21' },
+    { id: 'sw-6', userId: 'demo', userName: '小雨', userEmoji: '💐', imageUrl: '', thumbUrl: '', caption: '韓式花束包裝學起來了！送給自己的生日花', workType: 'floral', tags: ['#生日禮物', '#超滿意'], likeCount: 22, commentCount: 4, createdAt: '2026-03-20' },
+    { id: 'sw-7', userId: 'demo', userName: '阿豪', userEmoji: '👜', imageUrl: '', thumbUrl: '', caption: '手縫皮革名片夾，第一次做縫線就很整齊！', workType: 'leather', tags: ['#第一次做', '#超滿意'], likeCount: 19, commentCount: 3, createdAt: '2026-03-19' },
+    { id: 'sw-8', userId: 'demo', userName: '小安', userEmoji: '🫐', imageUrl: '', thumbUrl: '', caption: '藍染手帕，每個折法出來的圖案都不一樣', workType: 'indigo', tags: ['#獨一無二', '#週末手作'], likeCount: 27, commentCount: 6, createdAt: '2026-03-18' },
   ];
 
   const displayWorks = works.length > 0 ? filtered : (filterType === 'all' ? sampleWorks : sampleWorks.filter(w => w.workType === filterType));
@@ -9437,8 +9539,12 @@ function CommunityWorksBoardView({ userEmail, goBack, setView }: {
     { key: 'plant', label: '植栽', emoji: '🌱' },
     { key: 'fragrance', label: '調香', emoji: '🫧' },
     { key: 'crystal', label: '水晶', emoji: '💎' },
-    { key: 'leather', label: '皮革', emoji: '👜' },
     { key: 'candle', label: '蠟燭', emoji: '🕯️' },
+    { key: 'leather', label: '皮革', emoji: '👜' },
+    { key: 'soap', label: '手工皂', emoji: '🧼' },
+    { key: 'floral', label: '花藝', emoji: '💐' },
+    { key: 'resin', label: '樹脂', emoji: '✨' },
+    { key: 'indigo', label: '藍染', emoji: '🫐' },
   ];
 
   return (
@@ -9494,6 +9600,16 @@ function CommunityWorksBoardView({ userEmail, goBack, setView }: {
               )}
               <div className="p-3">
                 <p className="text-xs leading-snug line-clamp-3" style={{ color: '#3D3530' }}>{work.caption}</p>
+                {work.tags && work.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {work.tags.map(tag => (
+                      <span key={tag} className="text-xs px-1.5 py-0.5 rounded-lg" style={{ backgroundColor: '#C9A96E15', color: '#C9A96E' }}>{tag}</span>
+                    ))}
+                  </div>
+                )}
+                {work.featured && (
+                  <span className="text-xs px-1.5 py-0.5 rounded-lg mt-1 inline-block" style={{ backgroundColor: '#C9A96E25', color: '#C9A96E' }}>⭐ 本週精選</span>
+                )}
                 <div className="flex items-center justify-between mt-2">
                   <div className="flex items-center gap-1">
                     <span className="text-xs">{work.userEmoji}</span>
@@ -9529,6 +9645,7 @@ function PostWorkView({ userEmail, goBack }: {
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
   const [posting, setPosting] = useState(false);
   const [posted, setPosted] = useState(false);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   const handlePost = async () => {
     if (!userEmail || !caption.trim()) return;
@@ -9549,12 +9666,20 @@ function PostWorkView({ userEmail, goBack }: {
         thumbUrl,
         caption: caption.trim(),
         workType,
+        tags: selectedTags,
         likeCount: 0,
         commentCount: 0,
         createdAt: new Date().toISOString(),
       });
       setPosted(true);
       hapticSuccess();
+
+      // 積分：發表作品 +10
+      if (userEmail) {
+        const pointsRef = doc(db, 'user_points', userEmail);
+        await setDoc(pointsRef, { total: increment(10), lastAction: 'post_work', lastActionAt: new Date().toISOString() }, { merge: true });
+      }
+
       setTimeout(() => goBack(), 1500);
     } catch (e) { console.error(e); }
     setPosting(false);
@@ -9622,6 +9747,21 @@ function PostWorkView({ userEmail, goBack }: {
           className="w-full rounded-xl px-3 py-2.5 text-sm bg-transparent outline-none resize-none"
           style={{ backgroundColor: '#F5F0EB', color: '#3D3530' }} />
 
+        {/* 標籤選擇 */}
+        <div>
+          <p className="text-xs mb-2" style={{ color: '#8C7B72' }}>加上標籤（選填）</p>
+          <div className="flex flex-wrap gap-1.5">
+            {WORK_TAGS.map(tag => (
+              <button key={tag} onClick={() => setSelectedTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag].slice(0, 3))}
+                className="px-2 py-1 rounded-lg text-xs"
+                style={{ backgroundColor: selectedTags.includes(tag) ? '#C9A96E25' : '#F5F0EB', color: selectedTags.includes(tag) ? '#C9A96E' : '#8C7B72' }}>
+                {tag}
+              </button>
+            ))}
+          </div>
+          {selectedTags.length > 0 && <p className="text-xs mt-1" style={{ color: '#B5AFA8' }}>已選 {selectedTags.length}/3</p>}
+        </div>
+
         {posted ? (
           <div className="rounded-xl px-3 py-2.5 text-center" style={{ backgroundColor: '#8FA88620' }}>
             <p className="text-sm font-medium" style={{ color: '#8FA886' }}>發表成功！✨</p>
@@ -9635,6 +9775,113 @@ function PostWorkView({ userEmail, goBack }: {
         )}
       </div>
     </motion.div>
+  );
+}
+
+// ---- 主題訂閱區塊 ----
+function TopicSubscriptionBlock({ userEmail }: { userEmail: string }) {
+  const [subscribed, setSubscribed] = useState<string[]>([]);
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'user_subscriptions', userEmail), (snap) => {
+      if (snap.exists()) setSubscribed(snap.data().topics || []);
+    });
+    return unsub;
+  }, [userEmail]);
+
+  const toggle = async (key: string) => {
+    const newTopics = subscribed.includes(key)
+      ? subscribed.filter(t => t !== key)
+      : [...subscribed, key];
+    setSubscribed(newTopics);
+    await setDoc(doc(db, 'user_subscriptions', userEmail), { topics: newTopics }, { merge: true });
+    hapticLight();
+  };
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {TOPICS.map(t => (
+        <motion.button key={t.key} whileTap={{ scale: 0.9 }} onClick={() => toggle(t.key)}
+          className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-medium"
+          style={{ backgroundColor: subscribed.includes(t.key) ? t.color + '35' : '#F5F0EB', color: subscribed.includes(t.key) ? '#3D3530' : '#8C7B72' }}>
+          {t.emoji} {t.label}
+          {subscribed.includes(t.key) && <span style={{ color: '#C9A96E' }}>✓</span>}
+        </motion.button>
+      ))}
+    </div>
+  );
+}
+
+// ---- 本週精選作品 ----
+function WeeklyFeaturedWorks() {
+  const [featuredWorks, setFeaturedWorks] = useState<CommunityWork[]>([]);
+
+  useEffect(() => {
+    const q = query(collection(db, 'community_works'), orderBy('likeCount', 'desc'), fsLimit(4));
+    const unsub = onSnapshot(q, (snap) => {
+      setFeaturedWorks(snap.docs.map(d => ({ id: d.id, ...d.data() } as unknown as CommunityWork)));
+    });
+    return unsub;
+  }, []);
+
+  // Use sample data if Firestore is empty
+  const sampleFeatured: CommunityWork[] = [
+    { id: 'feat-1', userId: 'demo', userName: '小魚', userEmoji: '💎', imageUrl: '', thumbUrl: '', caption: '紫水晶+月光石手鍊，好喜歡這個配色', workType: 'crystal', tags: ['#配色控'], likeCount: 24, commentCount: 7, featured: true, createdAt: '2026-03-23' },
+    { id: 'feat-2', userId: 'demo', userName: '阿芳', userEmoji: '🧼', imageUrl: '', thumbUrl: '', caption: '母親節禮物！玫瑰天竺葵手工皂', workType: 'soap', tags: ['#母親節禮物'], likeCount: 31, commentCount: 8, featured: true, createdAt: '2026-03-21' },
+  ];
+
+  const display = featuredWorks.length > 0 ? featuredWorks.slice(0, 2) : sampleFeatured;
+
+  return (
+    <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+      {display.map(work => (
+        <div key={work.id} className="flex-shrink-0 w-52 rounded-2xl overflow-hidden shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
+          {work.imageUrl ? (
+            <img src={work.thumbUrl || work.imageUrl} alt="" className="w-full h-28 object-cover" loading="lazy" />
+          ) : (
+            <div className="w-full h-28 flex items-center justify-center text-4xl"
+              style={{ background: `linear-gradient(135deg, ${TOPICS.find(t => t.key === work.workType)?.color || '#E8D5B7'}25 0%, #FFFEF9 100%)` }}>
+              {TOPICS.find(t => t.key === work.workType)?.emoji || '✨'}
+            </div>
+          )}
+          <div className="p-2.5">
+            <p className="text-xs leading-snug line-clamp-2" style={{ color: '#3D3530' }}>{work.caption}</p>
+            <div className="flex items-center justify-between mt-1.5">
+              <div className="flex items-center gap-1">
+                <span className="text-xs">{work.userEmoji}</span>
+                <p className="text-xs" style={{ color: '#B5AFA8' }}>{work.userName}</p>
+              </div>
+              <span className="text-xs" style={{ color: '#C9A96E' }}>⭐ 精選</span>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ---- 積分徽章 ----
+function PointsBadge({ userEmail }: { userEmail: string }) {
+  const [points, setPoints] = useState(0);
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'user_points', userEmail), (snap) => {
+      if (snap.exists()) setPoints(snap.data().total || 0);
+    });
+    return unsub;
+  }, [userEmail]);
+
+  const level = points >= 200 ? '療癒大師' : points >= 100 ? '手作達人' : points >= 50 ? '療癒新手' : '初心者';
+  const levelEmoji = points >= 200 ? '🏆' : points >= 100 ? '⭐' : points >= 50 ? '🌱' : '🌿';
+
+  return (
+    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl" style={{ backgroundColor: '#C9A96E15' }}>
+      <span className="text-sm">{levelEmoji}</span>
+      <div>
+        <p className="text-xs font-bold" style={{ color: '#C9A96E' }}>{points} 點</p>
+        <p className="text-xs" style={{ color: '#8C7B72' }}>{level}</p>
+      </div>
+    </div>
   );
 }
 
