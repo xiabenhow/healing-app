@@ -5258,9 +5258,12 @@ function MemberPage({ records, onNavigate }: { records: HealingRecord[]; onNavig
             />
           )}
           <div>
-            <p className="font-bold text-sm" style={{ color: '#3D3530' }}>
-              {user.displayName || '使用者'}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="font-bold text-sm" style={{ color: '#3D3530' }}>
+                {user.displayName || '使用者'}
+              </p>
+              <PersonalityBadge profile={loadPersonalityProfile()} size="sm" />
+            </div>
             <p className="text-xs" style={{ color: '#8C7B72' }}>
               {user.email}
             </p>
@@ -7170,6 +7173,9 @@ function ExclusiveContentPage({ userEmail }: { userEmail: string | null }) {
 // ===================== PAGE: HEALER (REDESIGNED) =====================
 
 function HealerPage({ records, userEmail }: { records: HealingRecord[]; userEmail?: string | null }) {
+  const [personalityProfile, setPersonalityProfile] = useState<PersonalityProfile | null>(() => loadPersonalityProfile());
+  const [showQuiz, setShowQuiz] = useState(false);
+
   const totalDays = new Set(records.map(r => r.date)).size;
   const level = getLevel(totalDays);
   const mostFrequent = getMostFrequentEmotion(records);
@@ -7179,6 +7185,24 @@ function HealerPage({ records, userEmail }: { records: HealingRecord[]; userEmai
   const progressPercent = level.next === Infinity
     ? 100
     : Math.min(100, ((totalDays - level.min) / (level.next - level.min)) * 100);
+
+  // Update personality scores based on behavior (emotions)
+  useEffect(() => {
+    if (!personalityProfile || !mostFrequent) return;
+    const key = `emotion:${mostFrequent}`;
+    const weights = BEHAVIOR_WEIGHTS[key];
+    if (!weights) return;
+    const newScores = { ...personalityProfile.scores };
+    (Object.keys(weights) as HealingPersonalityType[]).forEach(k => {
+      newScores[k] += weights[k] || 0;
+    });
+    const { primary, secondary } = getPersonalityFromScores(newScores);
+    if (primary !== personalityProfile.primary || secondary !== personalityProfile.secondary) {
+      const updated = { ...personalityProfile, scores: newScores, primary, secondary, lastUpdated: new Date().toISOString() };
+      savePersonalityProfile(updated);
+      setPersonalityProfile(updated);
+    }
+  }, [mostFrequent]); // eslint-disable-line
 
   const chatBubbles = useMemo(() => {
     const bubbles: string[] = [];
@@ -7219,6 +7243,32 @@ function HealerPage({ records, userEmail }: { records: HealingRecord[]; userEmai
     return { title: '芳療生活入門課程 🌿', desc: '認識精油，開啟療癒旅程' };
   }, [mostFrequent]);
 
+  // Show quiz for first-time users
+  if (showQuiz || (!personalityProfile?.quizDone)) {
+    return (
+      <div className="space-y-5">
+        <div className="text-center">
+          <span className="text-4xl">✨</span>
+          <h2 className="text-xl font-bold mt-2" style={{ color: '#3D3530' }}>發現你的療癒人格</h2>
+          <p className="text-sm mt-1" style={{ color: '#8C7B72' }}>回答 {PERSONALITY_QUIZ.length} 個小問題，找到最適合你的療癒方式</p>
+        </div>
+        {!personalityProfile?.quizDone ? (
+          <PersonalityQuiz onComplete={(profile) => {
+            setPersonalityProfile(profile);
+            setShowQuiz(false);
+          }} />
+        ) : (
+          <PersonalityQuiz onComplete={(profile) => {
+            setPersonalityProfile(profile);
+            setShowQuiz(false);
+          }} />
+        )}
+      </div>
+    );
+  }
+
+  const personalityInfo = personalityProfile ? HEALING_PERSONALITIES[personalityProfile.primary] : null;
+
   return (
     <motion.div
       className="space-y-5"
@@ -7226,6 +7276,55 @@ function HealerPage({ records, userEmail }: { records: HealingRecord[]; userEmai
       initial="initial"
       animate="animate"
     >
+      {/* Personality Card */}
+      {personalityInfo && personalityProfile && (
+        <motion.div
+          variants={staggerItem}
+          className="rounded-3xl p-5 shadow-sm"
+          style={{ background: personalityInfo.gradient }}
+        >
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">{personalityInfo.emoji}</span>
+              <div>
+                <p className="text-base font-bold" style={{ color: '#3D3530' }}>{personalityInfo.label}</p>
+                <p className="text-xs" style={{ color: '#5C534C' }}>{personalityInfo.subtitle}</p>
+              </div>
+            </div>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowQuiz(true)}
+              className="text-[10px] px-2 py-1 rounded-full"
+              style={{ backgroundColor: 'rgba(255,255,255,0.5)', color: '#5C534C' }}
+            >
+              重新測驗
+            </motion.button>
+          </div>
+          <div className="flex gap-1.5 mt-2">
+            {personalityInfo.traits.map(t => (
+              <span key={t} className="text-[10px] px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(255,255,255,0.5)', color: '#3D3530' }}>{t}</span>
+            ))}
+          </div>
+          {/* Score bars */}
+          <div className="mt-3 space-y-1.5">
+            {(Object.keys(personalityProfile.scores) as HealingPersonalityType[]).map(k => {
+              const info = HEALING_PERSONALITIES[k];
+              const maxScore = Math.max(...Object.values(personalityProfile.scores), 1);
+              const pct = (personalityProfile.scores[k] / maxScore) * 100;
+              return (
+                <div key={k} className="flex items-center gap-2">
+                  <span className="text-xs w-6">{info.emoji}</span>
+                  <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.4)' }}>
+                    <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.8, delay: 0.2 }} className="h-full rounded-full" style={{ backgroundColor: info.color }} />
+                  </div>
+                  <span className="text-[10px] w-6 text-right" style={{ color: '#5C534C' }}>{personalityProfile.scores[k]}</span>
+                </div>
+              );
+            })}
+          </div>
+        </motion.div>
+      )}
+
       {/* Healer Profile */}
       <motion.div
         variants={staggerItem}
@@ -7235,8 +7334,9 @@ function HealerPage({ records, userEmail }: { records: HealingRecord[]; userEmai
         <div className="w-20 h-20 mx-auto rounded-full bg-gradient-to-br from-purple-200 to-teal-200 flex items-center justify-center mb-3 shadow-sm">
           <span className="text-3xl">🌿</span>
         </div>
-        <h2 className="text-lg font-bold" style={{ color: '#3D3530' }}>AURA 芳療師</h2>
-        <p className="text-sm" style={{ color: '#8C7B72' }}>溫柔地陪伴你，每一天</p>
+        <h2 className="text-lg font-bold" style={{ color: '#3D3530' }}>AURA 療癒師</h2>
+        <p className="text-sm" style={{ color: '#8C7B72' }}>你的體驗專家，溫柔地陪伴你</p>
+        {personalityProfile && <PersonalityBadge profile={personalityProfile} size="sm" />}
       </motion.div>
 
       {/* Analysis Card */}
@@ -7412,24 +7512,38 @@ function HealerPage({ records, userEmail }: { records: HealingRecord[]; userEmai
         </div>
       </motion.div>
 
-      {/* Course Recommendation */}
-      <motion.div
-        variants={staggerItem}
-        className="rounded-3xl p-5 shadow-sm"
-        style={{ background: 'linear-gradient(135deg, #FAF8F5, #FFF8E7)' }}
-      >
-        <p className="text-xs mb-2" style={{ color: '#8C7B72' }}>根據你最近的情緒狀態，推薦你這個體驗</p>
-        <p className="text-base font-bold mb-1" style={{ color: '#3D3530' }}>{courseRecommendation.title}</p>
-        <p className="text-sm mb-1" style={{ color: '#8C7B72' }}>{courseRecommendation.desc}</p>
-        <p className="text-xs mb-3" style={{ color: '#8C7B72' }}>📍 下班隨手作 · 漢口街2段121號</p>
-        <a
-          href="https://xiabenhow.com"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="block w-full rounded-2xl py-3 text-white font-medium text-sm text-center"
-          style={{ backgroundColor: '#C9A96E' }}
+      {/* Personality-Based Recommendations */}
+      {personalityProfile ? (
+        <motion.div variants={staggerItem}>
+          <PersonalityRecommendations profile={personalityProfile} />
+        </motion.div>
+      ) : (
+        <motion.div
+          variants={staggerItem}
+          className="rounded-3xl p-5 shadow-sm"
+          style={{ background: 'linear-gradient(135deg, #FAF8F5, #FFF8E7)' }}
         >
-          立即預約
+          <p className="text-xs mb-2" style={{ color: '#8C7B72' }}>根據你最近的情緒狀態，推薦你這個體驗</p>
+          <p className="text-base font-bold mb-1" style={{ color: '#3D3530' }}>{courseRecommendation.title}</p>
+          <p className="text-sm mb-1" style={{ color: '#8C7B72' }}>{courseRecommendation.desc}</p>
+          <p className="text-xs mb-3" style={{ color: '#8C7B72' }}>📍 下班隨手作 · 漢口街2段121號</p>
+          <a
+            href="https://xiabenhow.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block w-full rounded-2xl py-3 text-white font-medium text-sm text-center"
+            style={{ backgroundColor: '#C9A96E' }}
+          >
+            立即預約
+          </a>
+        </motion.div>
+      )}
+
+      {/* CTA */}
+      <motion.div variants={staggerItem} className="rounded-3xl p-5 shadow-sm text-center" style={{ background: 'linear-gradient(135deg, #FAF8F5, #FFF8E7)' }}>
+        <p className="text-xs mb-1" style={{ color: '#8C7B72' }}>📍 下班隨手作 · 漢口街2段121號</p>
+        <a href="https://xiabenhow.com" target="_blank" rel="noopener noreferrer" className="inline-block mt-2 px-8 py-3 rounded-2xl text-white font-medium text-sm" style={{ backgroundColor: '#C9A96E' }}>
+          探索所有課程與商品
         </a>
       </motion.div>
     </motion.div>
@@ -7932,6 +8046,423 @@ const SMART_REMINDERS: Record<string, string[]> = {
   leather: ['皮革作品可以保養一下了 🧴', '定期保養讓皮革更有光澤 ✨'],
   diffuser: ['擴香石可以補香了 🪨', '換一個精油試試不同氛圍 🫧'],
 };
+
+// ===================== HEALING PERSONALITY ENGINE =====================
+
+type HealingPersonalityType = 'scent' | 'crystal' | 'lifestyle' | 'gift';
+
+interface HealingPersonality {
+  type: HealingPersonalityType;
+  label: string;
+  emoji: string;
+  subtitle: string;
+  color: string;
+  gradient: string;
+  traits: string[];
+  description: string;
+}
+
+interface PersonalityScore {
+  scent: number;
+  crystal: number;
+  lifestyle: number;
+  gift: number;
+}
+
+interface PersonalityProfile {
+  scores: PersonalityScore;
+  primary: HealingPersonalityType;
+  secondary: HealingPersonalityType;
+  quizDone: boolean;
+  lastUpdated: string;
+}
+
+const HEALING_PERSONALITIES: Record<HealingPersonalityType, HealingPersonality> = {
+  scent: {
+    type: 'scent',
+    label: '香氣療癒型',
+    emoji: '🫧',
+    subtitle: '用氣味安定身心',
+    color: '#E8D5B7',
+    gradient: 'linear-gradient(135deg, #FFF8E7, #F0E4D0)',
+    traits: ['木質', '安定', '睡前', '低刺激'],
+    description: '你喜歡透過氣味來放鬆自己。木質調、花香調是你的安全感來源。睡前擴香、隨身香氛是你的日常儀式。',
+  },
+  crystal: {
+    type: 'crystal',
+    label: '水晶能量型',
+    emoji: '💎',
+    subtitle: '用能量守護內在',
+    color: '#D4C5E2',
+    gradient: 'linear-gradient(135deg, #F0E8F8, #E0D4F0)',
+    traits: ['人際', '保護', '穩定', '深色系'],
+    description: '你相信能量的力量。水晶手鍊是你的護身符，消磁儀式是你的日常。你喜歡深色系的礦石，在不安時會握住它。',
+  },
+  lifestyle: {
+    type: 'lifestyle',
+    label: '生活療癒型',
+    emoji: '🌿',
+    subtitle: '用手作妝點日常',
+    color: '#C5D9B2',
+    gradient: 'linear-gradient(135deg, #F0F8ED, #E0F0D8)',
+    traits: ['植物', '居家', '儀式感', '拍照記錄'],
+    description: '你用手作來妝點生活。種一盆多肉、插一束花、畫一張畫，每個小動作都是你的療癒儀式。你喜歡拍照記錄每個美好瞬間。',
+  },
+  gift: {
+    type: 'gift',
+    label: '療癒送禮型',
+    emoji: '🎁',
+    subtitle: '用心意連結關係',
+    color: '#F0D4E8',
+    gradient: 'linear-gradient(135deg, #FFF0F5, #F8E0F0)',
+    traits: ['送禮', '情感連結', '陪伴', '節日'],
+    description: '你最擅長用禮物表達心意。每到節日你就開始構想，什麼手作最能代表你的心。你相信，親手做的東西最有溫度。',
+  },
+};
+
+// Personality-specific product recommendations
+const PERSONALITY_RECOMMENDATIONS: Record<HealingPersonalityType, { category: string; items: { emoji: string; name: string; desc: string; price?: string; link: string }[] }[]> = {
+  scent: [
+    {
+      category: '推薦商品',
+      items: [
+        { emoji: '🌙', name: '睡前安眠擴香組', desc: '薰衣草+雪松+岩蘭草', price: 'NT$680', link: 'https://xiabenhow.com' },
+        { emoji: '🪵', name: '木質調隨身香氛', desc: '檀香+雪松+廣藿香', price: 'NT$520', link: 'https://xiabenhow.com' },
+        { emoji: '🫧', name: '居家擴香石套組', desc: '含精油3瓶+擴香石2入', price: 'NT$880', link: 'https://xiabenhow.com' },
+      ],
+    },
+    {
+      category: '推薦課程',
+      items: [
+        { emoji: '⚗️', name: '客製芳療服務', desc: '專業芳療師為你調配專屬香氣', link: 'https://xiabenhow.com' },
+        { emoji: '🕯️', name: '睡前蠟燭工作坊', desc: '調製屬於你的安眠蠟燭', link: 'https://xiabenhow.com' },
+        { emoji: '🌸', name: '放鬆主題調香課', desc: '學習用香氣管理壓力', link: 'https://xiabenhow.com' },
+      ],
+    },
+  ],
+  crystal: [
+    {
+      category: '推薦商品',
+      items: [
+        { emoji: '📿', name: '客製水晶手鍊', desc: '依你的需求搭配專屬能量石', price: 'NT$1,280', link: 'https://xiabenhow.com' },
+        { emoji: '💎', name: '高階晶礦精選', desc: '紫水晶簇/黑碧璽/拉長石', price: 'NT$1,680起', link: 'https://xiabenhow.com' },
+        { emoji: '🔮', name: '消磁淨化套組', desc: '白水晶碎石+鼠尾草+月光碟', price: 'NT$580', link: 'https://xiabenhow.com' },
+      ],
+    },
+    {
+      category: '推薦課程',
+      items: [
+        { emoji: '💎', name: '水晶客製搭配', desc: '一對一諮詢打造專屬手鍊', link: 'https://xiabenhow.com' },
+        { emoji: '🔮', name: '進階晶礦課', desc: '認識更多水晶的能量特性', link: 'https://xiabenhow.com' },
+        { emoji: '✨', name: '消磁內容會員包', desc: '每月淨化音頻+能量小卡', link: 'https://xiabenhow.com' },
+      ],
+    },
+  ],
+  lifestyle: [
+    {
+      category: '推薦商品',
+      items: [
+        { emoji: '🪴', name: '療癒植栽組盆', desc: '含陶盆+多肉3入+介質', price: 'NT$580', link: 'https://xiabenhow.com' },
+        { emoji: '🕯️', name: '居家擴香蠟燭', desc: '大豆蠟+天然精油', price: 'NT$480', link: 'https://xiabenhow.com' },
+        { emoji: '🎨', name: '生活風格禮盒', desc: '擴香+乾燥花+手寫卡片', price: 'NT$980', link: 'https://xiabenhow.com' },
+      ],
+    },
+    {
+      category: '推薦課程',
+      items: [
+        { emoji: '🌱', name: '植栽照顧課', desc: '從組盆到日常照顧完整教學', link: 'https://xiabenhow.com' },
+        { emoji: '💐', name: '花藝體驗課', desc: '季節花材+桌花設計', link: 'https://xiabenhow.com' },
+        { emoji: '🎨', name: '療癒畫畫課', desc: '不需要基礎也能畫出美麗作品', link: 'https://xiabenhow.com' },
+      ],
+    },
+  ],
+  gift: [
+    {
+      category: '推薦商品',
+      items: [
+        { emoji: '🎁', name: '客製禮盒服務', desc: '依對象與場合打造專屬禮物', price: 'NT$1,280起', link: 'https://xiabenhow.com' },
+        { emoji: '💝', name: '成對手作組', desc: '雙人蠟燭/手鍊/香氛組', price: 'NT$1,580', link: 'https://xiabenhow.com' },
+        { emoji: '💌', name: '節日限定禮盒', desc: '情人節/母親節/生日特別款', price: 'NT$880起', link: 'https://xiabenhow.com' },
+      ],
+    },
+    {
+      category: '推薦課程',
+      items: [
+        { emoji: '👫', name: '雙人體驗課', desc: '和重要的人一起手作', link: 'https://xiabenhow.com' },
+        { emoji: '🎨', name: '送禮型手作課', desc: '做一份最有溫度的禮物', link: 'https://xiabenhow.com' },
+        { emoji: '✨', name: '客製香氛禮物', desc: '為對方調一瓶專屬香氣', link: 'https://xiabenhow.com' },
+      ],
+    },
+  ],
+};
+
+// Quiz questions for initial personality assessment
+const PERSONALITY_QUIZ = [
+  {
+    question: '你最喜歡在什麼時候做手作？',
+    options: [
+      { label: '睡前放鬆的時候', scores: { scent: 5, crystal: 1, lifestyle: 2, gift: 0 } },
+      { label: '需要靜心充電的時候', scores: { scent: 2, crystal: 5, lifestyle: 1, gift: 0 } },
+      { label: '週末佈置家裡的時候', scores: { scent: 1, crystal: 0, lifestyle: 5, gift: 2 } },
+      { label: '想準備禮物給朋友的時候', scores: { scent: 0, crystal: 1, lifestyle: 2, gift: 5 } },
+    ],
+  },
+  {
+    question: '如果只能帶一樣東西出門，你會帶？',
+    options: [
+      { label: '隨身香氛/香水', scores: { scent: 5, crystal: 0, lifestyle: 1, gift: 1 } },
+      { label: '水晶手鍊', scores: { scent: 0, crystal: 5, lifestyle: 1, gift: 1 } },
+      { label: '手帳/相機', scores: { scent: 1, crystal: 0, lifestyle: 5, gift: 1 } },
+      { label: '給朋友的小驚喜', scores: { scent: 1, crystal: 1, lifestyle: 1, gift: 5 } },
+    ],
+  },
+  {
+    question: '你覺得最療癒的事情是？',
+    options: [
+      { label: '在房間點一支蠟燭，慢慢呼吸', scores: { scent: 5, crystal: 2, lifestyle: 1, gift: 0 } },
+      { label: '戴上水晶，感覺被保護著', scores: { scent: 1, crystal: 5, lifestyle: 0, gift: 1 } },
+      { label: '整理桌面，擺上自己種的植物', scores: { scent: 1, crystal: 0, lifestyle: 5, gift: 1 } },
+      { label: '看到朋友收到禮物時的表情', scores: { scent: 0, crystal: 1, lifestyle: 1, gift: 5 } },
+    ],
+  },
+  {
+    question: '你平常最常逛什麼？',
+    options: [
+      { label: '香氛/精油/芳療品牌', scores: { scent: 5, crystal: 0, lifestyle: 1, gift: 1 } },
+      { label: '水晶/礦石/能量飾品', scores: { scent: 0, crystal: 5, lifestyle: 0, gift: 2 } },
+      { label: '居家佈置/植物/花藝', scores: { scent: 1, crystal: 0, lifestyle: 5, gift: 1 } },
+      { label: '禮物推薦/送禮清單', scores: { scent: 1, crystal: 1, lifestyle: 1, gift: 5 } },
+    ],
+  },
+];
+
+// Behavior-based scoring weights
+const BEHAVIOR_WEIGHTS: Record<string, Partial<PersonalityScore>> = {
+  // Course types
+  'course:fragrance': { scent: 10, lifestyle: 2 },
+  'course:candle': { scent: 8, lifestyle: 3 },
+  'course:diffuser': { scent: 8, lifestyle: 3 },
+  'course:crystal': { crystal: 10, gift: 2 },
+  'course:plant': { lifestyle: 10, gift: 2 },
+  'course:floral': { lifestyle: 8, gift: 4 },
+  'course:painting': { lifestyle: 8 },
+  'course:weaving': { lifestyle: 7, gift: 3 },
+  'course:leather': { lifestyle: 6, gift: 4 },
+  'course:soap': { lifestyle: 7, scent: 3 },
+  'course:resin': { lifestyle: 6, gift: 4 },
+  'course:indigo': { lifestyle: 8 },
+  // Subscription topics
+  'sub:fragrance': { scent: 3 },
+  'sub:crystal': { crystal: 3 },
+  'sub:plant': { lifestyle: 3 },
+  'sub:floral': { lifestyle: 2, gift: 1 },
+  'sub:candle': { scent: 2, lifestyle: 1 },
+  // Tags used
+  'tag:送給朋友': { gift: 5 },
+  'tag:情人節': { gift: 5 },
+  'tag:生日禮物': { gift: 5 },
+  'tag:母親節禮物': { gift: 5 },
+  'tag:閨蜜同樂': { gift: 3 },
+  'tag:親子手作': { gift: 3, lifestyle: 2 },
+  'tag:週末手作': { lifestyle: 3 },
+  'tag:下班療癒': { scent: 2, lifestyle: 2 },
+  'tag:居家佈置': { lifestyle: 4 },
+  // Emotions
+  'emotion:anxious': { scent: 3, crystal: 2 },
+  'emotion:tired': { scent: 3 },
+  'emotion:calm': { lifestyle: 2 },
+  'emotion:low': { crystal: 2, scent: 2 },
+  'emotion:warm': { gift: 2, lifestyle: 2 },
+  'emotion:energized': { lifestyle: 2, gift: 1 },
+};
+
+function getPersonalityFromScores(scores: PersonalityScore): { primary: HealingPersonalityType; secondary: HealingPersonalityType } {
+  const entries = Object.entries(scores) as [HealingPersonalityType, number][];
+  entries.sort((a, b) => b[1] - a[1]);
+  return { primary: entries[0][0], secondary: entries[1][0] };
+}
+
+function loadPersonalityProfile(): PersonalityProfile | null {
+  try {
+    const raw = localStorage.getItem('healing_personality');
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function savePersonalityProfile(profile: PersonalityProfile) {
+  localStorage.setItem('healing_personality', JSON.stringify(profile));
+}
+
+// ===================== PERSONALITY QUIZ COMPONENT =====================
+
+function PersonalityQuiz({ onComplete }: { onComplete: (profile: PersonalityProfile) => void }) {
+  const [step, setStep] = useState(0);
+  const [scores, setScores] = useState<PersonalityScore>({ scent: 0, crystal: 0, lifestyle: 0, gift: 0 });
+  const [showResult, setShowResult] = useState(false);
+  const [resultProfile, setResultProfile] = useState<PersonalityProfile | null>(null);
+
+  const handleAnswer = (optionScores: Partial<PersonalityScore>) => {
+    const newScores = { ...scores };
+    (Object.keys(optionScores) as HealingPersonalityType[]).forEach(k => {
+      newScores[k] += optionScores[k] || 0;
+    });
+    setScores(newScores);
+
+    if (step < PERSONALITY_QUIZ.length - 1) {
+      setStep(step + 1);
+    } else {
+      // Done
+      const { primary, secondary } = getPersonalityFromScores(newScores);
+      const profile: PersonalityProfile = { scores: newScores, primary, secondary, quizDone: true, lastUpdated: new Date().toISOString() };
+      savePersonalityProfile(profile);
+      setResultProfile(profile);
+      setShowResult(true);
+    }
+  };
+
+  if (showResult && resultProfile) {
+    const p = HEALING_PERSONALITIES[resultProfile.primary];
+    const s = HEALING_PERSONALITIES[resultProfile.secondary];
+    return (
+      <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="space-y-5">
+        <div className="rounded-3xl p-6 text-center shadow-sm" style={{ background: p.gradient }}>
+          <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.3, type: 'spring' }}>
+            <span className="text-5xl">{p.emoji}</span>
+          </motion.div>
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
+            <p className="text-xl font-bold mt-3" style={{ color: '#3D3530' }}>{p.label}</p>
+            <p className="text-sm mt-1" style={{ color: '#5C534C' }}>{p.subtitle}</p>
+          </motion.div>
+          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7 }} className="text-sm mt-3 leading-relaxed" style={{ color: '#5C534C' }}>
+            {p.description}
+          </motion.p>
+          <div className="flex justify-center gap-2 mt-3">
+            {p.traits.map(t => (
+              <span key={t} className="text-xs px-2.5 py-1 rounded-full" style={{ backgroundColor: 'rgba(255,255,255,0.6)', color: '#3D3530' }}>{t}</span>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-2xl p-4" style={{ backgroundColor: '#FFFEF9' }}>
+          <p className="text-xs" style={{ color: '#8C7B72' }}>副人格</p>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-lg">{s.emoji}</span>
+            <p className="text-sm font-medium" style={{ color: '#3D3530' }}>{s.label}</p>
+            <p className="text-xs" style={{ color: '#8C7B72' }}>— {s.subtitle}</p>
+          </div>
+        </div>
+
+        <motion.button
+          whileTap={{ scale: 0.97 }}
+          onClick={() => onComplete(resultProfile)}
+          className="w-full py-3.5 rounded-2xl text-white font-medium text-sm"
+          style={{ backgroundColor: '#8FA886' }}
+        >
+          開始我的療癒旅程
+        </motion.button>
+      </motion.div>
+    );
+  }
+
+  const q = PERSONALITY_QUIZ[step];
+  return (
+    <motion.div key={step} initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} className="space-y-5">
+      <div className="text-center">
+        <div className="flex justify-center gap-1.5 mb-4">
+          {PERSONALITY_QUIZ.map((_, i) => (
+            <div key={i} className="w-8 h-1 rounded-full" style={{ backgroundColor: i <= step ? '#8FA886' : '#E0DCD8' }} />
+          ))}
+        </div>
+        <p className="text-xs mb-1" style={{ color: '#8C7B72' }}>問題 {step + 1} / {PERSONALITY_QUIZ.length}</p>
+        <p className="text-lg font-bold" style={{ color: '#3D3530' }}>{q.question}</p>
+      </div>
+
+      <div className="space-y-3">
+        {q.options.map((opt, i) => (
+          <motion.button
+            key={i}
+            whileTap={{ scale: 0.97 }}
+            onClick={() => handleAnswer(opt.scores)}
+            className="w-full text-left p-4 rounded-2xl shadow-sm"
+            style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: i * 0.08 }}
+          >
+            <p className="text-sm font-medium" style={{ color: '#3D3530' }}>{opt.label}</p>
+          </motion.button>
+        ))}
+      </div>
+    </motion.div>
+  );
+}
+
+// ===================== PERSONALITY BADGE COMPONENT =====================
+
+function PersonalityBadge({ profile, size }: { profile: PersonalityProfile | null; size?: 'sm' | 'md' }) {
+  if (!profile) return null;
+  const p = HEALING_PERSONALITIES[profile.primary];
+  const isSmall = size === 'sm';
+  return (
+    <div className={`inline-flex items-center gap-1 ${isSmall ? 'px-2 py-0.5' : 'px-2.5 py-1'} rounded-full`} style={{ backgroundColor: p.color + '40' }}>
+      <span className={isSmall ? 'text-xs' : 'text-sm'}>{p.emoji}</span>
+      <span className={`${isSmall ? 'text-[10px]' : 'text-xs'} font-medium`} style={{ color: '#3D3530' }}>{p.label}</span>
+    </div>
+  );
+}
+
+// ===================== PERSONALITY RECOMMENDATION BLOCK =====================
+
+function PersonalityRecommendations({ profile }: { profile: PersonalityProfile }) {
+  const p = HEALING_PERSONALITIES[profile.primary];
+  const recs = PERSONALITY_RECOMMENDATIONS[profile.primary];
+  const secondaryRecs = PERSONALITY_RECOMMENDATIONS[profile.secondary];
+
+  return (
+    <div className="space-y-4">
+      {/* Primary personality recommendations */}
+      {recs.map((cat, ci) => (
+        <div key={ci} className="rounded-3xl p-5 shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-base">{p.emoji}</span>
+            <p className="text-sm font-bold" style={{ color: '#3D3530' }}>
+              {cat.category}
+              <span className="text-xs font-normal ml-1" style={{ color: '#8C7B72' }}>為{p.label}推薦</span>
+            </p>
+          </div>
+          <div className="space-y-2">
+            {cat.items.map((item, i) => (
+              <a key={i} href={item.link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 rounded-2xl" style={{ backgroundColor: '#FAF8F5' }}>
+                <span className="text-xl">{item.emoji}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium" style={{ color: '#3D3530' }}>{item.name}</p>
+                  <p className="text-xs" style={{ color: '#8C7B72' }}>{item.desc}</p>
+                </div>
+                {item.price && <span className="text-xs font-bold flex-shrink-0" style={{ color: '#C9A96E' }}>{item.price}</span>}
+              </a>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {/* Secondary hint */}
+      {secondaryRecs.length > 0 && (
+        <div className="rounded-2xl p-4" style={{ backgroundColor: '#FAF8F5' }}>
+          <p className="text-xs mb-2" style={{ color: '#8C7B72' }}>你的副人格「{HEALING_PERSONALITIES[profile.secondary].emoji} {HEALING_PERSONALITIES[profile.secondary].label}」也推薦你</p>
+          <div className="space-y-1.5">
+            {secondaryRecs[0].items.slice(0, 2).map((item, i) => (
+              <a key={i} href={item.link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 text-sm" style={{ color: '#3D3530' }}>
+                <span>{item.emoji}</span>
+                <span className="font-medium">{item.name}</span>
+                {item.price && <span className="text-xs" style={{ color: '#C9A96E' }}>{item.price}</span>}
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function HealingLibraryPage({ userEmail }: { userEmail: string | null }) {
   const [view, setView] = useState<LibraryView>('home');
