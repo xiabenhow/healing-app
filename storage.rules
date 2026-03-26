@@ -1,0 +1,42 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // 植物照片日記：使用者只能讀寫自己的資料夾
+    match /plant_diaries/{userEmail}/{allPaths=**} {
+      allow read: if request.auth != null && request.auth.token.email == userEmail;
+      allow write: if request.auth != null && request.auth.token.email == userEmail
+        && request.resource.size < 5 * 1024 * 1024  // 5MB limit
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // 問老師照片
+    match /teacher_questions/{userEmail}/{allPaths=**} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.token.email == userEmail
+        && request.resource.size < 5 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // 知識文章封面（管理員上傳）
+    match /knowledge_articles/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.token.email == 'xiabenhow@gmail.com'
+        && request.resource.size < 10 * 1024 * 1024;
+    }
+
+    // 社群作品圖片
+    match /community_works/{userEmail}/{allPaths=**} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.token.email == userEmail
+        && request.resource.size < 10 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
+
+    // 預設拒絕
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

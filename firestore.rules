@@ -73,6 +73,63 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ===================== 懂你 新功能 =====================
+
+    // 植物照片日記：使用者讀寫自己的日記
+    match /plant_diaries/{diaryId} {
+      allow read: if request.auth != null && resource.data.userId == request.auth.token.email;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.token.email;
+      allow update, delete: if request.auth != null && resource.data.userId == request.auth.token.email;
+
+      match /photos/{photoId} {
+        allow read: if request.auth != null;
+        allow create: if request.auth != null;
+        allow delete: if request.auth != null;
+      }
+    }
+
+    // 問老師：使用者建立自己的提問，管理員可讀取全部並回覆
+    match /admin_questions/{questionId} {
+      allow create: if request.auth != null && request.resource.data.userEmail == request.auth.token.email;
+      allow read: if request.auth != null && (
+        resource.data.userEmail == request.auth.token.email ||
+        request.auth.token.email == 'xiabenhow@gmail.com'
+      );
+      allow update: if request.auth != null && request.auth.token.email == 'xiabenhow@gmail.com';
+    }
+
+    // 知識文章：公開可讀，管理員可寫
+    match /knowledge_articles/{articleId} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.token.email == 'xiabenhow@gmail.com';
+      allow update: if request.auth != null; // for like count
+    }
+
+    // 主題訂閱
+    match /user_subscriptions/{email} {
+      allow read, write: if request.auth != null && request.auth.token.email == email;
+    }
+
+    // 社群作品：登入者可讀全部、建立自己的、更新點讚數
+    match /community_works/{workId} {
+      allow read: if true;
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.token.email;
+      allow update: if request.auth != null;
+      allow delete: if request.auth != null && (
+        resource.data.userId == request.auth.token.email ||
+        request.auth.token.email == 'xiabenhow@gmail.com'
+      );
+
+      match /comments/{commentId} {
+        allow read: if true;
+        allow create: if request.auth != null;
+        allow delete: if request.auth != null && (
+          resource.data.userId == request.auth.token.email ||
+          request.auth.token.email == 'xiabenhow@gmail.com'
+        );
+      }
+    }
+
     // 預設拒絕所有其他存取
     match /{document=**} {
       allow read, write: if false;

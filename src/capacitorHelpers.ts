@@ -101,3 +101,104 @@ export const hapticSuccess = async () => {
     await Haptics.notification({ type: NotificationType.Success });
   } catch { /* silent */ }
 };
+
+/**
+ * Take a photo using Capacitor Camera or fallback to file input.
+ * Returns a base64 data URL string, or null if cancelled.
+ */
+export const takePhoto = async (): Promise<string | null> => {
+  if (isNative()) {
+    try {
+      const { Camera, CameraResultType, CameraSource } = await import('@capacitor/camera');
+      const photo = await Camera.getPhoto({
+        quality: 80,
+        width: 1200,
+        allowEditing: false,
+        resultType: CameraResultType.DataUrl,
+        source: CameraSource.Prompt, // Let user choose camera or gallery
+        promptLabelHeader: '選擇照片來源',
+        promptLabelPhoto: '從相簿選擇',
+        promptLabelPicture: '拍照',
+      });
+      return photo.dataUrl || null;
+    } catch (e) {
+      console.log('Camera cancelled or error:', e);
+      return null;
+    }
+  } else {
+    // Web fallback: use file input
+    return new Promise((resolve) => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.capture = 'environment';
+      input.onchange = () => {
+        const file = input.files?.[0];
+        if (!file) { resolve(null); return; }
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(file);
+      };
+      input.click();
+    });
+  }
+};
+
+/**
+ * Pick multiple photos from gallery.
+ * Returns array of base64 data URL strings.
+ */
+export const pickPhotos = async (limit = 5): Promise<string[]> => {
+  if (isNative()) {
+    try {
+      const { Camera, CameraResultType, CameraSource } = await import('@capacitor/camera');
+      const photos = await Camera.pickImages({
+        quality: 80,
+        width: 1200,
+        limit,
+      });
+      const results: string[] = [];
+      for (const photo of photos.photos) {
+        if (photo.webPath) {
+          // Convert webPath to data URL
+          try {
+            const resp = await fetch(photo.webPath);
+            const blob = await resp.blob();
+            const dataUrl = await new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result as string);
+              reader.readAsDataURL(blob);
+            });
+            results.push(dataUrl);
+          } catch { /* skip */ }
+        }
+      }
+      return results;
+    } catch {
+      return [];
+    }
+  } else {
+    // Web fallback: use file input with multiple
+    return new Promise((resolve) => {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.multiple = true;
+      input.onchange = async () => {
+        const files = Array.from(input.files || []).slice(0, limit);
+        const results: string[] = [];
+        for (const file of files) {
+          const dataUrl = await new Promise<string>((r) => {
+            const reader = new FileReader();
+            reader.onload = () => r(reader.result as string);
+            reader.readAsDataURL(file);
+          });
+          results.push(dataUrl);
+        }
+        resolve(results);
+      };
+      input.click();
+    });
+  }
+};

@@ -2,9 +2,10 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { signInWithPopup, signInWithRedirect, signOut, onAuthStateChanged } from 'firebase/auth';
 import type { User } from 'firebase/auth';
-import { doc, getDoc, setDoc, collection, getDocs, query, orderBy, Timestamp, addDoc, where } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, getDocs, query, orderBy, Timestamp, addDoc, where, updateDoc, deleteDoc, increment, onSnapshot, limit as fsLimit } from 'firebase/firestore';
 import { auth, googleProvider, db } from './lib/firebase';
-import { isNative, initNativeApp, openPaymentUrl, openUrl, hapticLight, hapticSuccess } from './capacitorHelpers';
+import { uploadImage, uploadImages } from './lib/imageUtils';
+import { isNative, initNativeApp, openPaymentUrl, openUrl, hapticLight, hapticSuccess, takePhoto, pickPhotos } from './capacitorHelpers';
 import { usePWA } from './usePWA';
 import { OIL_LIBRARY, FAMILY_EMOJI, type OilLibraryItem } from './oilLibraryData';
 import { CRYSTAL_LIBRARY, CHAKRA_EMOJI, EMOTION_CRYSTAL_MAP, type CrystalItem } from './crystalData';
@@ -7072,7 +7073,90 @@ function generateDailyReminders(plants: PlantRecord[], fragrances: FragranceReco
 
 type LibraryView = 'home' | 'oil-detail' | 'crystal-detail' | 'article' | 'practice' | 'search'
   | 'care-fragrance' | 'care-plant' | 'care-crystal' | 'care-leather' | 'care-candle'
-  | 'my-works' | 'add-plant' | 'add-fragrance' | 'knowledge-detail' | 'plant-detail';
+  | 'my-works' | 'add-plant' | 'add-fragrance' | 'knowledge-detail' | 'plant-detail'
+  | 'plant-photo-diary' | 'plant-photo-timeline' | 'ask-teacher' | 'teacher-dashboard'
+  | 'knowledge-articles-grid' | 'topic-subscription'
+  | 'community-works-board' | 'community-work-detail' | 'post-work' | 'work-comments';
+
+// ---- Firestore-backed interfaces for new features ----
+
+interface PlantPhoto {
+  id: string;
+  url: string;
+  thumbnailUrl?: string;
+  note: string;
+  createdAt: string; // ISO date
+}
+
+interface PlantDiary {
+  id: string;
+  userId: string;
+  name: string;
+  emoji: string;
+  species?: string;
+  createdAt: string;
+  photos: PlantPhoto[];
+}
+
+interface TeacherQuestion {
+  id: string;
+  userId: string;
+  userEmail: string;
+  userName?: string;
+  plantName: string;
+  plantEmoji: string;
+  photoUrl?: string;
+  question: string;
+  status: 'pending' | 'replied';
+  reply?: string;
+  repliedAt?: string;
+  createdAt: string;
+}
+
+interface KnowledgeArticle {
+  id: string;
+  title: string;
+  coverUrl: string;
+  coverThumbUrl?: string;
+  topic: string; // e.g. 'plant', 'fragrance', 'crystal', 'lifestyle'
+  summary: string;
+  content: string;
+  authorName: string;
+  authorEmoji: string;
+  likeCount: number;
+  createdAt: string;
+}
+
+interface CommunityWork {
+  id: string;
+  userId: string;
+  userName: string;
+  userEmoji: string;
+  imageUrl: string;
+  thumbUrl?: string;
+  caption: string;
+  workType: string; // 'plant' | 'fragrance' | 'crystal' | 'leather' | 'candle' | 'other'
+  likeCount: number;
+  commentCount: number;
+  createdAt: string;
+}
+
+interface WorkComment {
+  id: string;
+  userId: string;
+  userName: string;
+  text: string;
+  createdAt: string;
+}
+
+const ADMIN_EMAIL = 'xiabenhow@gmail.com';
+const TOPICS = [
+  { key: 'plant', label: '植栽', emoji: '🌱', color: '#C5D9B2' },
+  { key: 'fragrance', label: '調香', emoji: '🫧', color: '#E8D5B7' },
+  { key: 'crystal', label: '水晶', emoji: '💎', color: '#D4C5E2' },
+  { key: 'lifestyle', label: '生活', emoji: '🌿', color: '#B8D4C8' },
+  { key: 'candle', label: '蠟燭', emoji: '🕯️', color: '#F0E0C8' },
+];
 
 function HealingLibraryPage({ userEmail }: { userEmail: string | null }) {
   const [view, setView] = useState<LibraryView>('home');
@@ -7323,6 +7407,16 @@ function HealingLibraryPage({ userEmail }: { userEmail: string | null }) {
     } else if (view === 'search') {
       setView('home');
       setSearch('');
+    } else if (view === 'plant-photo-timeline') {
+      setView('plant-photo-diary');
+    } else if (view === 'plant-photo-diary' || view === 'ask-teacher' || view === 'teacher-dashboard') {
+      setView('care-plant');
+    } else if (view === 'knowledge-articles-grid' || view === 'topic-subscription') {
+      setView('home');
+    } else if (view === 'community-work-detail' || view === 'post-work' || view === 'work-comments') {
+      setView('community-works-board');
+    } else if (view === 'community-works-board') {
+      setView('home');
     } else {
       setView('home');
     }
@@ -7722,6 +7816,31 @@ function HealingLibraryPage({ userEmail }: { userEmail: string | null }) {
           style={{ backgroundColor: '#8FA886' }}>
           + 新增植物
         </motion.button>
+
+        {/* 照片日記 & 問老師 入口 */}
+        <div className="grid grid-cols-2 gap-3">
+          <motion.button whileTap={{ scale: 0.96 }} onClick={() => setView('plant-photo-diary')}
+            className="rounded-2xl p-4 shadow-sm text-left" style={{ backgroundColor: '#C5D9B218' }}>
+            <span className="text-2xl">📸</span>
+            <p className="text-sm font-bold mt-2" style={{ color: '#3D3530' }}>照片日記</p>
+            <p className="text-xs mt-0.5" style={{ color: '#8C7B72' }}>記錄植物成長</p>
+          </motion.button>
+          <motion.button whileTap={{ scale: 0.96 }} onClick={() => setView('ask-teacher')}
+            className="rounded-2xl p-4 shadow-sm text-left" style={{ backgroundColor: '#E8D5B718' }}>
+            <span className="text-2xl">🙋</span>
+            <p className="text-sm font-bold mt-2" style={{ color: '#3D3530' }}>問老師</p>
+            <p className="text-xs mt-0.5" style={{ color: '#8C7B72' }}>植物照顧疑難</p>
+          </motion.button>
+        </div>
+
+        {/* 老師後台入口（僅管理員可見） */}
+        {userEmail === ADMIN_EMAIL && (
+          <motion.button whileTap={{ scale: 0.97 }} onClick={() => setView('teacher-dashboard')}
+            className="w-full rounded-2xl py-3 text-sm font-bold shadow-sm flex items-center justify-center gap-2"
+            style={{ backgroundColor: '#C9A96E18', color: '#C9A96E' }}>
+            📋 老師後台（問答管理）
+          </motion.button>
+        )}
 
         {/* 多肉知識 */}
         <div>
@@ -8215,6 +8334,28 @@ function HealingLibraryPage({ userEmail }: { userEmail: string | null }) {
           </div>
         </div>
 
+        {/* Section 4.5: 知識文章 & 社群作品入口 */}
+        <div className="grid grid-cols-2 gap-3">
+          <motion.button whileTap={{ scale: 0.96 }}
+            onClick={() => setView('knowledge-articles-grid')}
+            className="rounded-2xl p-4 shadow-sm text-left relative overflow-hidden"
+            style={{ background: 'linear-gradient(135deg, #FFF8E1 0%, #FFFEF9 100%)' }}>
+            <span className="text-2xl">📚</span>
+            <p className="text-sm font-bold mt-2" style={{ color: '#3D3530' }}>知識專欄</p>
+            <p className="text-xs mt-0.5" style={{ color: '#8C7B72' }}>療癒知識、照顧技巧</p>
+            <div className="absolute -bottom-2 -right-2 text-5xl opacity-[0.06]">📚</div>
+          </motion.button>
+          <motion.button whileTap={{ scale: 0.96 }}
+            onClick={() => setView('community-works-board')}
+            className="rounded-2xl p-4 shadow-sm text-left relative overflow-hidden"
+            style={{ background: 'linear-gradient(135deg, #E8F5E9 0%, #FFFEF9 100%)' }}>
+            <span className="text-2xl">🎨</span>
+            <p className="text-sm font-bold mt-2" style={{ color: '#3D3530' }}>作品社群</p>
+            <p className="text-xs mt-0.5" style={{ color: '#8C7B72' }}>看看大家的作品</p>
+            <div className="absolute -bottom-2 -right-2 text-5xl opacity-[0.06]">🎨</div>
+          </motion.button>
+        </div>
+
         {/* Section 5: AI 今日儀式推薦 */}
         {aiContent?.ritual && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
@@ -8485,8 +8626,1016 @@ function HealingLibraryPage({ userEmail }: { userEmail: string | null }) {
     );
   }
 
+  // ========== Feature 1: 植物照片日記 ==========
+  if (view === 'plant-photo-diary') {
+    return <PlantPhotoDiaryView userEmail={userEmail} goBack={goBack} setView={setView} />;
+  }
+
+  if (view === 'plant-photo-timeline' && selectedPlant) {
+    return <PlantPhotoTimelineView plant={selectedPlant} userEmail={userEmail} goBack={goBack} />;
+  }
+
+  // ========== Feature 1b: 問老師 Q&A ==========
+  if (view === 'ask-teacher') {
+    return <AskTeacherView userEmail={userEmail} plants={plants} goBack={goBack} />;
+  }
+
+  if (view === 'teacher-dashboard') {
+    return <TeacherDashboardView userEmail={userEmail} goBack={goBack} />;
+  }
+
+  // ========== Feature 2: 知識文章小紅書風格 ==========
+  if (view === 'knowledge-articles-grid') {
+    return <KnowledgeArticlesGridView userEmail={userEmail} goBack={goBack} />;
+  }
+
+  // ========== Feature 3: 作品社群 ==========
+  if (view === 'community-works-board') {
+    return <CommunityWorksBoardView userEmail={userEmail} goBack={goBack} setView={setView} />;
+  }
+
+  if (view === 'post-work') {
+    return <PostWorkView userEmail={userEmail} goBack={goBack} />;
+  }
+
   // Fallback
   return null;
+}
+
+// ==================== 新功能子元件 ====================
+
+// ---- 植物照片日記列表 ----
+function PlantPhotoDiaryView({ userEmail, goBack, setView }: {
+  userEmail: string | null;
+  goBack: () => void;
+  setView: (v: LibraryView) => void;
+}) {
+  const [diaries, setDiaries] = useState<PlantDiary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newEmoji, setNewEmoji] = useState('🪴');
+  const [newSpecies, setNewSpecies] = useState('');
+  const [adding, setAdding] = useState(false);
+
+  useEffect(() => {
+    if (!userEmail) { setLoading(false); return; }
+    const q = query(collection(db, 'plant_diaries'), where('userId', '==', userEmail), orderBy('createdAt', 'desc'));
+    const unsub = onSnapshot(q, (snap) => {
+      const items: PlantDiary[] = snap.docs.map(d => ({ id: d.id, ...d.data(), photos: [] } as unknown as PlantDiary));
+      setDiaries(items);
+      setLoading(false);
+    });
+    return unsub;
+  }, [userEmail]);
+
+  const handleAdd = async () => {
+    if (!userEmail || !newName.trim()) return;
+    setAdding(true);
+    try {
+      await addDoc(collection(db, 'plant_diaries'), {
+        userId: userEmail,
+        name: newName.trim(),
+        emoji: newEmoji,
+        species: newSpecies.trim(),
+        createdAt: new Date().toISOString(),
+        photoCount: 0,
+      });
+      setNewName(''); setNewSpecies(''); setShowAdd(false);
+    } catch (e) { console.error(e); }
+    setAdding(false);
+  };
+
+  const emojiOptions = ['🪴', '🌱', '🌵', '🌸', '🌻', '🌿', '🍀', '🌳', '🌺', '🪻'];
+
+  if (!userEmail) {
+    return (
+      <motion.div className="space-y-5" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
+        <motion.button whileTap={{ scale: 0.95 }} onClick={goBack} className="flex items-center gap-1 text-sm" style={{ color: '#C9A96E' }}>← 返回</motion.button>
+        <div className="rounded-3xl p-8 text-center" style={{ backgroundColor: '#FFFEF9' }}>
+          <p className="text-3xl mb-2">📸</p>
+          <p className="text-sm" style={{ color: '#8C7B72' }}>請先登入才能使用照片日記</p>
+        </div>
+      </motion.div>
+    );
+  }
+
+  return (
+    <motion.div className="space-y-5" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
+      <div>
+        <motion.button whileTap={{ scale: 0.95 }} onClick={goBack} className="flex items-center gap-1 text-sm mb-3" style={{ color: '#C9A96E' }}>← 返回</motion.button>
+        <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>📸 植物照片日記</h2>
+        <p className="text-sm mt-1" style={{ color: '#8C7B72' }}>用照片記錄每一盆植物的成長</p>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-8">
+          <div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: '#8FA886', borderTopColor: 'transparent' }} />
+        </div>
+      ) : (
+        <>
+          {diaries.length === 0 && !showAdd && (
+            <div className="rounded-3xl p-8 text-center shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
+              <p className="text-3xl mb-2">🌱</p>
+              <p className="text-sm" style={{ color: '#8C7B72' }}>還沒有植物日記</p>
+              <p className="text-xs mt-1" style={{ color: '#B5AFA8' }}>建立一本，開始記錄你的植物成長吧</p>
+            </div>
+          )}
+
+          <div className="space-y-3">
+            {diaries.map(d => (
+              <motion.button key={d.id} whileTap={{ scale: 0.98 }}
+                onClick={() => {
+                  // Navigate to timeline — we reuse selectedPlant state temporarily
+                  const p: PlantRecord = { id: d.id, name: d.name, emoji: d.emoji, lastWatered: d.createdAt, intervalDays: 7 };
+                  setView('plant-photo-timeline' as LibraryView);
+                  // We need to pass diary id — store in a way timeline can read
+                  sessionStorage.setItem('active_diary_id', d.id);
+                }}
+                className="w-full rounded-2xl p-4 shadow-sm text-left flex items-center gap-3"
+                style={{ backgroundColor: '#FFFEF9' }}>
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl" style={{ backgroundColor: '#C5D9B220' }}>
+                  {d.emoji}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold truncate" style={{ color: '#3D3530' }}>{d.name}</p>
+                  {d.species && <p className="text-xs mt-0.5" style={{ color: '#8C7B72' }}>{d.species}</p>}
+                  <p className="text-xs mt-0.5" style={{ color: '#B5AFA8' }}>建立於 {d.createdAt?.slice(0, 10)}</p>
+                </div>
+                <span style={{ color: '#C9A96E' }}>›</span>
+              </motion.button>
+            ))}
+          </div>
+        </>
+      )}
+
+      {showAdd ? (
+        <div className="rounded-2xl p-4 shadow-sm space-y-3" style={{ backgroundColor: '#FFFEF9' }}>
+          <p className="text-sm font-bold" style={{ color: '#3D3530' }}>新增植物日記</p>
+          <div className="flex flex-wrap gap-2">
+            {emojiOptions.map(e => (
+              <button key={e} onClick={() => setNewEmoji(e)}
+                className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
+                style={{ backgroundColor: e === newEmoji ? '#8FA88630' : '#F5F0EB' }}>
+                {e}
+              </button>
+            ))}
+          </div>
+          <input type="text" placeholder="植物名稱（如：我的多肉）" value={newName} onChange={e => setNewName(e.target.value)}
+            className="w-full rounded-xl px-3 py-2.5 text-sm bg-transparent outline-none" style={{ backgroundColor: '#F5F0EB', color: '#3D3530' }} />
+          <input type="text" placeholder="品種（選填）" value={newSpecies} onChange={e => setNewSpecies(e.target.value)}
+            className="w-full rounded-xl px-3 py-2.5 text-sm bg-transparent outline-none" style={{ backgroundColor: '#F5F0EB', color: '#3D3530' }} />
+          <div className="flex gap-2">
+            <motion.button whileTap={{ scale: 0.95 }} onClick={() => setShowAdd(false)}
+              className="flex-1 rounded-xl py-2.5 text-sm" style={{ color: '#8C7B72' }}>取消</motion.button>
+            <motion.button whileTap={{ scale: 0.95 }} onClick={handleAdd} disabled={adding || !newName.trim()}
+              className="flex-1 rounded-xl py-2.5 text-sm font-bold text-white" style={{ backgroundColor: adding ? '#B5AFA8' : '#8FA886' }}>
+              {adding ? '建立中...' : '建立'}
+            </motion.button>
+          </div>
+        </div>
+      ) : (
+        <motion.button whileTap={{ scale: 0.97 }} onClick={() => setShowAdd(true)}
+          className="w-full rounded-2xl py-3.5 text-sm font-bold text-white shadow-sm" style={{ backgroundColor: '#8FA886' }}>
+          + 新增植物日記
+        </motion.button>
+      )}
+    </motion.div>
+  );
+}
+
+// ---- 植物照片時間軸 ----
+function PlantPhotoTimelineView({ plant, userEmail, goBack }: {
+  plant: PlantRecord;
+  userEmail: string | null;
+  goBack: () => void;
+}) {
+  const diaryId = sessionStorage.getItem('active_diary_id') || plant.id;
+  const [photos, setPhotos] = useState<PlantPhoto[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [newNote, setNewNote] = useState('');
+
+  useEffect(() => {
+    if (!userEmail) return;
+    const q = query(collection(db, 'plant_diaries', diaryId, 'photos'), orderBy('createdAt', 'desc'));
+    const unsub = onSnapshot(q, (snap) => {
+      setPhotos(snap.docs.map(d => ({ id: d.id, ...d.data() } as PlantPhoto)));
+      setLoading(false);
+    });
+    return unsub;
+  }, [userEmail, diaryId]);
+
+  const handleAddPhoto = async () => {
+    if (!userEmail) return;
+    const dataUrl = await takePhoto();
+    if (!dataUrl) return;
+    setUploading(true);
+    try {
+      const { url, thumbnailUrl } = await uploadImage(
+        `plant_diaries/${userEmail}/${diaryId}/photo_${Date.now()}.jpg`,
+        dataUrl
+      );
+      await addDoc(collection(db, 'plant_diaries', diaryId, 'photos'), {
+        url,
+        thumbnailUrl: thumbnailUrl || url,
+        note: newNote.trim(),
+        createdAt: new Date().toISOString(),
+      });
+      await updateDoc(doc(db, 'plant_diaries', diaryId), { photoCount: increment(1) });
+      setNewNote('');
+      hapticSuccess();
+    } catch (e) { console.error('Upload failed:', e); }
+    setUploading(false);
+  };
+
+  return (
+    <motion.div className="space-y-5" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
+      <div>
+        <motion.button whileTap={{ scale: 0.95 }} onClick={goBack} className="flex items-center gap-1 text-sm mb-3" style={{ color: '#C9A96E' }}>← 返回</motion.button>
+        <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>{plant.emoji} {plant.name} 的成長日記</h2>
+        <p className="text-sm mt-1" style={{ color: '#8C7B72' }}>每一次拍照都是一個小小的里程碑</p>
+      </div>
+
+      {/* 新增照片 */}
+      <div className="rounded-2xl p-4 shadow-sm space-y-3" style={{ backgroundColor: '#FFFEF9' }}>
+        <input type="text" placeholder="這次想記錄什麼？（選填）" value={newNote} onChange={e => setNewNote(e.target.value)}
+          className="w-full rounded-xl px-3 py-2.5 text-sm bg-transparent outline-none" style={{ backgroundColor: '#F5F0EB', color: '#3D3530' }} />
+        <motion.button whileTap={{ scale: 0.97 }} onClick={handleAddPhoto} disabled={uploading}
+          className="w-full rounded-xl py-3 text-sm font-bold text-white flex items-center justify-center gap-2"
+          style={{ backgroundColor: uploading ? '#B5AFA8' : '#8FA886' }}>
+          {uploading ? (
+            <><div className="w-4 h-4 border-2 rounded-full animate-spin" style={{ borderColor: '#fff', borderTopColor: 'transparent' }} /> 上傳中...</>
+          ) : (
+            <>📷 拍照記錄</>
+          )}
+        </motion.button>
+      </div>
+
+      {/* 時間軸 */}
+      {loading ? (
+        <div className="flex justify-center py-8">
+          <div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: '#8FA886', borderTopColor: 'transparent' }} />
+        </div>
+      ) : photos.length === 0 ? (
+        <div className="rounded-3xl p-8 text-center shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
+          <p className="text-3xl mb-2">📷</p>
+          <p className="text-sm" style={{ color: '#8C7B72' }}>還沒有照片</p>
+          <p className="text-xs mt-1" style={{ color: '#B5AFA8' }}>拍下第一張照片，開始記錄吧！</p>
+        </div>
+      ) : (
+        <div className="relative pl-6">
+          {/* Timeline line */}
+          <div className="absolute left-2.5 top-0 bottom-0 w-0.5" style={{ backgroundColor: '#C5D9B240' }} />
+          <div className="space-y-4">
+            {photos.map((photo, i) => (
+              <motion.div key={photo.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.05 }}
+                className="relative">
+                {/* Timeline dot */}
+                <div className="absolute -left-[18px] top-3 w-3 h-3 rounded-full" style={{ backgroundColor: '#8FA886' }} />
+                <div className="rounded-2xl overflow-hidden shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
+                  <img src={photo.thumbnailUrl || photo.url} alt="" className="w-full h-48 object-cover" loading="lazy" />
+                  <div className="p-3">
+                    {photo.note && <p className="text-sm mb-1" style={{ color: '#3D3530' }}>{photo.note}</p>}
+                    <p className="text-xs" style={{ color: '#B5AFA8' }}>{photo.createdAt?.slice(0, 10)}</p>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+// ---- 問老師 ----
+function AskTeacherView({ userEmail, plants, goBack }: {
+  userEmail: string | null;
+  plants: PlantRecord[];
+  goBack: () => void;
+}) {
+  const [question, setQuestion] = useState('');
+  const [selectedPlantId, setSelectedPlantId] = useState(plants[0]?.id || '');
+  const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [myQuestions, setMyQuestions] = useState<TeacherQuestion[]>([]);
+
+  useEffect(() => {
+    if (!userEmail) return;
+    const q = query(collection(db, 'admin_questions'), where('userEmail', '==', userEmail), orderBy('createdAt', 'desc'));
+    const unsub = onSnapshot(q, (snap) => {
+      setMyQuestions(snap.docs.map(d => ({ id: d.id, ...d.data() } as TeacherQuestion)));
+    });
+    return unsub;
+  }, [userEmail]);
+
+  const handleSend = async () => {
+    if (!userEmail || !question.trim()) return;
+    setSending(true);
+    try {
+      const plant = plants.find(p => p.id === selectedPlantId);
+      let photoUrl: string | undefined;
+      if (photoDataUrl) {
+        const { url } = await uploadImage(`teacher_questions/${userEmail}/photo_${Date.now()}.jpg`, photoDataUrl, false);
+        photoUrl = url;
+      }
+      await addDoc(collection(db, 'admin_questions'), {
+        userId: userEmail,
+        userEmail,
+        plantName: plant?.name || '未指定',
+        plantEmoji: plant?.emoji || '🌱',
+        photoUrl,
+        question: question.trim(),
+        status: 'pending',
+        createdAt: new Date().toISOString(),
+      });
+      setQuestion(''); setPhotoDataUrl(null); setSent(true);
+      hapticSuccess();
+      setTimeout(() => setSent(false), 3000);
+    } catch (e) { console.error(e); }
+    setSending(false);
+  };
+
+  const handlePhoto = async () => {
+    const data = await takePhoto();
+    if (data) setPhotoDataUrl(data);
+  };
+
+  if (!userEmail) {
+    return (
+      <motion.div className="space-y-5" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
+        <motion.button whileTap={{ scale: 0.95 }} onClick={goBack} className="flex items-center gap-1 text-sm" style={{ color: '#C9A96E' }}>← 返回</motion.button>
+        <div className="rounded-3xl p-8 text-center" style={{ backgroundColor: '#FFFEF9' }}>
+          <p className="text-3xl mb-2">🙋</p>
+          <p className="text-sm" style={{ color: '#8C7B72' }}>請先登入才能發問</p>
+        </div>
+      </motion.div>
+    );
+  }
+
+  return (
+    <motion.div className="space-y-5" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
+      <div>
+        <motion.button whileTap={{ scale: 0.95 }} onClick={goBack} className="flex items-center gap-1 text-sm mb-3" style={{ color: '#C9A96E' }}>← 返回</motion.button>
+        <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>🙋 問老師</h2>
+        <p className="text-sm mt-1" style={{ color: '#8C7B72' }}>植物有狀況？拍張照片問老師吧</p>
+      </div>
+
+      {/* 發問表單 */}
+      <div className="rounded-2xl p-4 shadow-sm space-y-3" style={{ backgroundColor: '#FFFEF9' }}>
+        {plants.length > 0 && (
+          <div>
+            <p className="text-xs mb-1.5" style={{ color: '#8C7B72' }}>關於哪盆植物？</p>
+            <div className="flex flex-wrap gap-2">
+              {plants.map(p => (
+                <button key={p.id} onClick={() => setSelectedPlantId(p.id)}
+                  className="px-3 py-1.5 rounded-xl text-xs font-medium"
+                  style={{ backgroundColor: p.id === selectedPlantId ? '#8FA88630' : '#F5F0EB', color: '#3D3530' }}>
+                  {p.emoji} {p.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <textarea placeholder="描述你的問題...（例如：葉子下面有白白的點點是什麼？）"
+          value={question} onChange={e => setQuestion(e.target.value)}
+          rows={3}
+          className="w-full rounded-xl px-3 py-2.5 text-sm bg-transparent outline-none resize-none"
+          style={{ backgroundColor: '#F5F0EB', color: '#3D3530' }} />
+
+        {photoDataUrl ? (
+          <div className="relative">
+            <img src={photoDataUrl} alt="" className="w-full h-40 object-cover rounded-xl" />
+            <button onClick={() => setPhotoDataUrl(null)}
+              className="absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center text-xs text-white"
+              style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>✕</button>
+          </div>
+        ) : (
+          <motion.button whileTap={{ scale: 0.97 }} onClick={handlePhoto}
+            className="w-full rounded-xl py-2.5 text-sm flex items-center justify-center gap-2"
+            style={{ backgroundColor: '#F5F0EB', color: '#8C7B72' }}>
+            📷 附上照片（選填）
+          </motion.button>
+        )}
+
+        {sent && (
+          <div className="rounded-xl px-3 py-2 text-center" style={{ backgroundColor: '#8FA88620' }}>
+            <p className="text-sm" style={{ color: '#8FA886' }}>已送出！老師會盡快回覆你 ✨</p>
+          </div>
+        )}
+
+        <motion.button whileTap={{ scale: 0.97 }} onClick={handleSend} disabled={sending || !question.trim()}
+          className="w-full rounded-xl py-3 text-sm font-bold text-white"
+          style={{ backgroundColor: sending ? '#B5AFA8' : '#C9A96E' }}>
+          {sending ? '送出中...' : '送出提問'}
+        </motion.button>
+      </div>
+
+      {/* 我的提問紀錄 */}
+      {myQuestions.length > 0 && (
+        <div>
+          <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>我的提問</p>
+          <div className="space-y-2.5">
+            {myQuestions.map(q => (
+              <div key={q.id} className="rounded-2xl p-3.5 shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
+                <div className="flex items-center gap-2 mb-2">
+                  <span>{q.plantEmoji}</span>
+                  <p className="text-xs font-medium" style={{ color: '#3D3530' }}>{q.plantName}</p>
+                  <span className="px-1.5 py-0.5 rounded-lg text-xs"
+                    style={{ backgroundColor: q.status === 'replied' ? '#8FA88620' : '#C9A96E20', color: q.status === 'replied' ? '#8FA886' : '#C9A96E' }}>
+                    {q.status === 'replied' ? '已回覆' : '等待中'}
+                  </span>
+                </div>
+                <p className="text-sm" style={{ color: '#3D3530' }}>{q.question}</p>
+                {q.photoUrl && <img src={q.photoUrl} alt="" className="w-full h-32 object-cover rounded-xl mt-2" />}
+                {q.reply && (
+                  <div className="mt-2 rounded-xl px-3 py-2" style={{ backgroundColor: '#8FA88610' }}>
+                    <p className="text-xs font-medium mb-1" style={{ color: '#8FA886' }}>老師回覆：</p>
+                    <p className="text-sm leading-relaxed" style={{ color: '#3D3530' }}>{q.reply}</p>
+                  </div>
+                )}
+                <p className="text-xs mt-2" style={{ color: '#B5AFA8' }}>{q.createdAt?.slice(0, 10)}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+// ---- 老師後台 ----
+function TeacherDashboardView({ userEmail, goBack }: {
+  userEmail: string | null;
+  goBack: () => void;
+}) {
+  const [questions, setQuestions] = useState<TeacherQuestion[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'replied'>('all');
+  const [replyText, setReplyText] = useState<Record<string, string>>({});
+  const [replying, setReplying] = useState<string | null>(null);
+
+  useEffect(() => {
+    const q = query(collection(db, 'admin_questions'), orderBy('createdAt', 'desc'));
+    const unsub = onSnapshot(q, (snap) => {
+      setQuestions(snap.docs.map(d => ({ id: d.id, ...d.data() } as TeacherQuestion)));
+      setLoading(false);
+    });
+    return unsub;
+  }, []);
+
+  const handleReply = async (questionId: string) => {
+    const text = replyText[questionId]?.trim();
+    if (!text) return;
+    setReplying(questionId);
+    try {
+      await updateDoc(doc(db, 'admin_questions', questionId), {
+        reply: text,
+        status: 'replied',
+        repliedAt: new Date().toISOString(),
+      });
+      setReplyText(prev => ({ ...prev, [questionId]: '' }));
+      hapticSuccess();
+    } catch (e) { console.error(e); }
+    setReplying(null);
+  };
+
+  const filtered = questions.filter(q => filterStatus === 'all' || q.status === filterStatus);
+  const pendingCount = questions.filter(q => q.status === 'pending').length;
+
+  if (userEmail !== ADMIN_EMAIL) {
+    return (
+      <motion.div className="space-y-5" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
+        <motion.button whileTap={{ scale: 0.95 }} onClick={goBack} className="flex items-center gap-1 text-sm" style={{ color: '#C9A96E' }}>← 返回</motion.button>
+        <div className="rounded-3xl p-8 text-center" style={{ backgroundColor: '#FFFEF9' }}>
+          <p className="text-sm" style={{ color: '#8C7B72' }}>無權限存取</p>
+        </div>
+      </motion.div>
+    );
+  }
+
+  return (
+    <motion.div className="space-y-5" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
+      <div>
+        <motion.button whileTap={{ scale: 0.95 }} onClick={goBack} className="flex items-center gap-1 text-sm mb-3" style={{ color: '#C9A96E' }}>← 返回</motion.button>
+        <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>📋 老師後台</h2>
+        <p className="text-sm mt-1" style={{ color: '#8C7B72' }}>
+          共 {questions.length} 則提問{pendingCount > 0 && <span style={{ color: '#C9A96E' }}> · {pendingCount} 則待回覆</span>}
+        </p>
+      </div>
+
+      {/* 篩選 */}
+      <div className="flex gap-2">
+        {[
+          { key: 'all' as const, label: '全部' },
+          { key: 'pending' as const, label: `待回覆 (${pendingCount})` },
+          { key: 'replied' as const, label: '已回覆' },
+        ].map(f => (
+          <button key={f.key} onClick={() => setFilterStatus(f.key)}
+            className="px-3 py-1.5 rounded-xl text-xs font-medium"
+            style={{ backgroundColor: filterStatus === f.key ? '#C9A96E20' : '#F5F0EB', color: filterStatus === f.key ? '#C9A96E' : '#8C7B72' }}>
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-8">
+          <div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: '#C9A96E', borderTopColor: 'transparent' }} />
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="rounded-3xl p-8 text-center" style={{ backgroundColor: '#FFFEF9' }}>
+          <p className="text-sm" style={{ color: '#8C7B72' }}>沒有{filterStatus === 'pending' ? '待回覆的' : ''}提問</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map(q => (
+            <div key={q.id} className="rounded-2xl p-4 shadow-sm" style={{ backgroundColor: q.status === 'pending' ? '#C9A96E08' : '#FFFEF9' }}>
+              {/* Header */}
+              <div className="flex items-center gap-2 mb-2">
+                <span>{q.plantEmoji}</span>
+                <p className="text-xs font-bold" style={{ color: '#3D3530' }}>{q.plantName}</p>
+                <span className="px-1.5 py-0.5 rounded-lg text-xs"
+                  style={{ backgroundColor: q.status === 'replied' ? '#8FA88620' : '#C9A96E20', color: q.status === 'replied' ? '#8FA886' : '#C9A96E' }}>
+                  {q.status === 'replied' ? '已回覆' : '待回覆'}
+                </span>
+                <p className="text-xs ml-auto" style={{ color: '#B5AFA8' }}>{q.createdAt?.slice(0, 10)}</p>
+              </div>
+
+              <p className="text-xs mb-1" style={{ color: '#8C7B72' }}>來自：{q.userEmail}</p>
+              <p className="text-sm leading-relaxed" style={{ color: '#3D3530' }}>{q.question}</p>
+              {q.photoUrl && <img src={q.photoUrl} alt="" className="w-full h-40 object-cover rounded-xl mt-2" />}
+
+              {/* 已有回覆 */}
+              {q.reply && (
+                <div className="mt-2 rounded-xl px-3 py-2" style={{ backgroundColor: '#8FA88610' }}>
+                  <p className="text-xs font-medium mb-1" style={{ color: '#8FA886' }}>你的回覆：</p>
+                  <p className="text-sm leading-relaxed" style={{ color: '#3D3530' }}>{q.reply}</p>
+                </div>
+              )}
+
+              {/* 回覆輸入框 */}
+              {q.status === 'pending' && (
+                <div className="mt-3 space-y-2">
+                  <textarea placeholder="輸入回覆..."
+                    value={replyText[q.id] || ''}
+                    onChange={e => setReplyText(prev => ({ ...prev, [q.id]: e.target.value }))}
+                    rows={2}
+                    className="w-full rounded-xl px-3 py-2 text-sm bg-transparent outline-none resize-none"
+                    style={{ backgroundColor: '#F5F0EB', color: '#3D3530' }} />
+                  <motion.button whileTap={{ scale: 0.97 }}
+                    onClick={() => handleReply(q.id)}
+                    disabled={replying === q.id || !replyText[q.id]?.trim()}
+                    className="rounded-xl px-4 py-2 text-xs font-bold text-white"
+                    style={{ backgroundColor: replying === q.id ? '#B5AFA8' : '#8FA886' }}>
+                    {replying === q.id ? '送出中...' : '送出回覆'}
+                  </motion.button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+// ---- 知識文章小紅書風格 ----
+function KnowledgeArticlesGridView({ userEmail, goBack }: {
+  userEmail: string | null;
+  goBack: () => void;
+}) {
+  const [articles, setArticles] = useState<KnowledgeArticle[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedTopic, setSelectedTopic] = useState<string>('all');
+  const [selectedArticle, setSelectedArticle] = useState<KnowledgeArticle | null>(null);
+  const [subscribedTopics, setSubscribedTopics] = useState<string[]>([]);
+
+  // Load articles
+  useEffect(() => {
+    const q = query(collection(db, 'knowledge_articles'), orderBy('createdAt', 'desc'));
+    const unsub = onSnapshot(q, (snap) => {
+      setArticles(snap.docs.map(d => ({ id: d.id, ...d.data() } as KnowledgeArticle)));
+      setLoading(false);
+    });
+    return unsub;
+  }, []);
+
+  // Load subscriptions
+  useEffect(() => {
+    if (!userEmail) return;
+    const unsub = onSnapshot(doc(db, 'user_subscriptions', userEmail), (snap) => {
+      if (snap.exists()) setSubscribedTopics(snap.data().topics || []);
+    });
+    return unsub;
+  }, [userEmail]);
+
+  const toggleSubscribe = async (topic: string) => {
+    if (!userEmail) return;
+    const newTopics = subscribedTopics.includes(topic)
+      ? subscribedTopics.filter(t => t !== topic)
+      : [...subscribedTopics, topic];
+    setSubscribedTopics(newTopics);
+    await setDoc(doc(db, 'user_subscriptions', userEmail), { topics: newTopics }, { merge: true });
+  };
+
+  const handleLike = async (articleId: string) => {
+    if (!userEmail) return;
+    await updateDoc(doc(db, 'knowledge_articles', articleId), { likeCount: increment(1) });
+    hapticLight();
+  };
+
+  const filtered = selectedTopic === 'all' ? articles : articles.filter(a => a.topic === selectedTopic);
+
+  // 內建範例文章（當 Firestore 無資料時顯示）
+  const sampleArticles: KnowledgeArticle[] = [
+    { id: 'sample-1', title: '多肉換盆的最佳時機', coverUrl: '', coverThumbUrl: '', topic: 'plant', summary: '春秋兩季是最適合換盆的時機，避開夏季高溫和冬季休眠期...', content: '春秋兩季是最適合換盆的時機。這時候多肉的根系活性最強，換盆後恢復快。建議選擇天氣穩定、溫度在15-25°C之間的日子進行。\n\n換盆步驟：\n1. 停止澆水3-5天，讓土壤乾燥\n2. 輕輕取出植株，抖掉老土\n3. 檢查根系，修剪枯根\n4. 晾根1-2天\n5. 放入新盆新土，先不澆水\n6. 3-5天後少量澆水', authorName: '隨手作老師', authorEmoji: '🌱', likeCount: 28, createdAt: '2026-03-20' },
+    { id: 'sample-2', title: '居家擴香的五個小秘密', coverUrl: '', coverThumbUrl: '', topic: 'fragrance', summary: '讓空間香氣持久又自然的擴香技巧分享...', content: '1. 擴香石的正確使用：滴 3-5 滴精油，放在通風處讓香氣自然擴散。\n\n2. 不同空間不同香氣：客廳用柑橘類提振精神，臥室用薰衣草助眠。\n\n3. 擴香瓶保養：定期翻轉藤條，讓香氣持續。\n\n4. 季節搭配：夏天選清爽的薄荷、尤加利；冬天選溫暖的雪松、檀香。\n\n5. 香氣層次：可混合2-3種精油創造獨特香氛。', authorName: '隨手作老師', authorEmoji: '🫧', likeCount: 42, createdAt: '2026-03-18' },
+    { id: 'sample-3', title: '水晶手鍊斷了怎麼辦？', coverUrl: '', coverThumbUrl: '', topic: 'crystal', summary: '手鍊斷裂不用慌，教你DIY修復和重新穿線...', content: '水晶手鍊的彈力線使用久了會老化、失去彈性，斷裂是正常的。\n\n修復方式：\n- 準備0.8mm彈力線和打火機\n- 將水晶按原來的順序排好\n- 穿線時預留10cm打結\n- 打2-3個結，用打火機微燒固定\n- 多餘的線頭塞入珠子孔中\n\n如果不想DIY，也可以帶回工作室，我們免費幫你穿線！', authorName: '隨手作老師', authorEmoji: '💎', likeCount: 35, createdAt: '2026-03-15' },
+    { id: 'sample-4', title: '蠟燭第一次點燃很重要', coverUrl: '', coverThumbUrl: '', topic: 'candle', summary: '第一次點蠟燭的方式會決定它之後的壽命...', content: '第一次燃燒蠟燭時，一定要讓蠟池（融化的蠟）擴展到整個容器邊緣。這通常需要1-2小時。\n\n如果第一次沒有讓蠟池完全擴展，會形成「記憶環」，之後每次點燃都只會融化那個範圍，浪費邊緣的蠟。\n\n其他小技巧：每次點燃不超過4小時、修剪燭芯至0.5-0.8cm、遠離風口。', authorName: '隨手作老師', authorEmoji: '🕯️', likeCount: 51, createdAt: '2026-03-12' },
+    { id: 'sample-5', title: '手作療癒的心理學', coverUrl: '', coverThumbUrl: '', topic: 'lifestyle', summary: '為什麼動手做東西會讓人感到放鬆和療癒？', content: '心理學研究發現，手作活動能啟動「心流狀態」(Flow)，讓大腦暫時放下焦慮和壓力。\n\n當我們專注於手中的工作時，前額葉皮質的活動會改變，讓我們進入一種類似冥想的狀態。觸覺刺激（揉捏、撫摸材料）也會促進大腦分泌血清素和多巴胺。\n\n這就是為什麼下班後來做手作，比滑手機更能讓你感到放鬆和充實。', authorName: '隨手作老師', authorEmoji: '🌿', likeCount: 67, createdAt: '2026-03-10' },
+    { id: 'sample-6', title: '植物葉插繁殖教學', coverUrl: '', coverThumbUrl: '', topic: 'plant', summary: '用一片葉子就能種出一盆新多肉！簡單的葉插步驟...', content: '葉插是多肉植物最簡單的繁殖方式：\n\n1. 選擇健康飽滿的葉片，輕輕左右搖動摘下（要完整帶蒂）\n2. 將葉片放在乾燥通風處晾1-2天，讓傷口癒合\n3. 平放在微濕的土面上（不要插入土裡）\n4. 放在明亮散射光處\n5. 每3-4天用噴霧輕噴土面保持微濕\n6. 約2-4週會長出小根和芽\n\n成功率約60-80%，多試幾片就好！', authorName: '隨手作老師', authorEmoji: '🌱', likeCount: 39, createdAt: '2026-03-08' },
+  ];
+
+  const displayArticles = articles.length > 0 ? filtered : (selectedTopic === 'all' ? sampleArticles : sampleArticles.filter(a => a.topic === selectedTopic));
+
+  // 文章詳情
+  if (selectedArticle) {
+    return (
+      <motion.div className="space-y-4" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
+        <motion.button whileTap={{ scale: 0.95 }} onClick={() => setSelectedArticle(null)}
+          className="flex items-center gap-1 text-sm" style={{ color: '#C9A96E' }}>← 返回列表</motion.button>
+        <div className="rounded-2xl overflow-hidden shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
+          {selectedArticle.coverUrl && (
+            <img src={selectedArticle.coverUrl} alt="" className="w-full h-48 object-cover" />
+          )}
+          <div className="p-5 space-y-3">
+            <div className="flex items-center gap-2">
+              <span>{TOPICS.find(t => t.key === selectedArticle.topic)?.emoji}</span>
+              <span className="px-2 py-0.5 rounded-lg text-xs" style={{ backgroundColor: (TOPICS.find(t => t.key === selectedArticle.topic)?.color || '#ddd') + '30', color: '#8C7B72' }}>
+                {TOPICS.find(t => t.key === selectedArticle.topic)?.label}
+              </span>
+            </div>
+            <h3 className="text-lg font-bold" style={{ color: '#3D3530' }}>{selectedArticle.title}</h3>
+            <div className="flex items-center gap-2">
+              <span className="text-sm">{selectedArticle.authorEmoji}</span>
+              <p className="text-xs" style={{ color: '#8C7B72' }}>{selectedArticle.authorName} · {selectedArticle.createdAt?.slice(0, 10)}</p>
+            </div>
+            <div className="text-sm leading-relaxed whitespace-pre-line" style={{ color: '#3D3530' }}>{selectedArticle.content}</div>
+            <div className="flex items-center gap-4 pt-2">
+              <motion.button whileTap={{ scale: 0.9 }} onClick={() => handleLike(selectedArticle.id)}
+                className="flex items-center gap-1 text-sm" style={{ color: '#C9A96E' }}>
+                ❤️ {selectedArticle.likeCount}
+              </motion.button>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
+
+  return (
+    <motion.div className="space-y-5" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
+      <div>
+        <motion.button whileTap={{ scale: 0.95 }} onClick={goBack} className="flex items-center gap-1 text-sm mb-3" style={{ color: '#C9A96E' }}>← 返回</motion.button>
+        <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>📚 知識專欄</h2>
+        <p className="text-sm mt-1" style={{ color: '#8C7B72' }}>療癒知識，照顧技巧，生活靈感</p>
+      </div>
+
+      {/* Topic filters */}
+      <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+        <button onClick={() => setSelectedTopic('all')}
+          className="px-3 py-1.5 rounded-xl text-xs font-medium flex-shrink-0"
+          style={{ backgroundColor: selectedTopic === 'all' ? '#3D353020' : '#F5F0EB', color: selectedTopic === 'all' ? '#3D3530' : '#8C7B72' }}>
+          全部
+        </button>
+        {TOPICS.map(t => (
+          <button key={t.key} onClick={() => setSelectedTopic(t.key)}
+            className="px-3 py-1.5 rounded-xl text-xs font-medium flex-shrink-0 flex items-center gap-1"
+            style={{ backgroundColor: selectedTopic === t.key ? t.color + '30' : '#F5F0EB', color: selectedTopic === t.key ? '#3D3530' : '#8C7B72' }}>
+            {t.emoji} {t.label}
+            {subscribedTopics.includes(t.key) && <span style={{ color: '#C9A96E' }}>★</span>}
+          </button>
+        ))}
+      </div>
+
+      {/* 訂閱提示 */}
+      {userEmail && (
+        <div className="flex items-center justify-between rounded-2xl px-3 py-2" style={{ backgroundColor: '#C9A96E08' }}>
+          <p className="text-xs" style={{ color: '#8C7B72' }}>訂閱主題，新文章通知你</p>
+          <div className="flex gap-1">
+            {TOPICS.map(t => (
+              <motion.button key={t.key} whileTap={{ scale: 0.9 }} onClick={() => toggleSubscribe(t.key)}
+                className="w-7 h-7 rounded-lg flex items-center justify-center text-sm"
+                style={{ backgroundColor: subscribedTopics.includes(t.key) ? t.color + '40' : '#F5F0EB' }}>
+                {t.emoji}
+              </motion.button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 小紅書風格雙欄網格 */}
+      {loading ? (
+        <div className="flex justify-center py-8">
+          <div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: '#C9A96E', borderTopColor: 'transparent' }} />
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          {displayArticles.map((article, i) => {
+            const topic = TOPICS.find(t => t.key === article.topic);
+            return (
+              <motion.button key={article.id}
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.04 }}
+                whileTap={{ scale: 0.96 }}
+                onClick={() => setSelectedArticle(article)}
+                className="rounded-2xl overflow-hidden shadow-sm text-left"
+                style={{ backgroundColor: '#FFFEF9' }}>
+                {/* Cover or gradient placeholder */}
+                {article.coverUrl ? (
+                  <img src={article.coverThumbUrl || article.coverUrl} alt="" className="w-full h-28 object-cover" loading="lazy" />
+                ) : (
+                  <div className="w-full h-28 flex items-center justify-center text-4xl"
+                    style={{ background: `linear-gradient(135deg, ${topic?.color || '#E8D5B7'}30 0%, ${topic?.color || '#E8D5B7'}15 100%)` }}>
+                    {topic?.emoji || '📝'}
+                  </div>
+                )}
+                <div className="p-3">
+                  <p className="text-xs font-bold leading-snug line-clamp-2" style={{ color: '#3D3530' }}>{article.title}</p>
+                  <p className="text-xs mt-1 line-clamp-2 leading-relaxed" style={{ color: '#8C7B72' }}>{article.summary}</p>
+                  <div className="flex items-center justify-between mt-2">
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs">{article.authorEmoji}</span>
+                      <p className="text-xs" style={{ color: '#B5AFA8' }}>{article.authorName}</p>
+                    </div>
+                    <p className="text-xs" style={{ color: '#C9A96E' }}>❤️ {article.likeCount}</p>
+                  </div>
+                </div>
+              </motion.button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* 管理員發文入口 */}
+      {userEmail === ADMIN_EMAIL && (
+        <div className="rounded-2xl p-3 text-center" style={{ backgroundColor: '#C9A96E10' }}>
+          <p className="text-xs" style={{ color: '#C9A96E' }}>管理員功能：可透過 Firestore 後台新增文章</p>
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+// ---- 社群作品牆 ----
+function CommunityWorksBoardView({ userEmail, goBack, setView }: {
+  userEmail: string | null;
+  goBack: () => void;
+  setView: (v: LibraryView) => void;
+}) {
+  const [works, setWorks] = useState<CommunityWork[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filterType, setFilterType] = useState<string>('all');
+
+  useEffect(() => {
+    const q = query(collection(db, 'community_works'), orderBy('createdAt', 'desc'));
+    const unsub = onSnapshot(q, (snap) => {
+      setWorks(snap.docs.map(d => ({ id: d.id, ...d.data() } as CommunityWork)));
+      setLoading(false);
+    });
+    return unsub;
+  }, []);
+
+  const handleLike = async (workId: string) => {
+    if (!userEmail) return;
+    await updateDoc(doc(db, 'community_works', workId), { likeCount: increment(1) });
+    hapticLight();
+  };
+
+  const filtered = filterType === 'all' ? works : works.filter(w => w.workType === filterType);
+
+  // 範例作品（無資料時）
+  const sampleWorks: CommunityWork[] = [
+    { id: 'sw-1', userId: 'demo', userName: '小花', userEmoji: '🌸', imageUrl: '', thumbUrl: '', caption: '今天做的多肉組盆，選了三種不同顏色的多肉搭配在一起，好療癒', workType: 'plant', likeCount: 12, commentCount: 3, createdAt: '2026-03-25' },
+    { id: 'sw-2', userId: 'demo', userName: '阿翔', userEmoji: '🌿', imageUrl: '', thumbUrl: '', caption: '自己調的晚安香氣，薰衣草+雪松+佛手柑，聞了好放鬆', workType: 'fragrance', likeCount: 18, commentCount: 5, createdAt: '2026-03-24' },
+    { id: 'sw-3', userId: 'demo', userName: '小魚', userEmoji: '💎', imageUrl: '', thumbUrl: '', caption: '紫水晶+月光石的手鍊完成！好喜歡這個配色', workType: 'crystal', likeCount: 24, commentCount: 7, createdAt: '2026-03-23' },
+    { id: 'sw-4', userId: 'demo', userName: '小米', userEmoji: '🕯️', imageUrl: '', thumbUrl: '', caption: '第一次做大豆蠟蠟燭，選了最喜歡的粉色', workType: 'candle', likeCount: 15, commentCount: 2, createdAt: '2026-03-22' },
+  ];
+
+  const displayWorks = works.length > 0 ? filtered : (filterType === 'all' ? sampleWorks : sampleWorks.filter(w => w.workType === filterType));
+
+  const typeFilters = [
+    { key: 'all', label: '全部', emoji: '✨' },
+    { key: 'plant', label: '植栽', emoji: '🌱' },
+    { key: 'fragrance', label: '調香', emoji: '🫧' },
+    { key: 'crystal', label: '水晶', emoji: '💎' },
+    { key: 'leather', label: '皮革', emoji: '👜' },
+    { key: 'candle', label: '蠟燭', emoji: '🕯️' },
+  ];
+
+  return (
+    <motion.div className="space-y-5" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
+      <div>
+        <motion.button whileTap={{ scale: 0.95 }} onClick={goBack} className="flex items-center gap-1 text-sm mb-3" style={{ color: '#C9A96E' }}>← 返回</motion.button>
+        <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>🎨 作品社群</h2>
+        <p className="text-sm mt-1" style={{ color: '#8C7B72' }}>看看大家帶回家的作品，分享你的療癒時光</p>
+      </div>
+
+      {/* 分類篩選 */}
+      <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+        {typeFilters.map(f => (
+          <button key={f.key} onClick={() => setFilterType(f.key)}
+            className="px-3 py-1.5 rounded-xl text-xs font-medium flex-shrink-0 flex items-center gap-1"
+            style={{ backgroundColor: filterType === f.key ? '#3D353015' : '#F5F0EB', color: filterType === f.key ? '#3D3530' : '#8C7B72' }}>
+            {f.emoji} {f.label}
+          </button>
+        ))}
+      </div>
+
+      {/* 發表作品按鈕 */}
+      {userEmail && (
+        <motion.button whileTap={{ scale: 0.97 }} onClick={() => setView('post-work')}
+          className="w-full rounded-2xl py-3 text-sm font-bold text-white shadow-sm flex items-center justify-center gap-2"
+          style={{ backgroundColor: '#C9A96E' }}>
+          📸 分享我的作品
+        </motion.button>
+      )}
+
+      {/* 作品牆 - 小紅書風格雙欄 */}
+      {loading ? (
+        <div className="flex justify-center py-8">
+          <div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: '#C9A96E', borderTopColor: 'transparent' }} />
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          {displayWorks.map((work, i) => (
+            <motion.div key={work.id}
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.04 }}
+              className="rounded-2xl overflow-hidden shadow-sm"
+              style={{ backgroundColor: '#FFFEF9' }}>
+              {/* Image or placeholder */}
+              {work.imageUrl ? (
+                <img src={work.thumbUrl || work.imageUrl} alt="" className="w-full h-36 object-cover" loading="lazy" />
+              ) : (
+                <div className="w-full h-36 flex items-center justify-center text-5xl"
+                  style={{ background: `linear-gradient(135deg, ${TOPICS.find(t => t.key === work.workType)?.color || '#E8D5B7'}25 0%, #FFFEF9 100%)` }}>
+                  {TOPICS.find(t => t.key === work.workType)?.emoji || '✨'}
+                </div>
+              )}
+              <div className="p-3">
+                <p className="text-xs leading-snug line-clamp-3" style={{ color: '#3D3530' }}>{work.caption}</p>
+                <div className="flex items-center justify-between mt-2">
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs">{work.userEmoji}</span>
+                    <p className="text-xs" style={{ color: '#B5AFA8' }}>{work.userName}</p>
+                  </div>
+                  <motion.button whileTap={{ scale: 0.9 }} onClick={() => handleLike(work.id)}
+                    className="flex items-center gap-0.5 text-xs" style={{ color: '#C9A96E' }}>
+                    ❤️ {work.likeCount}
+                  </motion.button>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      )}
+
+      {!userEmail && (
+        <div className="rounded-2xl px-4 py-3.5 text-center" style={{ backgroundColor: '#C9A96E12' }}>
+          <p className="text-xs" style={{ color: '#8C7B72' }}>登入後可以分享你的作品 ✨</p>
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+// ---- 發表作品 ----
+function PostWorkView({ userEmail, goBack }: {
+  userEmail: string | null;
+  goBack: () => void;
+}) {
+  const [caption, setCaption] = useState('');
+  const [workType, setWorkType] = useState('plant');
+  const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
+  const [posting, setPosting] = useState(false);
+  const [posted, setPosted] = useState(false);
+
+  const handlePost = async () => {
+    if (!userEmail || !caption.trim()) return;
+    setPosting(true);
+    try {
+      let imageUrl = '';
+      let thumbUrl = '';
+      if (photoDataUrl) {
+        const result = await uploadImage(`community_works/${userEmail}/work_${Date.now()}.jpg`, photoDataUrl);
+        imageUrl = result.url;
+        thumbUrl = result.thumbnailUrl || result.url;
+      }
+      await addDoc(collection(db, 'community_works'), {
+        userId: userEmail,
+        userName: userEmail.split('@')[0],
+        userEmoji: TOPICS.find(t => t.key === workType)?.emoji || '✨',
+        imageUrl,
+        thumbUrl,
+        caption: caption.trim(),
+        workType,
+        likeCount: 0,
+        commentCount: 0,
+        createdAt: new Date().toISOString(),
+      });
+      setPosted(true);
+      hapticSuccess();
+      setTimeout(() => goBack(), 1500);
+    } catch (e) { console.error(e); }
+    setPosting(false);
+  };
+
+  const handlePhoto = async () => {
+    const data = await takePhoto();
+    if (data) setPhotoDataUrl(data);
+  };
+
+  if (!userEmail) {
+    return (
+      <motion.div className="space-y-5" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
+        <motion.button whileTap={{ scale: 0.95 }} onClick={goBack} className="flex items-center gap-1 text-sm" style={{ color: '#C9A96E' }}>← 返回</motion.button>
+        <div className="rounded-3xl p-8 text-center" style={{ backgroundColor: '#FFFEF9' }}>
+          <p className="text-sm" style={{ color: '#8C7B72' }}>請先登入才能發表作品</p>
+        </div>
+      </motion.div>
+    );
+  }
+
+  return (
+    <motion.div className="space-y-5" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
+      <div>
+        <motion.button whileTap={{ scale: 0.95 }} onClick={goBack} className="flex items-center gap-1 text-sm mb-3" style={{ color: '#C9A96E' }}>← 返回</motion.button>
+        <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>📸 分享作品</h2>
+        <p className="text-sm mt-1" style={{ color: '#8C7B72' }}>分享你的療癒作品給大家看看</p>
+      </div>
+
+      <div className="rounded-2xl p-4 shadow-sm space-y-4" style={{ backgroundColor: '#FFFEF9' }}>
+        {/* 作品類型 */}
+        <div>
+          <p className="text-xs mb-2" style={{ color: '#8C7B72' }}>作品類型</p>
+          <div className="flex flex-wrap gap-2">
+            {TOPICS.map(t => (
+              <button key={t.key} onClick={() => setWorkType(t.key)}
+                className="px-3 py-1.5 rounded-xl text-xs font-medium flex items-center gap-1"
+                style={{ backgroundColor: workType === t.key ? t.color + '30' : '#F5F0EB', color: '#3D3530' }}>
+                {t.emoji} {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 照片 */}
+        {photoDataUrl ? (
+          <div className="relative">
+            <img src={photoDataUrl} alt="" className="w-full h-56 object-cover rounded-xl" />
+            <button onClick={() => setPhotoDataUrl(null)}
+              className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center text-xs text-white"
+              style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>✕</button>
+          </div>
+        ) : (
+          <motion.button whileTap={{ scale: 0.97 }} onClick={handlePhoto}
+            className="w-full h-40 rounded-xl flex flex-col items-center justify-center gap-2"
+            style={{ backgroundColor: '#F5F0EB' }}>
+            <span className="text-3xl">📷</span>
+            <p className="text-sm" style={{ color: '#8C7B72' }}>拍照或選擇照片</p>
+          </motion.button>
+        )}
+
+        {/* 文字 */}
+        <textarea placeholder="說說你的作品故事... ✨" value={caption} onChange={e => setCaption(e.target.value)}
+          rows={3}
+          className="w-full rounded-xl px-3 py-2.5 text-sm bg-transparent outline-none resize-none"
+          style={{ backgroundColor: '#F5F0EB', color: '#3D3530' }} />
+
+        {posted ? (
+          <div className="rounded-xl px-3 py-2.5 text-center" style={{ backgroundColor: '#8FA88620' }}>
+            <p className="text-sm font-medium" style={{ color: '#8FA886' }}>發表成功！✨</p>
+          </div>
+        ) : (
+          <motion.button whileTap={{ scale: 0.97 }} onClick={handlePost} disabled={posting || !caption.trim()}
+            className="w-full rounded-xl py-3 text-sm font-bold text-white"
+            style={{ backgroundColor: posting ? '#B5AFA8' : '#C9A96E' }}>
+            {posting ? '發表中...' : '發表作品'}
+          </motion.button>
+        )}
+      </div>
+    </motion.div>
+  );
 }
 
 // ===================== PAGE: FRAGRANCE CALENDAR =====================
