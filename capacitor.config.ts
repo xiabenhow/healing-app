@@ -2,7 +2,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.xiabenhow.healing',
-  appName: '下班隨手作',
+  appName: '隨手作',
   webDir: 'dist',
   server: {
     // For production, remove this block. For dev, uncomment:
@@ -14,9 +14,13 @@ const config: CapacitorConfig = {
     contentInset: 'automatic',
     preferredContentMode: 'mobile',
     scheme: 'Healing',
+    // iOS status bar overlay for immersive feel
+    allowsLinkPreview: false,
   },
   android: {
     allowMixedContent: true,
+    // Enable back button handling
+    backgroundColor: '#FAF8F5',
   },
   plugins: {
     SplashScreen: {
@@ -25,8 +29,8 @@ const config: CapacitorConfig = {
       backgroundColor: '#FAF8F5',
       androidScaleType: 'CENTER_CROP',
       showSpinner: false,
-      splashFullScreen: false,
-      splashImmersive: false,
+      splashFullScreen: true,
+      splashImmersive: true,
     },
     StatusBar: {
       style: 'LIGHT',
@@ -34,6 +38,10 @@ const config: CapacitorConfig = {
     },
     PushNotifications: {
       presentationOptions: ['badge', 'sound', 'alert'],
+    },
+    Keyboard: {
+      resize: 'body',
+      resizeOnFullScreen: true,
     },
   },
 };

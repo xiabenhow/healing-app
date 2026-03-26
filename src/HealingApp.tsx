@@ -5,6 +5,7 @@ import type { User } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, getDocs, query, orderBy, Timestamp, addDoc, where } from 'firebase/firestore';
 import { auth, googleProvider, db } from './lib/firebase';
 import { isNative, initNativeApp, openPaymentUrl, openUrl, hapticLight, hapticSuccess } from './capacitorHelpers';
+import { usePWA } from './usePWA';
 import { OIL_LIBRARY, FAMILY_EMOJI, type OilLibraryItem } from './oilLibraryData';
 import { CRYSTAL_LIBRARY, CHAKRA_EMOJI, EMOTION_CRYSTAL_MAP, type CrystalItem } from './crystalData';
 import {
@@ -9532,6 +9533,10 @@ export default function HealingApp() {
       _setPage(prevPage);
     }
   }, []);
+  // PWA 安裝提示
+  const { canInstall, isIOS, isInstalled, isOffline, triggerInstall } = usePWA();
+  const [showInstallBanner, setShowInstallBanner] = useState(true);
+
   const [user, setUser] = useState<User | null>(null);
   const [records, setRecords] = useState<HealingRecord[]>(() => {
     const existing = loadRecords();
@@ -9639,6 +9644,53 @@ export default function HealingApp() {
 
   return (
     <div className="min-h-screen" style={{ backgroundColor: '#FAF8F5', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      {/* 離線提示 */}
+      {isOffline && (
+        <div className="fixed top-0 left-0 right-0 z-50 text-center py-1 text-xs font-medium" style={{ backgroundColor: '#FFE0B2', color: '#E65100', paddingTop: 'calc(env(safe-area-inset-top) + 4px)' }}>
+          目前離線中，部分功能可能受限
+        </div>
+      )}
+
+      {/* PWA 安裝提示（僅在網頁瀏覽器中且未安裝時顯示） */}
+      {!isNative() && !isInstalled && showInstallBanner && (canInstall || isIOS) && (
+        <motion.div
+          initial={{ y: -60, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          className="fixed top-0 left-0 right-0 z-40"
+          style={{ paddingTop: 'env(safe-area-inset-top)' }}
+        >
+          <div className="max-w-md mx-auto px-3 py-2">
+            <div className="rounded-2xl px-4 py-3 flex items-center gap-3 shadow-lg" style={{ backgroundColor: '#FFFEF9', border: '1px solid #E8E0D8' }}>
+              <span className="text-xl">📲</span>
+              <div className="flex-1">
+                <p className="text-xs font-bold" style={{ color: '#3D3530' }}>
+                  把「隨手作」加到主畫面
+                </p>
+                <p className="text-[10px]" style={{ color: '#8C7B72' }}>
+                  {isIOS ? '點下方分享按鈕 → 加入主畫面' : '像 App 一樣使用，隨時打開'}
+                </p>
+              </div>
+              {canInstall && (
+                <button
+                  onClick={triggerInstall}
+                  className="px-3 py-1.5 rounded-full text-xs font-bold"
+                  style={{ backgroundColor: '#8FA886', color: 'white' }}
+                >
+                  安裝
+                </button>
+              )}
+              <button
+                onClick={() => setShowInstallBanner(false)}
+                className="text-xs px-1"
+                style={{ color: '#8C7B72' }}
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      )}
+
       {!isBedtimeFullscreen && <BottomNav active={page} onChange={setPage} />}
 
       {/* Global Back Button — top left */}
