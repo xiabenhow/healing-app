@@ -16,6 +16,8 @@ import {
   SCAPE_PRESETS as SCAPE_PRESETS_IMPORT,
   CRYSTAL_BOWL_PRESETS,
   EMOTION_WELLNESS_MAP,
+  SCENE_MODES,
+  type SceneMode,
   useSoundscape as useSoundscapeHook,
 } from './soundscapeEngine';
 import {
@@ -2608,14 +2610,17 @@ function DiaryEntryDetail({ date, record, privacyMode, onSaveNote }: {
 function SoundPage({ recommendedEmotion }: { recommendedEmotion?: string }) {
   const {
     mainScape, auxScapes, activeBowls, isPlaying, timer, timerLeft,
+    activeScene, pomodoro,
     playMain, toggleAux, stopAll, setTimer, playForEmotion, toggleBowl, strikeBowl,
+    playScene, stopScene, stopPomodoro,
   } = useSoundscapeHook();
 
   const [showAux, setShowAux] = useState(false);
   const [showBowls, setShowBowls] = useState(false);
+  const [showScenes, setShowScenes] = useState(false);
   const [showBreathing, setShowBreathing] = useState(false);
   // 分類各類預設
-  const scapePresets = SCAPE_PRESETS_IMPORT.filter(p => p.isMain && p.category !== 'breathing');
+  const scapePresets = SCAPE_PRESETS_IMPORT.filter(p => p.isMain && p.category !== 'breathing' && p.category !== 'scene');
   const auxPresets = SCAPE_PRESETS_IMPORT.filter(p => !p.isMain);
   const breathingPresets = SCAPE_PRESETS_IMPORT.filter(p => p.category === 'breathing');
   const activeMainPreset = mainScape ? SCAPE_PRESETS_IMPORT.find(p => p.key === mainScape) : null;
@@ -2645,6 +2650,12 @@ function SoundPage({ recommendedEmotion }: { recommendedEmotion?: string }) {
     const m = Math.floor(s / 60);
     const sec = s % 60;
     return `${m}:${sec.toString().padStart(2, '0')}`;
+  };
+
+  const formatPomodoro = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${m.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
   };
 
   return (
@@ -2723,6 +2734,114 @@ function SoundPage({ recommendedEmotion }: { recommendedEmotion?: string }) {
           </motion.button>
         ))}
       </div>
+
+      {/* 情境模式 Scene Modes */}
+      <div>
+        <button
+          onClick={() => setShowScenes(!showScenes)}
+          className="flex items-center gap-2 w-full mb-3"
+        >
+          <p className="text-sm font-bold" style={{ color: '#3D3530' }}>
+            情境模式
+          </p>
+          <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: '#E07A5F20', color: '#E07A5F' }}>
+            NEW
+          </span>
+          <span className="text-xs ml-auto" style={{ color: '#8C7B72' }}>
+            {showScenes ? '收起' : '展開'}
+          </span>
+        </button>
+        {!showScenes && (
+          <p className="text-xs mb-2" style={{ color: '#8C7B72' }}>
+            為不同場景調配的多層音景，一鍵進入狀態
+          </p>
+        )}
+        <AnimatePresence>
+          {showScenes && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="space-y-2 overflow-hidden"
+            >
+              <p className="text-xs mb-2" style={{ color: '#8C7B72' }}>
+                為不同場景調配的多層音景，一鍵進入狀態
+              </p>
+              {SCENE_MODES.map(scene => {
+                const isActive = activeScene === scene.key;
+                return (
+                  <motion.button
+                    key={scene.key}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => isActive ? stopScene() : playScene(scene)}
+                    className="w-full flex items-center gap-3 p-3 rounded-2xl transition-all"
+                    style={{
+                      backgroundColor: isActive ? scene.color + '25' : '#FAF8F5',
+                      border: `1.5px solid ${isActive ? scene.color : 'transparent'}`,
+                    }}
+                  >
+                    <span className="text-2xl">{scene.emoji}</span>
+                    <div className="text-left flex-1">
+                      <p className="text-sm font-bold" style={{ color: '#3D3530' }}>
+                        {scene.label}
+                        {scene.hasPomodoro && <span className="text-xs ml-1" style={{ color: '#E07A5F' }}>🍅</span>}
+                      </p>
+                      <p className="text-xs" style={{ color: '#8C7B72' }}>
+                        {scene.subtitle}
+                      </p>
+                      <div className="flex gap-1 mt-1">
+                        {scene.tags.map(tag => (
+                          <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: scene.color + '15', color: scene.color }}>
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                    {isActive && (
+                      <motion.div
+                        animate={{ scale: [1, 1.2, 1] }}
+                        transition={{ duration: 2, repeat: Infinity }}
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: scene.color }}
+                      />
+                    )}
+                  </motion.button>
+                );
+              })}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* 番茄鐘狀態 Pomodoro indicator */}
+      {pomodoro.isActive && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-2xl p-4 flex items-center gap-3"
+          style={{ backgroundColor: pomodoro.isBreak ? '#E8F5E9' : '#FFF3E0' }}
+        >
+          <span className="text-2xl">{pomodoro.isBreak ? '☕' : '🍅'}</span>
+          <div className="flex-1">
+            <p className="text-sm font-bold" style={{ color: '#3D3530' }}>
+              {pomodoro.isBreak ? '休息時間' : '專注中'}
+            </p>
+            <p className="text-lg font-mono font-bold" style={{ color: pomodoro.isBreak ? '#4CAF50' : '#E07A5F' }}>
+              {formatPomodoro(pomodoro.secondsLeft)}
+            </p>
+            <p className="text-xs" style={{ color: '#8C7B72' }}>
+              已完成 {pomodoro.sessionsCompleted} 個番茄
+            </p>
+          </div>
+          <button
+            onClick={stopPomodoro}
+            className="px-3 py-1.5 rounded-full text-xs font-medium"
+            style={{ backgroundColor: '#00000010', color: '#8C7B72' }}
+          >
+            結束
+          </button>
+        </motion.div>
+      )}
 
       {/* Now playing */}
       {isPlaying && (

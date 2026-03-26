@@ -7,7 +7,87 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 // ===================== TYPES =====================
 
-export type ScapeCategory = 'ocean' | 'forest' | 'rain' | 'night' | 'focus' | 'morning' | 'crystal' | 'breathing';
+export type ScapeCategory = 'ocean' | 'forest' | 'rain' | 'night' | 'focus' | 'morning' | 'crystal' | 'breathing' | 'scene';
+
+// ===================== SCENE MODE 情境模式 =====================
+
+export interface SceneMode {
+  key: string;
+  label: string;
+  subtitle: string;
+  emoji: string;
+  color: string;
+  /** 這個情境包含的音景 preset keys（按順序自動播放） */
+  presetKey: string;
+  /** 適合的使用場景標籤 */
+  tags: string[];
+  /** 是否有番茄鐘功能 */
+  hasPomodoro?: boolean;
+  /** 番茄鐘分鐘數（預設 25） */
+  pomodoroMinutes?: number;
+  /** 番茄鐘休息分鐘數（預設 5） */
+  pomodoroBreakMinutes?: number;
+}
+
+export const SCENE_MODES: SceneMode[] = [
+  {
+    key: 'scene-library',
+    label: '圖書館',
+    subtitle: '安靜沉浸，不被打擾的閱讀空間',
+    emoji: '📚',
+    color: '#8B7355',
+    presetKey: 'scene-library',
+    tags: ['閱讀', '專注', '安靜'],
+  },
+  {
+    key: 'scene-cafe',
+    label: '咖啡廳專注',
+    subtitle: '有人陪伴但不被打擾，溫暖的背景音',
+    emoji: '☕',
+    color: '#B09070',
+    presetKey: 'scene-cafe-focus',
+    tags: ['工作', '專注', '陪伴'],
+  },
+  {
+    key: 'scene-pomodoro',
+    label: '番茄鐘專注',
+    subtitle: '極簡深度專注，25 分鐘心無旁騖',
+    emoji: '🍅',
+    color: '#E07A5F',
+    presetKey: 'scene-pomodoro',
+    tags: ['專注', '計時', '極簡'],
+    hasPomodoro: true,
+    pomodoroMinutes: 25,
+    pomodoroBreakMinutes: 5,
+  },
+  {
+    key: 'scene-rainy-reading',
+    label: '雨天閱讀',
+    subtitle: '窗外下著雨，手邊一杯茶，放鬆又專注',
+    emoji: '🌧️',
+    color: '#7B8FA3',
+    presetKey: 'scene-rainy-reading',
+    tags: ['放鬆', '閱讀', '雨天'],
+  },
+  {
+    key: 'scene-late-night',
+    label: '深夜書房',
+    subtitle: '夜深了，世界安靜下來，只剩你和思緒',
+    emoji: '🌙',
+    color: '#3D3560',
+    presetKey: 'scene-late-night',
+    tags: ['深夜', '安靜', '沉思'],
+  },
+  {
+    key: 'scene-crafting',
+    label: '手作時光',
+    subtitle: '進入 flow 狀態，專注在手中的作品',
+    emoji: '🎨',
+    color: '#D4956B',
+    presetKey: 'scene-crafting',
+    tags: ['手作', '創作', 'flow'],
+  },
+];
 
 // 呼吸模式介面 — 用於引導式呼吸音景
 export interface BreathingPattern {
@@ -575,6 +655,169 @@ export const SCAPE_PRESETS: ScapePreset[] = [
     microEventType: 'bird-call' as const,
     layers: [
       { type: 'custom' as const, gain: 0.5, bufferSec: 20, generator: 'dawn-chorus', filters: [{ type: 'bandpass' as BiquadFilterType, frequency: 3000, Q: 0.5 }], stereoWidth: 0.95 },
+    ],
+  },
+
+  // ===================== 情境模式 SCENE MODE PRESETS =====================
+
+  // --- 圖書館：安靜沉浸，翻書聲、遠處腳步、超低白噪音 ---
+  {
+    key: 'scene-library',
+    category: 'scene' as ScapeCategory,
+    label: '圖書館',
+    subtitle: '安靜沉浸，不被打擾的閱讀空間',
+    emoji: '📚',
+    color: '#8B7355',
+    defaultGain: 0.15,
+    lpfCutoff: 1800,
+    breathCycle: [25, 35],
+    breathDepth: 0.08,
+    microInterval: [30, 80],
+    isMain: true,
+    microEventType: 'whoosh' as const,
+    layers: [
+      // Base Layer: 圖書館空氣 — 極輕的棕噪音，像空調低頻底噪
+      { type: 'brown' as const, gain: 0.35, bufferSec: 22, filters: [{ type: 'lowpass' as BiquadFilterType, frequency: 200, Q: 0.3 }], stereoWidth: 0.5 },
+      // Texture Layer: 偶爾翻書沙沙（用 rustle 模擬）
+      { type: 'custom' as const, gain: 0.04, bufferSec: 30, generator: 'page-turn', filters: [{ type: 'bandpass' as BiquadFilterType, frequency: 3000, Q: 0.5 }], stereoWidth: 0.7 },
+      // Texture Layer: 遠處腳步
+      { type: 'custom' as const, gain: 0.03, bufferSec: 25, generator: 'distant-footsteps', filters: [{ type: 'bandpass' as BiquadFilterType, frequency: 400, Q: 0.4 }], stereoWidth: 0.8 },
+      // Breath Layer: 超低白噪音底色
+      { type: 'white' as const, gain: 0.03, bufferSec: 18, filters: [{ type: 'lowpass' as BiquadFilterType, frequency: 800, Q: 0.3 }], stereoWidth: 0.4 },
+    ],
+  },
+
+  // --- 咖啡廳專注：人聲嗡嗡、杯碟/鍵盤、悶笑聲、暖低頻 ---
+  {
+    key: 'scene-cafe-focus',
+    category: 'scene' as ScapeCategory,
+    label: '咖啡廳專注',
+    subtitle: '有人陪伴但不被打擾，溫暖的背景音',
+    emoji: '☕',
+    color: '#B09070',
+    defaultGain: 0.2,
+    lpfCutoff: 2800,
+    breathCycle: [18, 28],
+    breathDepth: 0.1,
+    microInterval: [10, 30],
+    isMain: true,
+    microEventType: 'cafe-clink' as const,
+    layers: [
+      // Base Layer: 低沉人聲嗡嗡（murmur）
+      { type: 'custom' as const, gain: 0.3, bufferSec: 14, generator: 'cafe-murmur', filters: [{ type: 'bandpass' as BiquadFilterType, frequency: 800, Q: 0.3 }], stereoWidth: 0.75 },
+      // Texture Layer: 杯碟鍵盤聲
+      { type: 'pink' as const, gain: 0.12, bufferSec: 10, filters: [{ type: 'bandpass' as BiquadFilterType, frequency: 3500, Q: 0.4 }], stereoWidth: 0.65 },
+      // Micro Event Layer: 偶爾的悶笑
+      { type: 'custom' as const, gain: 0.04, bufferSec: 20, generator: 'cafe-murmur', filters: [{ type: 'bandpass' as BiquadFilterType, frequency: 1500, Q: 0.6 }], stereoWidth: 0.85 },
+      // Breath Layer: 暖低頻底色
+      { type: 'brown' as const, gain: 0.2, bufferSec: 16, filters: [{ type: 'lowpass' as BiquadFilterType, frequency: 250, Q: 0.3 }], stereoWidth: 0.5 },
+    ],
+  },
+
+  // --- 番茄鐘專注：極簡穩定空氣感，幾乎無質感層 ---
+  {
+    key: 'scene-pomodoro',
+    category: 'scene' as ScapeCategory,
+    label: '番茄鐘專注',
+    subtitle: '極簡深度專注，25 分鐘心無旁騖',
+    emoji: '🍅',
+    color: '#E07A5F',
+    defaultGain: 0.12,
+    lpfCutoff: 1500,
+    breathCycle: [30, 45],
+    breathDepth: 0.05,
+    microInterval: [300, 600], // 幾乎不觸發微事件
+    isMain: true,
+    isMinimal: true,
+    microEventType: 'whoosh' as const,
+    layers: [
+      // Base Layer: 穩定空氣流 — 極低頻的棕噪音
+      { type: 'brown' as const, gain: 0.4, bufferSec: 20, filters: [{ type: 'lowpass' as BiquadFilterType, frequency: 180, Q: 0.3 }], stereoWidth: 0.4 },
+      // Breath Layer: pink/brown 混合的極低底色
+      { type: 'pink' as const, gain: 0.15, bufferSec: 15, filters: [{ type: 'lowpass' as BiquadFilterType, frequency: 400, Q: 0.3 }], stereoWidth: 0.5 },
+    ],
+  },
+
+  // --- 雨天閱讀：穩定雨聲、窗滴/微風、偶爾遠方雷聲、低頻空氣感 ---
+  {
+    key: 'scene-rainy-reading',
+    category: 'scene' as ScapeCategory,
+    label: '雨天閱讀',
+    subtitle: '窗外下著雨，手邊一杯茶，放鬆又專注',
+    emoji: '🌧️',
+    color: '#7B8FA3',
+    defaultGain: 0.28,
+    lpfCutoff: 3200,
+    breathCycle: [14, 22],
+    breathDepth: 0.2,
+    microInterval: [45, 100],
+    isMain: true,
+    microEventType: 'thunder-crack' as const,
+    tidalCycle: 80,
+    tidalDepth: 0.15,
+    layers: [
+      // Base Layer: 穩定雨聲
+      { type: 'custom' as const, gain: 0.35, bufferSec: 18, generator: 'rain-base', filters: [{ type: 'bandpass' as BiquadFilterType, frequency: 4000, Q: 0.3 }], stereoWidth: 0.7 },
+      // Texture Layer: 窗戶雨滴
+      { type: 'custom' as const, gain: 0.12, bufferSec: 14, generator: 'eave-drip', filters: [{ type: 'bandpass' as BiquadFilterType, frequency: 2000, Q: 0.5 }], stereoWidth: 0.75 },
+      // Texture Layer: 微風
+      { type: 'custom' as const, gain: 0.06, bufferSec: 10, generator: 'wind-gentle', filters: [{ type: 'bandpass' as BiquadFilterType, frequency: 500, Q: 0.3 }], stereoWidth: 0.6 },
+      // Breath Layer: 低頻空氣底色
+      { type: 'brown' as const, gain: 0.18, bufferSec: 22, filters: [{ type: 'lowpass' as BiquadFilterType, frequency: 200, Q: 0.3 }], stereoWidth: 0.5 },
+    ],
+  },
+
+  // --- 深夜書房：夜晚空氣、蟲鳴/木頭聲、偶爾遠方車聲、深沉低頻 ---
+  {
+    key: 'scene-late-night',
+    category: 'scene' as ScapeCategory,
+    label: '深夜書房',
+    subtitle: '夜深了，世界安靜下來，只剩你和思緒',
+    emoji: '🌙',
+    color: '#3D3560',
+    defaultGain: 0.18,
+    lpfCutoff: 1600,
+    breathCycle: [20, 30],
+    breathDepth: 0.15,
+    microInterval: [60, 150],
+    isMain: true,
+    microEventType: 'whoosh' as const,
+    layers: [
+      // Base Layer: 夜晚空氣 — 深沉安靜的低頻
+      { type: 'brown' as const, gain: 0.35, bufferSec: 24, filters: [{ type: 'lowpass' as BiquadFilterType, frequency: 160, Q: 0.3 }], stereoWidth: 0.6 },
+      // Texture Layer: 遠方蟲鳴
+      { type: 'custom' as const, gain: 0.06, bufferSec: 22, generator: 'crickets', filters: [{ type: 'bandpass' as BiquadFilterType, frequency: 4200, Q: 1.8 }], stereoWidth: 0.7 },
+      // Texture Layer: 木頭嘎吱（老書房的聲音）
+      { type: 'custom' as const, gain: 0.02, bufferSec: 30, generator: 'wood-creak', filters: [{ type: 'bandpass' as BiquadFilterType, frequency: 300, Q: 0.5 }], stereoWidth: 0.65 },
+      // Breath Layer: 深沉低頻底色
+      { type: 'custom' as const, gain: 0.08, bufferSec: 26, generator: 'deep-ocean-drone', filters: [{ type: 'lowpass' as BiquadFilterType, frequency: 100, Q: 0.4 }], stereoWidth: 0.5 },
+    ],
+  },
+
+  // --- 手作時光：flow 狀態，溫暖空間感、微風、偶爾材料聲 ---
+  {
+    key: 'scene-crafting',
+    category: 'scene' as ScapeCategory,
+    label: '手作時光',
+    subtitle: '進入 flow 狀態，專注在手中的作品',
+    emoji: '🎨',
+    color: '#D4956B',
+    defaultGain: 0.2,
+    lpfCutoff: 2500,
+    breathCycle: [15, 22],
+    breathDepth: 0.12,
+    microInterval: [20, 50],
+    isMain: true,
+    microEventType: 'twig-snap' as const,
+    layers: [
+      // Base Layer: 溫暖空間底噪
+      { type: 'pink' as const, gain: 0.25, bufferSec: 14, filters: [{ type: 'lowpass' as BiquadFilterType, frequency: 1200, Q: 0.3 }], stereoWidth: 0.6 },
+      // Texture Layer: 輕微的材料沙沙（像拿布料、翻頁）
+      { type: 'custom' as const, gain: 0.06, bufferSec: 18, generator: 'rustle', filters: [{ type: 'highpass' as BiquadFilterType, frequency: 500 }], stereoWidth: 0.65 },
+      // Texture Layer: 微風從窗口進來
+      { type: 'custom' as const, gain: 0.08, bufferSec: 10, generator: 'wind-gentle', filters: [{ type: 'bandpass' as BiquadFilterType, frequency: 600, Q: 0.3 }], stereoWidth: 0.7 },
+      // Breath Layer: 低頻溫暖感
+      { type: 'brown' as const, gain: 0.2, bufferSec: 20, filters: [{ type: 'lowpass' as BiquadFilterType, frequency: 300, Q: 0.3 }], stereoWidth: 0.5 },
     ],
   },
 
@@ -1494,6 +1737,85 @@ function fillRaindropDense(data: Float32Array, sr: number) {
   }
 }
 
+// ===================== 情境模式專用 Generators =====================
+
+// 翻書聲：稀疏的沙沙短音，像有人在圖書館翻書
+function fillPageTurn(data: Float32Array, sr: number) {
+  for (let i = 0; i < data.length; i++) data[i] = 0;
+  const totalSec = data.length / sr;
+  // 每 4-10 秒一次翻書
+  const turnCount = Math.floor(totalSec / 6);
+  for (let t = 0; t < turnCount; t++) {
+    const startSec = 2 + Math.random() * (totalSec - 3);
+    const startIdx = Math.floor(startSec * sr);
+    const dur = Math.floor((0.15 + Math.random() * 0.25) * sr);
+    const amp = 0.04 + Math.random() * 0.06;
+    for (let j = 0; j < dur && (startIdx + j) < data.length; j++) {
+      const env = Math.sin(Math.PI * j / dur);
+      // 高頻沙沙
+      data[startIdx + j] += (Math.random() * 2 - 1) * env * amp;
+    }
+  }
+}
+
+// 遠方腳步：偶爾的低沉步伐聲
+function fillDistantFootsteps(data: Float32Array, sr: number) {
+  for (let i = 0; i < data.length; i++) data[i] = 0;
+  const totalSec = data.length / sr;
+  // 每 8-15 秒一串腳步
+  const walkCount = Math.floor(totalSec / 10);
+  for (let w = 0; w < walkCount; w++) {
+    const startSec = 3 + Math.random() * (totalSec - 5);
+    const steps = 3 + Math.floor(Math.random() * 4);
+    const stepInterval = 0.5 + Math.random() * 0.15;
+    const distanceAmp = 0.02 + Math.random() * 0.03; // 很遠
+    for (let s = 0; s < steps; s++) {
+      const stepSec = startSec + s * stepInterval;
+      const stepIdx = Math.floor(stepSec * sr);
+      const dur = Math.floor((0.04 + Math.random() * 0.03) * sr);
+      const freq = 120 + Math.random() * 80;
+      for (let j = 0; j < dur && (stepIdx + j) < data.length; j++) {
+        const env = Math.exp(-j / (dur * 0.2));
+        data[stepIdx + j] += Math.sin(2 * Math.PI * freq * j / sr) * env * distanceAmp
+          + (Math.random() * 2 - 1) * env * distanceAmp * 0.3;
+      }
+    }
+  }
+}
+
+// 木頭嘎吱聲：老房子的木頭輕微作響
+function fillWoodCreak(data: Float32Array, sr: number) {
+  for (let i = 0; i < data.length; i++) data[i] = 0;
+  const totalSec = data.length / sr;
+  const creakCount = Math.floor(totalSec / 8);
+  for (let c = 0; c < creakCount; c++) {
+    const startSec = 2 + Math.random() * (totalSec - 3);
+    const startIdx = Math.floor(startSec * sr);
+    const dur = Math.floor((0.08 + Math.random() * 0.15) * sr);
+    const freq = 100 + Math.random() * 200;
+    const amp = 0.02 + Math.random() * 0.03;
+    for (let j = 0; j < dur && (startIdx + j) < data.length; j++) {
+      const env = Math.sin(Math.PI * j / dur);
+      const vibrato = Math.sin(2 * Math.PI * (freq + Math.sin(j / sr * 25) * 30) * j / sr);
+      data[startIdx + j] += vibrato * env * amp;
+    }
+  }
+}
+
+// 番茄鐘提示音：溫和的正弦波上升音（開始）或下降音（結束）
+function fillPomodoroChime(data: Float32Array, sr: number) {
+  for (let i = 0; i < data.length; i++) data[i] = 0;
+  // 只在開頭放一個溫和的提示音
+  const chimeDur = Math.floor(1.5 * sr);
+  const baseFreq = 523.25; // C5
+  for (let j = 0; j < chimeDur && j < data.length; j++) {
+    const env = Math.sin(Math.PI * j / chimeDur);
+    const tone = Math.sin(2 * Math.PI * baseFreq * j / sr) * 0.06;
+    const harmonic = Math.sin(2 * Math.PI * baseFreq * 2 * j / sr) * 0.02;
+    data[j] = (tone + harmonic) * env;
+  }
+}
+
 const GENERATORS: Record<string, (data: Float32Array, sr: number) => void> = {
   // 原始 generators
   'wind-gentle': fillWindGentle,
@@ -1526,6 +1848,11 @@ const GENERATORS: Record<string, (data: Float32Array, sr: number) => void> = {
   'warm-pad': fillWarmPad,
   'rising-sweep': fillRisingSweep,
   'tingsha': fillTingsha,
+  // 情境模式專用 generators
+  'page-turn': fillPageTurn,
+  'distant-footsteps': fillDistantFootsteps,
+  'wood-creak': fillWoodCreak,
+  'pomodoro-chime': fillPomodoroChime,
 };
 
 // ===================== ENGINE CLASS =====================
@@ -2176,6 +2503,15 @@ const engine = new SoundscapeEngine();
 
 // ===================== useSoundscape HOOK =====================
 
+export interface PomodoroState {
+  isActive: boolean;
+  isBreak: boolean;
+  minutesTotal: number;
+  breakMinutes: number;
+  secondsLeft: number;
+  sessionsCompleted: number;
+}
+
 export interface SoundscapeState {
   mainScape: string | null;
   auxScapes: string[];
@@ -2183,6 +2519,8 @@ export interface SoundscapeState {
   isPlaying: boolean;
   timer: number; // minutes, 0 = unlimited
   timerLeft: number; // seconds
+  activeScene: string | null;
+  pomodoro: PomodoroState;
 }
 
 export function useSoundscape() {
@@ -2191,7 +2529,17 @@ export function useSoundscape() {
   const [activeBowls, setActiveBowls] = useState<string[]>([]);
   const [timer, setTimerVal] = useState(0);
   const [timerLeft, setTimerLeft] = useState(0);
+  const [activeScene, setActiveScene] = useState<string | null>(null);
+  const [pomodoro, setPomodoro] = useState<PomodoroState>({
+    isActive: false,
+    isBreak: false,
+    minutesTotal: 25,
+    breakMinutes: 5,
+    secondsLeft: 0,
+    sessionsCompleted: 0,
+  });
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pomodoroRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Timer logic
   useEffect(() => {
@@ -2280,6 +2628,8 @@ export function useSoundscape() {
   const playForEmotion = useCallback((emotionKey: string) => {
     engine.stopAll();
     setActiveBowls([]);
+    setActiveScene(null);
+    stopPomodoro();
     const recommended = EMOTION_SCAPE_MAP[emotionKey] || ['ocean-far'];
     const mainPreset = SCAPE_PRESETS.find(p => p.key === recommended[0]);
     if (mainPreset) {
@@ -2297,6 +2647,106 @@ export function useSoundscape() {
     setAuxScapes(newAux);
   }, []);
 
+  /** 播放情境模式 */
+  const playScene = useCallback((sceneMode: SceneMode) => {
+    // Stop everything first
+    engine.stopAll();
+    setAuxScapes([]);
+    setActiveBowls([]);
+
+    // Find and play the scene preset
+    const preset = SCAPE_PRESETS.find(p => p.key === sceneMode.presetKey);
+    if (preset) {
+      engine.play(preset);
+      setMainScape(preset.key);
+    }
+    setActiveScene(sceneMode.key);
+
+    // If scene has pomodoro, start it
+    if (sceneMode.hasPomodoro) {
+      startPomodoro(sceneMode.pomodoroMinutes || 25, sceneMode.pomodoroBreakMinutes || 5);
+    }
+  }, []);
+
+  /** 停止情境模式 */
+  const stopScene = useCallback(() => {
+    engine.stopAll();
+    setMainScape(null);
+    setAuxScapes([]);
+    setActiveBowls([]);
+    setActiveScene(null);
+    stopPomodoro();
+  }, []);
+
+  /** 番茄鐘：開始 */
+  const startPomodoro = useCallback((minutes: number = 25, breakMinutes: number = 5) => {
+    if (pomodoroRef.current) clearInterval(pomodoroRef.current);
+
+    setPomodoro(prev => ({
+      ...prev,
+      isActive: true,
+      isBreak: false,
+      minutesTotal: minutes,
+      breakMinutes: breakMinutes,
+      secondsLeft: minutes * 60,
+    }));
+
+    pomodoroRef.current = setInterval(() => {
+      setPomodoro(prev => {
+        if (prev.secondsLeft <= 1) {
+          // 時間到
+          if (!prev.isBreak) {
+            // 專注結束 → 進入休息
+            // 播放溫柔提示音
+            const chimePreset = SCAPE_PRESETS.find(p => p.key === 'scene-pomodoro');
+            if (chimePreset) {
+              // 短暫提高音量作為提示
+              engine.setVolume(chimePreset.key, chimePreset.defaultGain * 1.5);
+              setTimeout(() => {
+                engine.setVolume(chimePreset.key, chimePreset.defaultGain);
+              }, 2000);
+            }
+            return {
+              ...prev,
+              isBreak: true,
+              secondsLeft: prev.breakMinutes * 60,
+              sessionsCompleted: prev.sessionsCompleted + 1,
+            };
+          } else {
+            // 休息結束 → 重新開始專注
+            return {
+              ...prev,
+              isBreak: false,
+              secondsLeft: prev.minutesTotal * 60,
+            };
+          }
+        }
+        return { ...prev, secondsLeft: prev.secondsLeft - 1 };
+      });
+    }, 1000);
+  }, []);
+
+  /** 番茄鐘：停止 */
+  const stopPomodoro = useCallback(() => {
+    if (pomodoroRef.current) {
+      clearInterval(pomodoroRef.current);
+      pomodoroRef.current = null;
+    }
+    setPomodoro(prev => ({
+      ...prev,
+      isActive: false,
+      isBreak: false,
+      secondsLeft: 0,
+    }));
+  }, []);
+
+  // Cleanup pomodoro on unmount
+  useEffect(() => {
+    return () => {
+      if (pomodoroRef.current) clearInterval(pomodoroRef.current);
+    };
+  }, []);
+
   return {
     mainScape,
     auxScapes,
@@ -2304,6 +2754,8 @@ export function useSoundscape() {
     isPlaying: mainScape !== null || auxScapes.length > 0 || activeBowls.length > 0,
     timer,
     timerLeft,
+    activeScene,
+    pomodoro,
     playMain,
     toggleAux,
     stopAll,
@@ -2311,5 +2763,9 @@ export function useSoundscape() {
     playForEmotion,
     toggleBowl,
     strikeBowl,
+    playScene,
+    stopScene,
+    startPomodoro,
+    stopPomodoro,
   };
 }
