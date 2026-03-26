@@ -45,7 +45,7 @@ import {
 
 // ===================== TYPES =====================
 
-type PageType = 'home' | 'diary' | 'recipe' | 'card' | 'healer' | 'library' | 'calendar' | 'sound' | 'booking' | 'member' | 'shop' | 'healing' | 'bedtime' | 'custom' | 'service' | 'wishlist';
+type PageType = 'home' | 'diary' | 'recipe' | 'card' | 'healer' | 'library' | 'calendar' | 'sound' | 'booking' | 'member' | 'shop' | 'healing' | 'bedtime' | 'custom' | 'service' | 'wishlist' | 'my-works' | 'collections' | 'course-journey' | 'exclusive-content';
 type TaskKey = 'checkin' | 'card' | 'note' | 'breathe' | 'evening' | 'share';
 
 interface CartItem {
@@ -5453,7 +5453,40 @@ function MemberPage({ records, onNavigate }: { records: HealingRecord[]; onNavig
         </AnimatePresence>
       </motion.div>
 
-      {/* BLOCK 2: 我的收藏 (3x2 grid) */}
+      {/* BLOCK: 我的累積 */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.13 }}
+        className="rounded-3xl p-5 shadow-sm"
+        style={{ backgroundColor: '#FFFEF9' }}
+      >
+        <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>我的累積</p>
+        <div className="grid grid-cols-2 gap-2.5">
+          <motion.button whileTap={{ scale: 0.96 }} onClick={() => onNavigate('my-works')} className="rounded-2xl p-3.5 text-left" style={{ backgroundColor: '#FAF8F5' }}>
+            <p className="text-xl mb-1">🎨</p>
+            <p className="text-xs font-medium" style={{ color: '#3D3530' }}>我的作品牆</p>
+            <p className="text-[10px] mt-0.5" style={{ color: '#8C7B72' }}>做過的課程與作品</p>
+          </motion.button>
+          <motion.button whileTap={{ scale: 0.96 }} onClick={() => onNavigate('collections')} className="rounded-2xl p-3.5 text-left" style={{ backgroundColor: '#FAF8F5' }}>
+            <p className="text-xl mb-1">💝</p>
+            <p className="text-xs font-medium" style={{ color: '#3D3530' }}>我的收藏</p>
+            <p className="text-[10px] mt-0.5" style={{ color: '#8C7B72' }}>文章・卡片・作品</p>
+          </motion.button>
+          <motion.button whileTap={{ scale: 0.96 }} onClick={() => onNavigate('course-journey')} className="rounded-2xl p-3.5 text-left" style={{ backgroundColor: '#FAF8F5' }}>
+            <p className="text-xl mb-1">🗺️</p>
+            <p className="text-xs font-medium" style={{ color: '#3D3530' }}>課程地圖</p>
+            <p className="text-[10px] mt-0.5" style={{ color: '#8C7B72' }}>課後旅程與進度</p>
+          </motion.button>
+          <motion.button whileTap={{ scale: 0.96 }} onClick={() => onNavigate('exclusive-content')} className="rounded-2xl p-3.5 text-left" style={{ backgroundColor: '#FAF8F5' }}>
+            <p className="text-xl mb-1">🔓</p>
+            <p className="text-xs font-medium" style={{ color: '#3D3530' }}>專屬內容</p>
+            <p className="text-[10px] mt-0.5" style={{ color: '#8C7B72' }}>課後解鎖的照顧知識</p>
+          </motion.button>
+        </div>
+      </motion.div>
+
+      {/* BLOCK 2: 快捷入口 (3x2 grid) */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -6734,9 +6767,409 @@ function CardPage({ onTaskComplete, records }: { onTaskComplete: (key: TaskKey) 
   );
 }
 
-// ===================== PAGE: HEALER =====================
+// ===================== PAGE: MY WORKS WALL =====================
 
-function HealerPage({ records }: { records: HealingRecord[] }) {
+function MyWorksWallPage({ userEmail, onNavigate, onAskTeacher }: { userEmail: string | null; onNavigate: (p: PageType) => void; onAskTeacher?: (work: MyWorkWall) => void }) {
+  const [works, setWorks] = useState<MyWorkWall[]>([]);
+  const [filterType, setFilterType] = useState<string>('all');
+  const [selectedWork, setSelectedWork] = useState<MyWorkWall | null>(null);
+
+  useEffect(() => {
+    if (!userEmail) return;
+    const q = query(collection(db, 'user_works'), where('userId', '==', userEmail), orderBy('completedAt', 'desc'));
+    const unsub = onSnapshot(q, (snap) => {
+      const items = snap.docs.map(d => ({ id: d.id, ...d.data() } as unknown as MyWorkWall));
+      setWorks(items);
+    });
+    return unsub;
+  }, [userEmail]);
+
+  // Demo works if empty
+  const displayWorks = works.length > 0 ? works : [
+    { id: 'd1', courseType: 'fragrance', courseName: '調香入門體驗', photos: [''], completedAt: '2026-03-15', tags: ['#第一次做', '#香氣迷人'], hasCareReminder: true, notes: '調了一瓶柑橘花香，好喜歡！' },
+    { id: 'd2', courseType: 'crystal', courseName: '水晶手鍊工作坊', photos: [''], completedAt: '2026-03-10', tags: ['#送給朋友', '#獨一無二'], hasCareReminder: true, notes: '做了粉晶+月光石手鍊' },
+    { id: 'd3', courseType: 'candle', courseName: '療癒蠟燭課', photos: [''], completedAt: '2026-03-01', tags: ['#超滿意', '#週末手作'], hasCareReminder: false, notes: '大豆蠟+玫瑰精油' },
+    { id: 'd4', courseType: 'plant', courseName: '多肉組盆體驗', photos: [''], completedAt: '2026-02-20', tags: ['#親子手作'], hasCareReminder: true, notes: '帶小朋友一起做的' },
+    { id: 'd5', courseType: 'leather', courseName: '皮革鑰匙圈', photos: [''], completedAt: '2026-02-14', tags: ['#情人節', '#送給朋友'], hasCareReminder: false, notes: '情人節禮物' },
+  ];
+
+  const filtered = filterType === 'all' ? displayWorks : displayWorks.filter(w => w.courseType === filterType);
+  const topicInfo = (key: string) => TOPICS.find(t => t.key === key);
+
+  if (selectedWork) {
+    const ti = topicInfo(selectedWork.courseType);
+    const exclusive = COURSE_EXCLUSIVE_CONTENT[selectedWork.courseType];
+    return (
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+        <button onClick={() => setSelectedWork(null)} className="text-sm" style={{ color: '#8C7B72' }}>← 返回作品牆</button>
+        <div className="rounded-3xl p-5 shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-2xl">{ti?.emoji || '🎨'}</span>
+            <div>
+              <p className="text-base font-bold" style={{ color: '#3D3530' }}>{selectedWork.courseName}</p>
+              <p className="text-xs" style={{ color: '#8C7B72' }}>{selectedWork.completedAt}</p>
+            </div>
+          </div>
+          {selectedWork.notes && <p className="text-sm mb-3" style={{ color: '#5C534C' }}>{selectedWork.notes}</p>}
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {selectedWork.tags.map(tag => (
+              <span key={tag} className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: ti?.color || '#F0EDE8', color: '#3D3530' }}>{tag}</span>
+            ))}
+          </div>
+          {selectedWork.hasCareReminder && (
+            <div className="p-3 rounded-2xl mb-3" style={{ backgroundColor: '#F0F8ED' }}>
+              <p className="text-xs font-medium mb-1" style={{ color: '#5C8A4D' }}>🔔 照顧提醒已開啟</p>
+              <p className="text-xs" style={{ color: '#8C7B72' }}>系統會定期提醒你照顧這件作品</p>
+            </div>
+          )}
+          {/* Exclusive content for this course type */}
+          {exclusive && (
+            <div className="mt-3 pt-3" style={{ borderTop: '1px solid #F0EDE8' }}>
+              <p className="text-sm font-bold mb-2" style={{ color: '#3D3530' }}>🔓 {exclusive.title}</p>
+              <div className="space-y-2">
+                {exclusive.items.map((item, i) => (
+                  <div key={i} className="p-3 rounded-2xl" style={{ backgroundColor: '#FAF8F5' }}>
+                    <p className="text-sm font-medium" style={{ color: '#3D3530' }}>{item.emoji} {item.label}</p>
+                    <p className="text-xs mt-0.5" style={{ color: '#8C7B72' }}>{item.desc}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {/* Ask teacher from work context */}
+          {onAskTeacher && (
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={() => onAskTeacher(selectedWork)}
+              className="w-full mt-3 py-3 rounded-2xl text-sm font-medium text-white"
+              style={{ backgroundColor: '#8FA886' }}
+            >
+              💬 從這件作品詢問老師
+            </motion.button>
+          )}
+        </div>
+      </motion.div>
+    );
+  }
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-lg font-bold" style={{ color: '#3D3530' }}>🎨 我的作品牆</p>
+        <p className="text-xs" style={{ color: '#8C7B72' }}>共 {filtered.length} 件作品</p>
+      </div>
+
+      {/* Filter tabs */}
+      <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+        <button onClick={() => setFilterType('all')} className="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap" style={{ backgroundColor: filterType === 'all' ? '#8FA886' : '#FAF8F5', color: filterType === 'all' ? 'white' : '#8C7B72' }}>全部</button>
+        {TOPICS.map(t => (
+          <button key={t.key} onClick={() => setFilterType(t.key)} className="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap" style={{ backgroundColor: filterType === t.key ? t.color : '#FAF8F5', color: filterType === t.key ? '#3D3530' : '#8C7B72' }}>{t.emoji} {t.label}</button>
+        ))}
+      </div>
+
+      {/* Works grid */}
+      <div className="space-y-3">
+        {filtered.map(work => {
+          const ti = topicInfo(work.courseType);
+          return (
+            <motion.button
+              key={work.id}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => setSelectedWork(work)}
+              className="w-full text-left rounded-3xl p-4 shadow-sm"
+              style={{ backgroundColor: '#FFFEF9' }}
+            >
+              <div className="flex items-start gap-3">
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: ti?.color || '#F0EDE8' }}>
+                  <span className="text-2xl">{ti?.emoji || '🎨'}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold truncate" style={{ color: '#3D3530' }}>{work.courseName}</p>
+                  <p className="text-xs mt-0.5" style={{ color: '#8C7B72' }}>{work.completedAt}</p>
+                  {work.notes && <p className="text-xs mt-1 truncate" style={{ color: '#5C534C' }}>{work.notes}</p>}
+                  <div className="flex items-center gap-2 mt-1.5">
+                    {work.tags.slice(0, 2).map(tag => (
+                      <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: ti?.color || '#F0EDE8', color: '#3D3530' }}>{tag}</span>
+                    ))}
+                    {work.hasCareReminder && <span className="text-[10px]">🔔</span>}
+                  </div>
+                </div>
+                <span className="text-sm" style={{ color: '#C9A96E' }}>→</span>
+              </div>
+            </motion.button>
+          );
+        })}
+      </div>
+    </motion.div>
+  );
+}
+
+// ===================== PAGE: COLLECTION CENTER =====================
+
+function CollectionCenterPage({ userEmail, onNavigate }: { userEmail: string | null; onNavigate: (p: PageType) => void }) {
+  const [tab, setTab] = useState<'article' | 'card' | 'work'>('article');
+  const [collections, setCollections] = useState<CollectionItem[]>([]);
+
+  useEffect(() => {
+    if (!userEmail) return;
+    const q = query(collection(db, 'user_collections'), where('userId', '==', userEmail), orderBy('savedAt', 'desc'));
+    const unsub = onSnapshot(q, (snap) => {
+      const items = snap.docs.map(d => ({ id: d.id, ...d.data() } as unknown as CollectionItem));
+      setCollections(items);
+    });
+    return unsub;
+  }, [userEmail]);
+
+  // Demo data
+  const demoCollections: CollectionItem[] = [
+    { id: 'c1', type: 'article', title: '新手必看：多肉植物照顧全攻略', topic: 'plant', savedAt: '2026-03-25' },
+    { id: 'c2', type: 'article', title: '水晶消磁方法大全', topic: 'crystal', savedAt: '2026-03-24' },
+    { id: 'c3', type: 'card', title: '今天的療癒卡：放下', savedAt: '2026-03-23' },
+    { id: 'c4', type: 'article', title: '手工皂入門：冷製皂基礎教學', topic: 'soap', savedAt: '2026-03-22' },
+    { id: 'c5', type: 'card', title: '能量卡：勇氣', savedAt: '2026-03-21' },
+    { id: 'c6', type: 'work', title: '我的第一瓶調香作品', topic: 'fragrance', savedAt: '2026-03-20' },
+    { id: 'c7', type: 'article', title: '蠟燭燃燒的正確方式', topic: 'candle', savedAt: '2026-03-19' },
+  ];
+
+  const items = collections.length > 0 ? collections : demoCollections;
+  const filtered = items.filter(i => i.type === tab);
+
+  const tabs: { key: typeof tab; label: string; emoji: string }[] = [
+    { key: 'article', label: '文章', emoji: '📄' },
+    { key: 'card', label: '卡片', emoji: '🃏' },
+    { key: 'work', label: '作品', emoji: '✨' },
+  ];
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+      <p className="text-lg font-bold" style={{ color: '#3D3530' }}>💝 我的收藏</p>
+
+      {/* Tabs */}
+      <div className="flex gap-2">
+        {tabs.map(t => (
+          <button key={t.key} onClick={() => setTab(t.key)} className="flex-1 py-2.5 rounded-2xl text-xs font-medium" style={{ backgroundColor: tab === t.key ? '#8FA886' : '#FAF8F5', color: tab === t.key ? 'white' : '#8C7B72' }}>
+            {t.emoji} {t.label} ({items.filter(i => i.type === t.key).length})
+          </button>
+        ))}
+      </div>
+
+      {/* Items */}
+      <div className="space-y-2">
+        {filtered.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-3xl mb-2">📌</p>
+            <p className="text-sm" style={{ color: '#8C7B72' }}>還沒有收藏，去探索吧</p>
+          </div>
+        ) : filtered.map(item => {
+          const ti = item.topic ? TOPICS.find(t => t.key === item.topic) : null;
+          return (
+            <div key={item.id} className="flex items-center gap-3 p-3 rounded-2xl" style={{ backgroundColor: '#FFFEF9' }}>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: ti?.color || '#F0EDE8' }}>
+                <span className="text-lg">{ti?.emoji || (item.type === 'card' ? '🃏' : '✨')}</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate" style={{ color: '#3D3530' }}>{item.title}</p>
+                <p className="text-[10px] mt-0.5" style={{ color: '#8C7B72' }}>{item.savedAt}</p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </motion.div>
+  );
+}
+
+// ===================== PAGE: COURSE JOURNEY =====================
+
+function CourseJourneyPage({ userEmail }: { userEmail: string | null }) {
+  const [journeys, setJourneys] = useState<CourseJourney[]>([]);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!userEmail) return;
+    const q = query(collection(db, 'user_courses'), where('userId', '==', userEmail), orderBy('completedAt', 'desc'));
+    const unsub = onSnapshot(q, (snap) => {
+      const items = snap.docs.map(d => ({ ...d.data(), courseId: d.id } as unknown as CourseJourney));
+      setJourneys(items);
+    });
+    return unsub;
+  }, [userEmail]);
+
+  // Demo
+  const demoJourneys: CourseJourney[] = [
+    { courseId: 'j1', courseType: 'fragrance', courseName: '調香入門體驗', completedAt: '2026-03-20', day3Shown: true, day7Shown: true, day14Shown: false },
+    { courseId: 'j2', courseType: 'crystal', courseName: '水晶手鍊工作坊', completedAt: '2026-03-10', day3Shown: true, day7Shown: true, day14Shown: true },
+    { courseId: 'j3', courseType: 'plant', courseName: '多肉組盆體驗', completedAt: '2026-03-23', day3Shown: false, day7Shown: false, day14Shown: false },
+  ];
+
+  const displayJourneys = journeys.length > 0 ? journeys : demoJourneys;
+
+  const getDaysSince = (dateStr: string) => {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    return Math.floor(diff / (1000 * 60 * 60 * 24));
+  };
+
+  const getActiveJourneyCard = () => {
+    for (const j of displayJourneys) {
+      const days = getDaysSince(j.completedAt);
+      const msgs = COURSE_JOURNEY_MESSAGES[j.courseType];
+      if (!msgs) continue;
+      if (days >= 3 && days < 7 && !j.day3Shown) return { journey: j, step: 'day3' as const, ...msgs.day3 };
+      if (days >= 7 && days < 14 && !j.day7Shown) return { journey: j, step: 'day7' as const, ...msgs.day7 };
+      if (days >= 14 && !j.day14Shown) return { journey: j, step: 'day14' as const, ...msgs.day14 };
+    }
+    return null;
+  };
+
+  const activeCard = getActiveJourneyCard();
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+      <p className="text-lg font-bold" style={{ color: '#3D3530' }}>🗺️ 我的課程地圖</p>
+
+      {/* Active journey card */}
+      {activeCard && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="rounded-3xl p-5 shadow-sm"
+          style={{ background: 'linear-gradient(135deg, #FFF8E7, #F0F8ED)' }}
+        >
+          <p className="text-xs font-medium mb-1" style={{ color: '#C9A96E' }}>📬 課後旅程提醒</p>
+          <p className="text-base font-bold mb-1" style={{ color: '#3D3530' }}>{activeCard.emoji} {activeCard.title}</p>
+          <p className="text-sm leading-relaxed" style={{ color: '#5C534C' }}>{activeCard.msg}</p>
+          <p className="text-xs mt-2" style={{ color: '#8C7B72' }}>— 來自「{activeCard.journey.courseName}」</p>
+        </motion.div>
+      )}
+
+      {/* Course list */}
+      <div className="space-y-3">
+        {displayJourneys.map(j => {
+          const ti = TOPICS.find(t => t.key === j.courseType);
+          const days = getDaysSince(j.completedAt);
+          const msgs = COURSE_JOURNEY_MESSAGES[j.courseType];
+          const expanded = expandedId === j.courseId;
+          return (
+            <motion.div key={j.courseId} className="rounded-3xl shadow-sm overflow-hidden" style={{ backgroundColor: '#FFFEF9' }}>
+              <button onClick={() => setExpandedId(expanded ? null : j.courseId)} className="w-full text-left p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ backgroundColor: ti?.color || '#F0EDE8' }}>
+                    <span className="text-xl">{ti?.emoji || '🎨'}</span>
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-bold" style={{ color: '#3D3530' }}>{j.courseName}</p>
+                    <p className="text-xs" style={{ color: '#8C7B72' }}>完成於 {j.completedAt} · 第 {days} 天</p>
+                  </div>
+                  <span className="text-xs" style={{ color: '#C9A96E' }}>{expanded ? '收起' : '展開'}</span>
+                </div>
+                {/* Journey progress dots */}
+                <div className="flex items-center gap-1 mt-2 ml-15">
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: days >= 3 ? '#8FA886' : '#E0DCD8' }} />
+                  <div className="w-8 h-0.5" style={{ backgroundColor: days >= 7 ? '#8FA886' : '#E0DCD8' }} />
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: days >= 7 ? '#8FA886' : '#E0DCD8' }} />
+                  <div className="w-8 h-0.5" style={{ backgroundColor: days >= 14 ? '#8FA886' : '#E0DCD8' }} />
+                  <div className="w-2 h-2 rounded-full" style={{ backgroundColor: days >= 14 ? '#8FA886' : '#E0DCD8' }} />
+                  <span className="text-[10px] ml-1" style={{ color: '#8C7B72' }}>Day 3 → 7 → 14</span>
+                </div>
+              </button>
+              <AnimatePresence>
+                {expanded && msgs && (
+                  <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="px-4 pb-4">
+                    <div className="space-y-2 pt-2" style={{ borderTop: '1px solid #F0EDE8' }}>
+                      {[{ day: 3, data: msgs.day3, done: days >= 3 }, { day: 7, data: msgs.day7, done: days >= 7 }, { day: 14, data: msgs.day14, done: days >= 14 }].map(step => (
+                        <div key={step.day} className="p-3 rounded-2xl" style={{ backgroundColor: step.done ? '#F0F8ED' : '#FAF8F5', opacity: step.done ? 1 : 0.6 }}>
+                          <p className="text-xs font-medium" style={{ color: step.done ? '#5C8A4D' : '#8C7B72' }}>
+                            {step.done ? '✓' : '○'} Day {step.day}：{step.data.emoji} {step.data.title}
+                          </p>
+                          <p className="text-xs mt-0.5" style={{ color: '#8C7B72' }}>{step.data.msg}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          );
+        })}
+      </div>
+
+      {displayJourneys.length === 0 && (
+        <div className="text-center py-8">
+          <p className="text-3xl mb-2">🗺️</p>
+          <p className="text-sm" style={{ color: '#8C7B72' }}>還沒有上過課，去預約第一堂體驗吧</p>
+          <a href="https://xiabenhow.com" target="_blank" rel="noopener noreferrer" className="inline-block mt-3 px-5 py-2 rounded-full text-sm font-medium text-white" style={{ backgroundColor: '#C9A96E' }}>探索課程</a>
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+// ===================== PAGE: EXCLUSIVE CONTENT =====================
+
+function ExclusiveContentPage({ userEmail }: { userEmail: string | null }) {
+  const [userCourseTypes, setUserCourseTypes] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (!userEmail) return;
+    const q = query(collection(db, 'user_courses'), where('userId', '==', userEmail));
+    const unsub = onSnapshot(q, (snap) => {
+      const types = [...new Set(snap.docs.map(d => d.data().courseType as string))];
+      setUserCourseTypes(types);
+    });
+    return unsub;
+  }, [userEmail]);
+
+  // Demo: show some unlocked
+  const demoTypes = userCourseTypes.length > 0 ? userCourseTypes : ['fragrance', 'crystal', 'plant'];
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
+      <p className="text-lg font-bold" style={{ color: '#3D3530' }}>🔓 課後專屬內容</p>
+      <p className="text-xs" style={{ color: '#8C7B72' }}>上過的課程會解鎖專屬照顧內容與進階知識</p>
+
+      {TOPICS.map(topic => {
+        const exclusive = COURSE_EXCLUSIVE_CONTENT[topic.key];
+        if (!exclusive) return null;
+        const unlocked = demoTypes.includes(topic.key);
+        return (
+          <div key={topic.key} className="rounded-3xl shadow-sm overflow-hidden" style={{ backgroundColor: '#FFFEF9', opacity: unlocked ? 1 : 0.5 }}>
+            <div className="p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-xl">{topic.emoji}</span>
+                <p className="text-sm font-bold" style={{ color: '#3D3530' }}>{exclusive.title}</p>
+                {unlocked ? (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: '#E8F0E8', color: '#5C8A4D' }}>已解鎖</span>
+                ) : (
+                  <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ backgroundColor: '#F0EDE8', color: '#8C7B72' }}>🔒 上課後解鎖</span>
+                )}
+              </div>
+              {unlocked ? (
+                <div className="space-y-2">
+                  {exclusive.items.map((item, i) => (
+                    <div key={i} className="p-3 rounded-2xl" style={{ backgroundColor: '#FAF8F5' }}>
+                      <p className="text-sm font-medium" style={{ color: '#3D3530' }}>{item.emoji} {item.label}</p>
+                      <p className="text-xs mt-0.5" style={{ color: '#8C7B72' }}>{item.desc}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-4 rounded-2xl text-center" style={{ backgroundColor: '#FAF8F5' }}>
+                  <p className="text-2xl mb-1">🔒</p>
+                  <p className="text-xs" style={{ color: '#8C7B72' }}>上過{topic.label}課程即可解鎖</p>
+                  <a href="https://xiabenhow.com" target="_blank" rel="noopener noreferrer" className="inline-block mt-2 px-4 py-1.5 rounded-full text-xs font-medium text-white" style={{ backgroundColor: '#C9A96E' }}>預約課程</a>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </motion.div>
+  );
+}
+
+// ===================== PAGE: HEALER (REDESIGNED) =====================
+
+function HealerPage({ records, userEmail }: { records: HealingRecord[]; userEmail?: string | null }) {
   const totalDays = new Set(records.map(r => r.date)).size;
   const level = getLevel(totalDays);
   const mostFrequent = getMostFrequentEmotion(records);
@@ -6898,6 +7331,84 @@ function HealerPage({ records }: { records: HealingRecord[] }) {
           <span>🌿 觀察者</span>
           <span>🌸 療癒者</span>
           <span>✨ 穩定之心</span>
+        </div>
+      </motion.div>
+
+      {/* Smart Personalized Reminders */}
+      <motion.div variants={staggerItem} className="space-y-2">
+        <p className="text-sm font-bold" style={{ color: '#3D3530' }}>🔔 今日療癒提醒</p>
+        {(() => {
+          // Show personalized reminders based on demo course types
+          const reminders: { emoji: string; text: string; color: string }[] = [];
+          const demoTypes = ['crystal', 'fragrance', 'plant'];
+          demoTypes.forEach(type => {
+            const msgs = SMART_REMINDERS[type];
+            if (msgs) {
+              const ti = TOPICS.find(t => t.key === type);
+              const dayIndex = new Date().getDay() % msgs.length;
+              reminders.push({ emoji: ti?.emoji || '✨', text: msgs[dayIndex], color: ti?.color || '#F0EDE8' });
+            }
+          });
+          return reminders.slice(0, 3).map((r, i) => (
+            <motion.div
+              key={i}
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: i * 0.1 }}
+              className="rounded-2xl p-3.5"
+              style={{ backgroundColor: r.color + '30' }}
+            >
+              <p className="text-sm" style={{ color: '#3D3530' }}>{r.text}</p>
+            </motion.div>
+          ));
+        })()}
+      </motion.div>
+
+      {/* Personalized Recommendations */}
+      <motion.div variants={staggerItem} className="space-y-2">
+        <p className="text-sm font-bold" style={{ color: '#3D3530' }}>✨ 為你推薦</p>
+        {[
+          { reason: '因為你上過調香課', title: '居家擴香的五個技巧', emoji: '🫧', color: '#E8D5B7' },
+          { reason: '因為你最近常看植物內容', title: '這週推你植物照顧卡', emoji: '🌱', color: '#C5D9B2' },
+          { reason: '因為你喜歡水晶手鍊', title: '今天適合的能量方向：專注力', emoji: '💎', color: '#D4C5E2' },
+        ].map((rec, i) => (
+          <motion.div
+            key={i}
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 + i * 0.1 }}
+            className="rounded-2xl p-4 shadow-sm"
+            style={{ backgroundColor: '#FFFEF9' }}
+          >
+            <p className="text-[10px] mb-1" style={{ color: '#C9A96E' }}>{rec.reason}</p>
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: rec.color }}>
+                <span className="text-base">{rec.emoji}</span>
+              </div>
+              <p className="text-sm font-medium" style={{ color: '#3D3530' }}>{rec.title}</p>
+            </div>
+          </motion.div>
+        ))}
+      </motion.div>
+
+      {/* Next Step You Might Like */}
+      <motion.div variants={staggerItem} className="rounded-3xl p-5 shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
+        <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>🚀 你下一步可能會喜歡</p>
+        <div className="space-y-2">
+          {(() => {
+            const demoTypes = ['fragrance', 'crystal', 'plant'];
+            const recs: { emoji: string; title: string; desc: string; link: string }[] = [];
+            demoTypes.forEach(type => {
+              const typeRecs = NEXT_STEP_RECOMMENDATIONS[type];
+              if (typeRecs) recs.push(typeRecs[0]);
+            });
+            return recs.slice(0, 3).map((rec, i) => (
+              <a key={i} href={rec.link} target="_blank" rel="noopener noreferrer" className="block p-3 rounded-2xl" style={{ backgroundColor: '#FAF8F5' }}>
+                <p className="text-sm font-medium" style={{ color: '#3D3530' }}>{rec.emoji} {rec.title}</p>
+                <p className="text-xs mt-0.5" style={{ color: '#8C7B72' }}>{rec.desc}</p>
+              </a>
+            ));
+          })()}
         </div>
       </motion.div>
 
@@ -7111,6 +7622,10 @@ interface TeacherQuestion {
   reply?: string;
   repliedAt?: string;
   createdAt: string;
+  // Work context (when asking from My Works)
+  workCourseType?: string;
+  workCourseName?: string;
+  fromWork?: boolean;
 }
 
 interface KnowledgeArticle {
@@ -7173,6 +7688,250 @@ const WORK_TAGS = [
   '#下班療癒', '#週末手作', '#閨蜜同樂', '#親子手作', '#企業團建',
   '#超滿意', '#意外驚喜', '#配色控', '#香氣迷人', '#獨一無二',
 ];
+
+// ===================== NEW: USER COURSES & WORKS WALL =====================
+
+interface UserCourse {
+  id: string;
+  courseType: string; // matches TOPICS key
+  courseName: string;
+  completedAt: string; // ISO date
+  workPhotos: string[]; // urls
+  hasCareReminder: boolean;
+  notes?: string;
+}
+
+interface MyWorkWall {
+  id: string;
+  courseType: string;
+  courseName: string;
+  photos: string[];
+  completedAt: string;
+  tags: string[];
+  hasCareReminder: boolean;
+  notes?: string;
+}
+
+interface CollectionItem {
+  id: string;
+  type: 'article' | 'card' | 'work';
+  title: string;
+  imageUrl?: string;
+  topic?: string;
+  savedAt: string;
+}
+
+interface CourseJourney {
+  courseId: string;
+  courseType: string;
+  courseName: string;
+  completedAt: string;
+  day3Shown: boolean;
+  day7Shown: boolean;
+  day14Shown: boolean;
+}
+
+// Course-specific exclusive content
+const COURSE_EXCLUSIVE_CONTENT: Record<string, { title: string; items: { emoji: string; label: string; desc: string }[] }> = {
+  fragrance: {
+    title: '調香學員專屬',
+    items: [
+      { emoji: '🫧', label: '補香指南', desc: '不同場合的補香時機與技巧' },
+      { emoji: '🌸', label: '香氣使用建議', desc: '依季節與心情選擇香氣' },
+      { emoji: '⚗️', label: '精油搭配表', desc: '前中後調的黃金比例' },
+    ],
+  },
+  crystal: {
+    title: '水晶學員專屬',
+    items: [
+      { emoji: '🔮', label: '消磁音頻', desc: '每週淨化你的水晶能量' },
+      { emoji: '💎', label: '水晶搭配卡', desc: '不同情境的水晶組合推薦' },
+      { emoji: '✨', label: '能量方向指引', desc: '本週適合的能量方向' },
+    ],
+  },
+  plant: {
+    title: '植栽學員專屬',
+    items: [
+      { emoji: '🌱', label: '照顧懶人包', desc: '澆水、光照、施肥一次搞懂' },
+      { emoji: '🍃', label: '葉況判斷卡', desc: '看葉子狀態就知道植物需要什麼' },
+      { emoji: '📸', label: '成長紀錄模板', desc: '記錄你的植物每週變化' },
+    ],
+  },
+  leather: {
+    title: '皮革學員專屬',
+    items: [
+      { emoji: '👜', label: '皮革保養指南', desc: '日常保養讓作品更持久' },
+      { emoji: '🧴', label: '油脂選擇建議', desc: '不同皮質適合的保養品' },
+      { emoji: '✂️', label: '進階技法分享', desc: '手縫與邊油處理技巧' },
+    ],
+  },
+  candle: {
+    title: '蠟燭學員專屬',
+    items: [
+      { emoji: '🕯️', label: '燃燒技巧', desc: '第一次點蠟燭的正確方式' },
+      { emoji: '🫧', label: '香氣搭配', desc: '不同空間的香氣推薦' },
+      { emoji: '💡', label: '蠟燭保存法', desc: '延長蠟燭壽命的小撇步' },
+    ],
+  },
+  soap: {
+    title: '手工皂學員專屬',
+    items: [
+      { emoji: '🧼', label: '熟成指南', desc: '皂化完成的判斷與等待' },
+      { emoji: '🌿', label: '配方筆記', desc: '油品比例與添加物建議' },
+      { emoji: '💧', label: '保存方法', desc: '手工皂的正確保存方式' },
+    ],
+  },
+  floral: {
+    title: '花藝學員專屬',
+    items: [
+      { emoji: '💐', label: '花材保鮮術', desc: '讓鮮花多開好幾天' },
+      { emoji: '🌷', label: '季節花材表', desc: '每月推薦花材與搭配' },
+      { emoji: '🎨', label: '配色靈感', desc: '花藝配色的黃金法則' },
+    ],
+  },
+  resin: {
+    title: '樹脂學員專屬',
+    items: [
+      { emoji: '✨', label: '樹脂比例表', desc: 'A/B膠的完美比例' },
+      { emoji: '🎨', label: '調色技巧', desc: '透明與不透明的調色祕訣' },
+      { emoji: '💎', label: '拋光指南', desc: '讓作品閃閃發亮的方法' },
+    ],
+  },
+  diffuser: {
+    title: '擴香石學員專屬',
+    items: [
+      { emoji: '🪨', label: '補香時機', desc: '擴香石何時需要補香' },
+      { emoji: '🫧', label: '精油推薦', desc: '最適合擴香石的精油' },
+      { emoji: '🏠', label: '擺放建議', desc: '不同空間的擺放位置' },
+    ],
+  },
+  painting: {
+    title: '畫畫學員專屬',
+    items: [
+      { emoji: '🎨', label: '調色參考', desc: '常用色彩的混色指南' },
+      { emoji: '🖌️', label: '筆觸練習', desc: '基礎筆法每日練習' },
+      { emoji: '🖼️', label: '構圖靈感', desc: '簡單構圖的黃金法則' },
+    ],
+  },
+  weaving: {
+    title: '編織學員專屬',
+    items: [
+      { emoji: '🧶', label: '針法圖解', desc: '基礎到進階針法速查' },
+      { emoji: '📏', label: '尺寸換算', desc: '不同線材的尺寸對照' },
+      { emoji: '🎨', label: '配色靈感', desc: '編織配色的美感指引' },
+    ],
+  },
+  indigo: {
+    title: '藍染學員專屬',
+    items: [
+      { emoji: '🫐', label: '染液照顧', desc: '藍染缸的日常維護' },
+      { emoji: '👕', label: '洗滌須知', desc: '藍染作品的正確洗法' },
+      { emoji: '🎨', label: '紋樣圖鑑', desc: '經典藍染紋樣與技法' },
+    ],
+  },
+};
+
+// Course journey messages (3/7/14 day)
+const COURSE_JOURNEY_MESSAGES: Record<string, { day3: { emoji: string; title: string; msg: string }; day7: { emoji: string; title: string; msg: string }; day14: { emoji: string; title: string; msg: string } }> = {
+  plant: {
+    day3: { emoji: '🌱', title: '你的植物適應得還好嗎？', msg: '剛帶回家的前幾天，植物需要適應新環境。不用太擔心，給它安靜的角落就好。' },
+    day7: { emoji: '💧', title: '今天可以幫植物喝水了', msg: '觀察一下土壤，如果表面乾了就可以澆水。記得不要澆太多喔！' },
+    day14: { emoji: '📸', title: '來記錄第一張成長照片吧', msg: '兩週了！你的植物有長新葉嗎？拍張照片記錄這個時刻吧。' },
+  },
+  crystal: {
+    day3: { emoji: '💎', title: '來看看你的水晶能量小卡', msg: '這幾天有沒有感覺到水晶的能量？試著在冥想時握著它。' },
+    day7: { emoji: '🔮', title: '這週適合做一次簡單淨化', msg: '用流動清水輕輕沖洗，或放在月光下一晚，讓水晶恢復能量。' },
+    day14: { emoji: '✨', title: '你最常戴的是哪一條？', msg: '兩週的相處，你和水晶有了默契了嗎？分享你的感受吧。' },
+  },
+  fragrance: {
+    day3: { emoji: '🫧', title: '這幾天最喜歡在哪個時刻噴它？', msg: '每個人和香氣的相處方式不同，找到你最喜歡的使用時刻。' },
+    day7: { emoji: '💡', title: '來看看補香技巧', msg: '香水的前中後調會隨時間變化，了解補香時機讓香氣更持久。' },
+    day14: { emoji: '🌸', title: '你偏好的香氣，也許會喜歡這些', msg: '根據你選的香調，我們推薦幾款你可能會喜歡的精油。' },
+  },
+  candle: {
+    day3: { emoji: '🕯️', title: '第一次點蠟燭了嗎？', msg: '記得第一次燃燒要讓整個表面都融化，這樣才不會產生隧道效應喔。' },
+    day7: { emoji: '🌙', title: '蠟燭與夜晚最配', msg: '試著在睡前一小時點燃，搭配輕音樂，享受屬於自己的療癒時光。' },
+    day14: { emoji: '📝', title: '分享你的蠟燭體驗', msg: '兩週了，你最喜歡在什麼場景使用呢？來社群分享吧。' },
+  },
+  leather: {
+    day3: { emoji: '👜', title: '皮革作品需要呼吸', msg: '新作品放在通風處讓它自然乾燥，避免直射陽光。' },
+    day7: { emoji: '🧴', title: '第一次保養的好時機', msg: '用專用保養油輕輕擦拭，讓皮革保持柔軟光澤。' },
+    day14: { emoji: '📸', title: '記錄皮革的變化', msg: '皮革會隨時間產生獨特的光澤，拍張照片記錄這個過程吧。' },
+  },
+  soap: {
+    day3: { emoji: '🧼', title: '手工皂還在熟成中', msg: '耐心等待是值得的，皂化需要時間讓成分完全反應。' },
+    day7: { emoji: '💧', title: '可以開始試用了', msg: '一週後的手工皂已經可以使用，先從手部清洗開始試試看。' },
+    day14: { emoji: '🌿', title: '分享你的使用心得', msg: '用了兩週，皮膚有什麼變化嗎？來分享你的真實感受。' },
+  },
+  floral: {
+    day3: { emoji: '💐', title: '花材還新鮮嗎？', msg: '記得每天換水、斜切花莖，讓花朵保持最佳狀態。' },
+    day7: { emoji: '🌷', title: '乾燥花的好時機', msg: '如果花朵開始凋謝，可以倒掛做成乾燥花，延續美好。' },
+    day14: { emoji: '🎨', title: '下一次花藝靈感', msg: '試試用不同的花器和花材，創造屬於你的風格。' },
+  },
+  resin: {
+    day3: { emoji: '✨', title: '樹脂完全硬化了嗎？', msg: '確認作品已經完全硬化，如果還有點軟，再等待一天。' },
+    day7: { emoji: '💎', title: '拋光讓作品更閃亮', msg: '用細砂紙和拋光膏，讓你的樹脂作品散發光澤。' },
+    day14: { emoji: '📸', title: '拍一張美美的照片', msg: '找個好光線，記錄你的樹脂作品最美的樣子。' },
+  },
+  diffuser: {
+    day3: { emoji: '🪨', title: '擴香石的香氣如何？', msg: '剛做好的擴香石香氣最濃郁，享受這個美好時刻。' },
+    day7: { emoji: '🫧', title: '可以補香了', msg: '滴2-3滴喜歡的精油，讓擴香石重新散發香氣。' },
+    day14: { emoji: '🏠', title: '找到最佳擺放位置了嗎', msg: '試試放在不同空間，感受擴香石帶來的氛圍變化。' },
+  },
+  painting: {
+    day3: { emoji: '🎨', title: '畫作乾了嗎？', msg: '讓作品自然風乾，避免直接日曬。' },
+    day7: { emoji: '🖌️', title: '試試每天練習10分鐘', msg: '簡單的線條練習就好，持續比完美更重要。' },
+    day14: { emoji: '🖼️', title: '你的畫可以裱框了', msg: '選一個喜歡的框，讓作品變成家中的風景。' },
+  },
+  weaving: {
+    day3: { emoji: '🧶', title: '編織的節奏找到了嗎？', msg: '不用急，慢慢找到屬於你的編織節奏。' },
+    day7: { emoji: '📏', title: '量一下進度', msg: '看看已經完成了多少，給自己一個小獎勵。' },
+    day14: { emoji: '🎀', title: '作品快完成了嗎？', msg: '最後的收尾很重要，耐心完成每一針。' },
+  },
+  indigo: {
+    day3: { emoji: '🫐', title: '藍染作品洗過了嗎？', msg: '第一次清洗用冷水手洗，輕柔對待你的作品。' },
+    day7: { emoji: '👕', title: '藍染會越洗越美', msg: '隨著清洗次數增加，藍染會呈現獨特的漸層美。' },
+    day14: { emoji: '📸', title: '記錄藍染的變化', msg: '兩週後的顏色和剛做好時不同，拍照對比看看。' },
+  },
+};
+
+// Next step recommendations based on courses taken
+const NEXT_STEP_RECOMMENDATIONS: Record<string, { emoji: string; title: string; desc: string; link: string }[]> = {
+  fragrance: [
+    { emoji: '🌸', title: '芳療客製服務', desc: '讓專業芳療師為你調配專屬香氣', link: 'https://xiabenhow.com' },
+    { emoji: '⚗️', title: '進階調香課', desc: '學習更複雜的香調搭配技巧', link: 'https://xiabenhow.com' },
+  ],
+  crystal: [
+    { emoji: '💎', title: '高階晶礦選購', desc: '挑選適合你能量的進階礦石', link: 'https://xiabenhow.com' },
+    { emoji: '📿', title: '客製手鍊服務', desc: '依你的需求打造專屬水晶手鍊', link: 'https://xiabenhow.com' },
+  ],
+  plant: [
+    { emoji: '🌿', title: '進階植栽課', desc: '學習組盆、換盆與繁殖技巧', link: 'https://xiabenhow.com' },
+    { emoji: '🪴', title: '特殊盆器選購', desc: '為你的植物找一個美麗的家', link: 'https://xiabenhow.com' },
+  ],
+  leather: [
+    { emoji: '👜', title: '進階皮件課', desc: '挑戰更複雜的皮件作品', link: 'https://xiabenhow.com' },
+    { emoji: '🧵', title: '皮革材料包', desc: '在家也能繼續練習的材料組', link: 'https://xiabenhow.com' },
+  ],
+  candle: [
+    { emoji: '🕯️', title: '進階蠟燭課', desc: '學習浮雕蠟燭與特殊技法', link: 'https://xiabenhow.com' },
+    { emoji: '🫧', title: '香氛精油選購', desc: '為你的蠟燭找到完美的香氣', link: 'https://xiabenhow.com' },
+  ],
+  soap: [
+    { emoji: '🧼', title: '進階皂藝課', desc: '學習渲染皂與造型皂技法', link: 'https://xiabenhow.com' },
+    { emoji: '🌿', title: '天然添加物', desc: '探索更多天然入皂材料', link: 'https://xiabenhow.com' },
+  ],
+};
+
+// Smart reminder data
+const SMART_REMINDERS: Record<string, string[]> = {
+  crystal: ['你的水晶這週可以消磁了 🔮', '今天適合用紫水晶冥想 💜', '月圓之夜適合淨化水晶 🌕'],
+  fragrance: ['你的香氣該補香了 🫧', '今天的心情適合柑橘調 🍊', '睡前擴香薰衣草幫助入眠 💤'],
+  plant: ['該幫植物澆水了 💧', '今天適合幫植物曬曬太陽 ☀️', '觀察一下葉子的狀態 🌿'],
+  candle: ['蠟燭記得修剪燭芯再點 ✂️', '今晚來點一支療癒蠟燭吧 🕯️'],
+  leather: ['皮革作品可以保養一下了 🧴', '定期保養讓皮革更有光澤 ✨'],
+  diffuser: ['擴香石可以補香了 🪨', '換一個精油試試不同氛圍 🫧'],
+};
 
 function HealingLibraryPage({ userEmail }: { userEmail: string | null }) {
   const [view, setView] = useState<LibraryView>('home');
@@ -11182,7 +11941,7 @@ export default function HealingApp() {
               />
             )}
             {page === 'card' && <CardPage onTaskComplete={completeTask} records={records} />}
-            {page === 'healer' && <HealerPage records={records} />}
+            {page === 'healer' && <HealerPage records={records} userEmail={user?.email || null} />}
             {page === 'shop' && <ShopPage />}
             {page === 'library' && <HealingLibraryPage userEmail={user?.email || null} />}
             {page === 'calendar' && <FragranceCalendarPage />}
@@ -11190,6 +11949,10 @@ export default function HealingApp() {
             {page === 'custom' && <CustomOilPage user={user} records={records} />}
             {page === 'service' && <ServiceHallPage onNavigate={(p) => setPage(p)} />}
             {page === 'wishlist' && <WishlistPage onNavigate={(p) => setPage(p)} />}
+            {page === 'my-works' && <MyWorksWallPage userEmail={user?.email || null} onNavigate={(p) => setPage(p)} />}
+            {page === 'collections' && <CollectionCenterPage userEmail={user?.email || null} onNavigate={(p) => setPage(p)} />}
+            {page === 'course-journey' && <CourseJourneyPage userEmail={user?.email || null} />}
+            {page === 'exclusive-content' && <ExclusiveContentPage userEmail={user?.email || null} />}
           </motion.div>
         </AnimatePresence>
       </div>
