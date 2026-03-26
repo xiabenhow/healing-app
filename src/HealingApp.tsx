@@ -7064,8 +7064,6 @@ function HealingLibraryPage({ userEmail }: { userEmail: string | null }) {
     plant_recommendation?: { name: string; why: string; care: string; healing_quote: string } | null;
   } | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
-  const [plantDiagnosisResult, setPlantDiagnosisResult] = useState<string | null>(null);
-  const [plantDiagnosisLoading, setPlantDiagnosisLoading] = useState(false);
 
   // AI 個人化內容載入
   useEffect(() => {
@@ -7142,42 +7140,6 @@ function HealingLibraryPage({ userEmail }: { userEmail: string | null }) {
       fetchAiContent();
     }
   }, [courseTypes.length, plants.length]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // 植物照片診斷
-  const handlePlantDiagnosis = async (file: File, plantName?: string) => {
-    setPlantDiagnosisLoading(true);
-    setPlantDiagnosisResult(null);
-    try {
-      const reader = new FileReader();
-      const base64 = await new Promise<string>((resolve, reject) => {
-        reader.onload = () => {
-          const result = reader.result as string;
-          resolve(result.split(',')[1]); // 移除 data:image/... prefix
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-
-      const resp = await fetch(`${API_BASE}/api/healing/plant-diagnosis`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          imageBase64: base64,
-          imageMediaType: file.type || 'image/jpeg',
-          plantName,
-        }),
-      });
-
-      if (!resp.ok) throw new Error('Diagnosis failed');
-      const result = await resp.json();
-      setPlantDiagnosisResult(result.diagnosis);
-    } catch (e) {
-      console.error('Plant diagnosis failed:', e);
-      setPlantDiagnosisResult('診斷暫時無法使用，請稍後再試');
-    } finally {
-      setPlantDiagnosisLoading(false);
-    }
-  };
 
   // Persist to localStorage
   useEffect(() => { saveToStorage(STORAGE_KEYS.plants, plants); }, [plants]);
@@ -8157,75 +8119,27 @@ function HealingLibraryPage({ userEmail }: { userEmail: string | null }) {
           </motion.div>
         )}
 
-        {/* Section 7: 植物照片 AI 診斷 */}
-        {(courseTypes.includes('plant') || plants.length > 0) && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-            <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>📸 拍照問問 AI</p>
-            <div className="rounded-2xl p-4 shadow-sm space-y-3" style={cardStyle}>
-              <p className="text-xs leading-relaxed" style={{ color: '#8C7B72' }}>上傳植物照片，讓 AI 幫你看看它的狀況</p>
-              <label className="flex items-center justify-center gap-2 rounded-xl py-2.5 cursor-pointer"
-                style={{ backgroundColor: '#8FA88618', color: '#8FA886' }}>
-                <span className="text-sm">📷</span>
-                <span className="text-sm font-medium">選擇照片</span>
-                <input type="file" accept="image/*" className="hidden"
-                  onChange={e => {
-                    const file = e.target.files?.[0];
-                    if (file) handlePlantDiagnosis(file, plants[0]?.name);
-                    e.target.value = '';
-                  }} />
-              </label>
-              {plantDiagnosisLoading && (
-                <div className="flex items-center gap-2 py-2">
-                  <div className="w-4 h-4 border-2 rounded-full animate-spin" style={{ borderColor: '#8FA886', borderTopColor: 'transparent' }} />
-                  <p className="text-xs" style={{ color: '#8C7B72' }}>AI 正在仔細看...</p>
-                </div>
-              )}
-              {plantDiagnosisResult && (
-                <div className="rounded-xl p-3" style={{ backgroundColor: '#F0EDE8' }}>
-                  <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: '#3D3530' }}>{plantDiagnosisResult}</p>
-                </div>
-              )}
-            </div>
-          </motion.div>
-        )}
-
-        {/* Section 8: AI 延伸推薦 / 靜態推薦 */}
+        {/* Section 7: 延伸推薦 */}
         <div>
           <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>你可能也會喜歡</p>
           <div className="space-y-2.5">
-            {aiContent?.recommendations && aiContent.recommendations.length > 0 ? (
-              aiContent.recommendations.map((item, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.3 + i * 0.08 }}
-                  className="rounded-2xl px-4 py-3.5"
-                  style={{ backgroundColor: '#C5D9B218' }}
-                >
-                  <p className="text-sm font-medium" style={{ color: '#3D3530' }}>{item.title}</p>
-                  <p className="text-xs mt-0.5 leading-relaxed" style={{ color: '#8C7B72' }}>{item.reason}</p>
-                  <span className="inline-block mt-1.5 px-2 py-0.5 rounded-lg text-xs" style={{ backgroundColor: '#8FA88618', color: '#8FA886' }}>{item.type === 'article' ? '文章' : item.type === 'course' ? '課程' : item.type === 'plant' ? '植物' : '推薦'}</span>
-                </motion.div>
-              ))
-            ) : (
-              [{emoji: '🌿', text: '喜歡調香的你，也許會想體驗芳療客製服務', color: '#E8D5B7'},
-               {emoji: '💎', text: '做過水晶手鍊的你，也適合看看高階晶礦手鍊', color: '#D4C5E2'},
-               {emoji: '🌱', text: '喜歡植栽的你，也可以延伸體驗其他自然療癒課程', color: '#C5D9B2'},
-              ].map((item, i) => (
-                <motion.div
-                  key={i}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.3 + i * 0.08 }}
-                  className="rounded-2xl px-4 py-3.5 flex items-center gap-3"
-                  style={{ backgroundColor: item.color + '18' }}
-                >
-                  <span className="text-lg">{item.emoji}</span>
-                  <p className="text-xs leading-relaxed" style={{ color: '#8C7B72' }}>{item.text}</p>
-                </motion.div>
-              ))
-            )}
+            {[
+              { emoji: '🌿', text: '喜歡調香的你，也許會想體驗芳療客製服務', color: '#E8D5B7' },
+              { emoji: '💎', text: '做過水晶手鍊的你，也適合看看高階晶礦手鍊', color: '#D4C5E2' },
+              { emoji: '🌱', text: '喜歡植栽的你，也可以延伸體驗其他自然療癒課程', color: '#C5D9B2' },
+            ].map((item, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.3 + i * 0.08 }}
+                className="rounded-2xl px-4 py-3.5 flex items-center gap-3"
+                style={{ backgroundColor: item.color + '18' }}
+              >
+                <span className="text-lg">{item.emoji}</span>
+                <p className="text-xs leading-relaxed" style={{ color: '#8C7B72' }}>{item.text}</p>
+              </motion.div>
+            ))}
           </div>
         </div>
 
