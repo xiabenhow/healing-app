@@ -6670,7 +6670,7 @@ function CardPage({ onTaskComplete, records }: { onTaskComplete: (key: TaskKey) 
                 slots.push({
                   date: dateStr,
                   cardId: card?.id || null,
-                  emoji: card?.emoji || '✨',
+                  emoji: card ? CARD_COLOR_CONFIG[card.color]?.label?.charAt(0) || '✨' : '✨',
                   title: card?.title || '未抽卡'
                 });
               }
@@ -6708,7 +6708,7 @@ function CardPage({ onTaskComplete, records }: { onTaskComplete: (key: TaskKey) 
                         animate={{ scale: 1, opacity: 1 }}
                         transition={{ type: 'spring', damping: 15 }}
                       >
-                        <span className="text-3xl">{card.emoji}</span>
+                        <span className="text-3xl">{cfg?.label?.charAt(0) || '✦'}</span>
                         <p className="text-[10px] font-medium text-center leading-tight" style={{ color: cfg?.hex }}>
                           {card.title}
                         </p>
@@ -14529,7 +14529,7 @@ export default function HealingApp() {
               />
             )}
             {page === 'card' && <CardPage onTaskComplete={completeTask} records={records} />}
-            {page === 'healer' && <HealerPage records={records} userEmail={user?.email || null} onNavigate={(p) => setPage(p)} onTaskComplete={completeTask} />}
+            {page === 'healer' && <HealerPage records={records} userEmail={user?.email || null} onNavigate={(p) => setPage(p)} onTaskComplete={() => completeTask('checkin')} />}
             {page === 'shop' && <ShopPage />}
             {page === 'library' && <HealingLibraryPage userEmail={user?.email || null} onNavigate={(p) => setPage(p)} />}
             {page === 'community' && <CommunityPage userEmail={user?.email || null} />}
