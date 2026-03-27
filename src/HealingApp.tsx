@@ -45,7 +45,7 @@ import {
 
 // ===================== TYPES =====================
 
-type PageType = 'home' | 'diary' | 'recipe' | 'card' | 'healer' | 'library' | 'calendar' | 'sound' | 'booking' | 'member' | 'shop' | 'healing' | 'bedtime' | 'custom' | 'service' | 'wishlist' | 'my-works' | 'collections' | 'course-journey' | 'exclusive-content';
+type PageType = 'home' | 'diary' | 'recipe' | 'card' | 'healer' | 'library' | 'calendar' | 'sound' | 'booking' | 'member' | 'shop' | 'healing' | 'bedtime' | 'custom' | 'service' | 'wishlist' | 'my-works' | 'collections' | 'course-journey' | 'exclusive-content' | 'community' | 'explore' | 'journal';
 type TaskKey = 'checkin' | 'card' | 'note' | 'breathe' | 'evening' | 'share';
 
 interface CartItem {
@@ -2075,6 +2075,9 @@ function DiaryPage({ records, onUpdateRecord, onCheckIn }: {
   const [showEntryModal, setShowEntryModal] = useState(false);
   const [privacyMode, setPrivacyMode] = useState(false);
   const [showMiniCheckIn, setShowMiniCheckIn] = useState(false);
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [pinLocked, setPinLocked] = useState(() => !!localStorage.getItem('healing_app_pin'));
+  const [pinVerified, setPinVerified] = useState(false);
 
   const getWeekday = (dateStr: string): string => {
     const days = ['日', '一', '二', '三', '四', '五', '六'];
@@ -2246,10 +2249,21 @@ function DiaryPage({ records, onUpdateRecord, onCheckIn }: {
             </button>
           ))}
         </div>
-        <button onClick={() => setPrivacyMode(!privacyMode)}
+        <button onClick={() => {
+            if (pinLocked && !pinVerified) {
+              setShowPinModal(true);
+            } else {
+              setPrivacyMode(!privacyMode);
+            }
+          }}
           className="px-3 py-1.5 rounded-xl text-xs transition-all"
           style={{ backgroundColor: privacyMode ? '#3D3530' : '#FFFEF9', color: privacyMode ? '#fff' : '#8C7B72' }}>
           {privacyMode ? '🔒' : '🔓'}
+        </button>
+        <button onClick={() => setShowPinModal(true)}
+          className="px-2 py-1.5 rounded-xl text-[10px]"
+          style={{ backgroundColor: '#FAF8F5', color: '#8C7B72' }}>
+          {pinLocked ? '⚙️' : '設定密碼'}
         </button>
       </div>
 
@@ -2504,7 +2518,143 @@ function DiaryPage({ records, onUpdateRecord, onCheckIn }: {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* PIN Lock Modal */}
+      <AnimatePresence>
+        {showPinModal && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          >
+            <div className="absolute inset-0 bg-black/40" onClick={() => setShowPinModal(false)} />
+            <motion.div
+              className="relative w-80 rounded-3xl p-6 shadow-xl"
+              style={{ backgroundColor: '#FFFEF9' }}
+              initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }}
+            >
+              <PinLockModal
+                onClose={() => setShowPinModal(false)}
+                onPinSet={() => { setPinLocked(true); setShowPinModal(false); }}
+                onPinVerified={() => { setPinVerified(true); setPrivacyMode(!privacyMode); setShowPinModal(false); }}
+                onPinRemoved={() => { setPinLocked(false); setPinVerified(false); setShowPinModal(false); }}
+                isLocked={pinLocked}
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
+  );
+}
+
+// === PIN Lock Component ===
+function PinLockModal({ onClose, onPinSet, onPinVerified, onPinRemoved, isLocked }: {
+  onClose: () => void;
+  onPinSet: () => void;
+  onPinVerified: () => void;
+  onPinRemoved: () => void;
+  isLocked: boolean;
+}) {
+  const [pin, setPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
+  const [step, setStep] = useState<'enter' | 'confirm' | 'verify'>(isLocked ? 'verify' : 'enter');
+  const [error, setError] = useState('');
+
+  const handleDigit = (digit: string) => {
+    setError('');
+    if (step === 'enter' && pin.length < 4) {
+      const newPin = pin + digit;
+      setPin(newPin);
+      if (newPin.length === 4) setTimeout(() => setStep('confirm'), 300);
+    } else if (step === 'confirm' && confirmPin.length < 4) {
+      const newConfirm = confirmPin + digit;
+      setConfirmPin(newConfirm);
+      if (newConfirm.length === 4) {
+        setTimeout(() => {
+          if (newConfirm === pin) {
+            localStorage.setItem('healing_app_pin', btoa(pin));
+            onPinSet();
+          } else {
+            setError('密碼不一致，請重新輸入');
+            setPin(''); setConfirmPin(''); setStep('enter');
+          }
+        }, 300);
+      }
+    } else if (step === 'verify' && pin.length < 4) {
+      const newPin = pin + digit;
+      setPin(newPin);
+      if (newPin.length === 4) {
+        setTimeout(() => {
+          const stored = localStorage.getItem('healing_app_pin');
+          if (stored && atob(stored) === newPin) {
+            onPinVerified();
+          } else {
+            setError('密碼錯誤');
+            setPin('');
+          }
+        }, 300);
+      }
+    }
+  };
+
+  const handleDelete = () => {
+    if (step === 'confirm') setConfirmPin(prev => prev.slice(0, -1));
+    else setPin(prev => prev.slice(0, -1));
+    setError('');
+  };
+
+  const currentPin = step === 'confirm' ? confirmPin : pin;
+  const title = step === 'enter' ? '設定 4 位數密碼' : step === 'confirm' ? '再次確認密碼' : '請輸入密碼';
+
+  return (
+    <div className="text-center space-y-5">
+      <div>
+        <p className="text-base font-bold" style={{ color: '#3D3530' }}>{title}</p>
+        {error && <p className="text-xs mt-1" style={{ color: '#E8735A' }}>{error}</p>}
+      </div>
+      {/* PIN dots */}
+      <div className="flex justify-center gap-4">
+        {[0, 1, 2, 3].map(i => (
+          <motion.div
+            key={i}
+            className="w-4 h-4 rounded-full"
+            style={{ backgroundColor: i < currentPin.length ? '#8FA886' : '#F0EDE8' }}
+            animate={{ scale: i === currentPin.length - 1 && currentPin.length > 0 ? [1, 1.3, 1] : 1 }}
+            transition={{ duration: 0.2 }}
+          />
+        ))}
+      </div>
+      {/* Keypad */}
+      <div className="grid grid-cols-3 gap-3">
+        {['1','2','3','4','5','6','7','8','9','','0','←'].map(key => (
+          <button
+            key={key || 'empty'}
+            onClick={() => key === '←' ? handleDelete() : key ? handleDigit(key) : null}
+            disabled={!key}
+            className="h-12 rounded-2xl text-lg font-medium transition-all active:scale-95"
+            style={{
+              backgroundColor: key ? '#FAF8F5' : 'transparent',
+              color: '#3D3530',
+              border: key ? '1px solid #F0EDE8' : 'none',
+            }}
+          >
+            {key}
+          </button>
+        ))}
+      </div>
+      {/* Remove PIN option */}
+      <div className="flex gap-2">
+        {isLocked && (
+          <button onClick={() => { localStorage.removeItem('healing_app_pin'); onPinRemoved(); }}
+            className="flex-1 text-xs py-2 rounded-xl" style={{ color: '#E8735A', backgroundColor: '#FAF8F5' }}>
+            移除密碼
+          </button>
+        )}
+        <button onClick={onClose} className="flex-1 text-xs py-2 rounded-xl" style={{ color: '#8C7B72', backgroundColor: '#FAF8F5' }}>
+          取消
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -5236,7 +5386,7 @@ function MemberPage({ records, onNavigate }: { records: HealingRecord[]; onNavig
     <motion.div className="space-y-5" {...fadeInUp}>
       {/* Header */}
       <div>
-        <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>你的陪伴檔案</h2>
+        <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>我的空間</h2>
         <p className="text-sm mt-0.5" style={{ color: '#8C7B72' }}>
           {user.displayName ? `歡迎回來，${user.displayName}` : '歡迎回來'}
         </p>
@@ -5279,183 +5429,6 @@ function MemberPage({ records, onNavigate }: { records: HealingRecord[]; onNavig
         </motion.button>
       </motion.div>
 
-      {/* BLOCK 1: 我的陪伴紀錄 */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
-        className="rounded-3xl p-5 shadow-sm"
-        style={{ backgroundColor: '#FFFEF9' }}
-      >
-        <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>我的陪伴紀錄</p>
-        <div className="space-y-3">
-          <div>
-            <p className="text-3xl font-bold" style={{ color: '#8FA886' }}>{streak}</p>
-            <p className="text-xs mt-1" style={{ color: '#8C7B72' }}>你已經連續陪伴自己 {streak} 天了</p>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="p-3 rounded-2xl" style={{ backgroundColor: '#FAF8F5' }}>
-              <p className="text-xs" style={{ color: '#8C7B72' }}>本月打卡</p>
-              <p className="text-lg font-bold" style={{ color: '#3D3530' }}>{monthCheckins}</p>
-            </div>
-            <div className="p-3 rounded-2xl" style={{ backgroundColor: '#FAF8F5' }}>
-              <p className="text-xs" style={{ color: '#8C7B72' }}>常見情緒</p>
-              <p className="text-lg font-bold" style={{ color: '#3D3530' }}>
-                {mostFrequentInfo?.label || '-'}
-              </p>
-            </div>
-          </div>
-          {mostFrequentInfo && (
-            <p className="text-xs leading-relaxed" style={{ color: '#5C534C' }}>
-              你最近比較需要被陪伴的是：<span style={{ fontWeight: 600 }}>安定與理解</span>
-            </p>
-          )}
-          <div className="flex gap-1.5">
-            {records.slice(-7).reverse().map((r, i) => (
-              <div
-                key={i}
-                className="w-4 h-4 rounded-full"
-                style={{ backgroundColor: getEmotionInfo(r.emotion).color }}
-              />
-            ))}
-          </div>
-        </div>
-      </motion.div>
-
-      {/* BLOCK: 陪伴能量 */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.12 }}
-        className="rounded-3xl p-5 shadow-sm"
-        style={{ backgroundColor: '#FFFEF9' }}
-      >
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-sm font-bold" style={{ color: '#3D3530' }}>陪伴能量</p>
-          <motion.button
-            whileTap={{ scale: 0.96 }}
-            onClick={() => setShowEnergyDetail(!showEnergyDetail)}
-            className="text-xs px-2.5 py-1 rounded-full"
-            style={{ backgroundColor: '#FAF8F5', color: '#8C7B72' }}
-          >
-            {showEnergyDetail ? '收起' : '查看詳情'}
-          </motion.button>
-        </div>
-
-        {/* Energy progress bar */}
-        <div className="flex items-end gap-3 mb-3">
-          <p className="text-3xl font-bold" style={{ color: '#8FA886' }}>{energyState.totalEnergy}</p>
-          <p className="text-xs pb-1" style={{ color: '#8C7B72' }}>陪伴能量</p>
-        </div>
-
-        {/* Next tier progress */}
-        {(() => {
-          const nextTier = COUPON_TIERS.find(t => t.thresholdEnergy > energyState.totalEnergy);
-          if (!nextTier) return (
-            <p className="text-xs" style={{ color: '#C9A96E' }}>你已經解鎖了所有票券，謝謝你一直在 💛</p>
-          );
-          const prevThreshold = COUPON_TIERS.filter(t => t.thresholdEnergy <= energyState.totalEnergy).pop()?.thresholdEnergy || 0;
-          const progress = ((energyState.totalEnergy - prevThreshold) / (nextTier.thresholdEnergy - prevThreshold)) * 100;
-          return (
-            <div>
-              <div className="flex justify-between text-xs mb-1.5">
-                <span style={{ color: '#8C7B72' }}>距離「{nextTier.emoji} {nextTier.name}」</span>
-                <span style={{ color: '#8FA886', fontWeight: 600 }}>還差 {nextTier.thresholdEnergy - energyState.totalEnergy} 能量</span>
-              </div>
-              <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: '#F0EDE8' }}>
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${Math.min(progress, 100)}%` }}
-                  transition={{ duration: 0.8, ease: 'easeOut' }}
-                  className="h-full rounded-full"
-                  style={{ backgroundColor: '#8FA886' }}
-                />
-              </div>
-            </div>
-          );
-        })()}
-
-        {/* Today's actions */}
-        <div className="mt-3 pt-3" style={{ borderTop: '1px solid #F0EDE8' }}>
-          <p className="text-xs font-medium mb-2" style={{ color: '#3D3530' }}>今天的陪伴</p>
-          <div className="flex gap-2">
-            {(Object.keys(ENERGY_ACTIONS) as EnergyActionType[]).map(action => {
-              const info = ENERGY_ACTIONS[action];
-              const today = _energyToday();
-              const done = energyState.logs.some(l => l.date === today && l.action === action);
-              return (
-                <div
-                  key={action}
-                  className="flex-1 text-center py-2 rounded-xl text-xs"
-                  style={{
-                    backgroundColor: done ? '#E8F0E8' : '#FAF8F5',
-                    color: done ? '#5C8A4D' : '#8C7B72',
-                    border: done ? '1px solid #C5D9BE' : '1px solid #F0EDE8',
-                  }}
-                >
-                  <p className="text-base mb-0.5">{info.emoji}</p>
-                  <p className="text-[10px]">{done ? '✓' : info.label}</p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Available coupons */}
-        {energyState.coupons.length > 0 && (
-          <div className="mt-3 pt-3" style={{ borderTop: '1px solid #F0EDE8' }}>
-            <p className="text-xs font-medium mb-2" style={{ color: '#3D3530' }}>你的票券</p>
-            <div className="space-y-2">
-              {energyState.coupons.map(coupon => (
-                <div
-                  key={coupon.id}
-                  className="flex items-center gap-3 p-2.5 rounded-xl"
-                  style={{
-                    backgroundColor: coupon.usedAt > 0 ? '#F5F3F0' : '#FFF8E7',
-                    opacity: coupon.usedAt > 0 ? 0.6 : 1,
-                  }}
-                >
-                  <span className="text-lg">{coupon.emoji}</span>
-                  <div className="flex-1">
-                    <p className="text-xs font-medium" style={{ color: '#3D3530' }}>{coupon.name}</p>
-                    <p className="text-[10px]" style={{ color: '#8C7B72' }}>
-                      {coupon.usedAt > 0 ? '已使用' : `折抵 NT$${coupon.discount} · ${coupon.applicableTo}`}
-                    </p>
-                  </div>
-                  {coupon.usedAt === 0 && (
-                    <span className="text-xs font-bold" style={{ color: '#8FA886' }}>可用</span>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Detail: energy history */}
-        <AnimatePresence>
-          {showEnergyDetail && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="mt-3 pt-3 space-y-1.5"
-              style={{ borderTop: '1px solid #F0EDE8' }}
-            >
-              <p className="text-xs font-medium mb-2" style={{ color: '#3D3530' }}>能量紀錄</p>
-              {energyState.logs.slice(-10).reverse().map((log, i) => (
-                <div key={i} className="flex justify-between text-xs" style={{ color: '#8C7B72' }}>
-                  <span>{log.date} · {log.label}</span>
-                  <span style={{ color: '#8FA886', fontWeight: 600 }}>+{log.points}</span>
-                </div>
-              ))}
-              {energyState.logs.length === 0 && (
-                <p className="text-xs" style={{ color: '#8C7B72' }}>還沒有紀錄，今天開始累積陪伴能量吧</p>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </motion.div>
-
       {/* BLOCK: 我的累積 */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
@@ -5476,11 +5449,6 @@ function MemberPage({ records, onNavigate }: { records: HealingRecord[]; onNavig
             <p className="text-xs font-medium" style={{ color: '#3D3530' }}>我的收藏</p>
             <p className="text-[10px] mt-0.5" style={{ color: '#8C7B72' }}>文章・卡片・作品</p>
           </motion.button>
-          <motion.button whileTap={{ scale: 0.96 }} onClick={() => onNavigate('course-journey')} className="rounded-2xl p-3.5 text-left" style={{ backgroundColor: '#FAF8F5' }}>
-            <p className="text-xl mb-1">🗺️</p>
-            <p className="text-xs font-medium" style={{ color: '#3D3530' }}>課程地圖</p>
-            <p className="text-[10px] mt-0.5" style={{ color: '#8C7B72' }}>課後旅程與進度</p>
-          </motion.button>
           <motion.button whileTap={{ scale: 0.96 }} onClick={() => onNavigate('exclusive-content')} className="rounded-2xl p-3.5 text-left" style={{ backgroundColor: '#FAF8F5' }}>
             <p className="text-xl mb-1">🔓</p>
             <p className="text-xs font-medium" style={{ color: '#3D3530' }}>專屬內容</p>
@@ -5489,51 +5457,61 @@ function MemberPage({ records, onNavigate }: { records: HealingRecord[]; onNavig
         </div>
       </motion.div>
 
-      {/* BLOCK 2: 快捷入口 (3x2 grid) */}
-      <motion.div
+      {/* BLOCK: 服務大廳 (放大) */}
+      <motion.button
+        whileTap={{ scale: 0.97 }}
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.15 }}
-        className="grid grid-cols-3 gap-2.5"
+        onClick={() => onNavigate('service')}
+        className="w-full rounded-2xl p-5 shadow-sm text-left relative overflow-hidden"
+        style={{ background: 'linear-gradient(135deg, #FFF8E1 0%, #FFFEF9 100%)', border: '1px solid #F0EDE8' }}
+      >
+        <div className="flex items-center gap-4">
+          <span className="text-4xl">🤲</span>
+          <div>
+            <p className="text-base font-bold" style={{ color: '#3D3530' }}>服務大廳</p>
+            <p className="text-xs mt-1" style={{ color: '#8C7B72' }}>課程預約・問題諮詢・體驗紀錄</p>
+          </div>
+        </div>
+        <div className="absolute -bottom-3 -right-3 text-7xl opacity-[0.04]">🤲</div>
+      </motion.button>
+
+      {/* BLOCK: 測驗分析入口 */}
+      <motion.button
+        whileTap={{ scale: 0.97 }}
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.17 }}
+        onClick={() => onNavigate('explore')}
+        className="w-full rounded-2xl p-5 shadow-sm text-left relative overflow-hidden"
+        style={{ background: 'linear-gradient(135deg, #E8E0F0 0%, #FFFEF9 100%)', border: '1px solid #F0EDE8' }}
+      >
+        <div className="flex items-center gap-4">
+          <span className="text-4xl">🧠</span>
+          <div>
+            <p className="text-base font-bold" style={{ color: '#3D3530' }}>我的測驗</p>
+            <p className="text-xs mt-1" style={{ color: '#8C7B72' }}>心理測驗結果與療癒人格分析</p>
+          </div>
+        </div>
+        <div className="absolute -bottom-3 -right-3 text-7xl opacity-[0.04]">🔮</div>
+      </motion.button>
+
+      {/* BLOCK: 快捷入口 (2 column) */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.19 }}
+        className="grid grid-cols-2 gap-2.5"
       >
         <motion.button
           whileTap={{ scale: 0.96 }}
-          onClick={() => onNavigate('wishlist')}
+          onClick={() => onNavigate('diary')}
           className="rounded-2xl p-3.5 text-center"
           style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}
         >
-          <p className="text-xl mb-1.5">💭</p>
-          <p className="text-[10px] font-medium" style={{ color: '#3D3530' }}>陪伴清單</p>
-        </motion.button>
-
-        <motion.button
-          whileTap={{ scale: 0.96 }}
-          onClick={() => onNavigate('card')}
-          className="rounded-2xl p-3.5 text-center"
-          style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}
-        >
-          <p className="text-xl mb-1.5">🃏</p>
-          <p className="text-[10px] font-medium" style={{ color: '#3D3530' }}>陪伴卡</p>
-        </motion.button>
-
-        <motion.button
-          whileTap={{ scale: 0.96 }}
-          onClick={() => onNavigate('sound')}
-          className="rounded-2xl p-3.5 text-center"
-          style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}
-        >
-          <p className="text-xl mb-1.5">♪</p>
-          <p className="text-[10px] font-medium" style={{ color: '#3D3530' }}>音景</p>
-        </motion.button>
-
-        <motion.button
-          whileTap={{ scale: 0.96 }}
-          onClick={() => onNavigate('library')}
-          className="rounded-2xl p-3.5 text-center"
-          style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}
-        >
-          <p className="text-xl mb-1.5">📚</p>
-          <p className="text-[10px] font-medium" style={{ color: '#3D3530' }}>療癒知識</p>
+          <p className="text-xl mb-1.5">◎</p>
+          <p className="text-[10px] font-medium" style={{ color: '#3D3530' }}>情緒紀錄</p>
         </motion.button>
 
         <motion.button
@@ -5544,52 +5522,6 @@ function MemberPage({ records, onNavigate }: { records: HealingRecord[]; onNavig
         >
           <p className="text-xl mb-1.5">🗓️</p>
           <p className="text-[10px] font-medium" style={{ color: '#3D3530' }}>調香日曆</p>
-        </motion.button>
-
-        <motion.button
-          whileTap={{ scale: 0.96 }}
-          onClick={() => onNavigate('service')}
-          className="rounded-2xl p-3.5 text-center"
-          style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}
-        >
-          <p className="text-xl mb-1.5">🤲</p>
-          <p className="text-[10px] font-medium" style={{ color: '#3D3530' }}>服務大廳</p>
-        </motion.button>
-      </motion.div>
-
-      {/* BLOCK 3: 為你推薦 (soft commercial) */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-        className="rounded-3xl p-5 shadow-sm space-y-3"
-        style={{ backgroundColor: '#FFFEF9' }}
-      >
-        <motion.button
-          whileTap={{ scale: 0.97 }}
-          onClick={() => onNavigate('shop')}
-          className="w-full text-left p-3 rounded-2xl"
-          style={{ backgroundColor: '#FAF8F5' }}
-        >
-          <p className="text-sm font-medium" style={{ color: '#3D3530' }}>找適合我的香氣</p>
-        </motion.button>
-
-        <motion.button
-          whileTap={{ scale: 0.97 }}
-          onClick={() => onNavigate('custom')}
-          className="w-full text-left p-3 rounded-2xl"
-          style={{ backgroundColor: '#FAF8F5' }}
-        >
-          <p className="text-sm font-medium" style={{ color: '#3D3530' }}>調一瓶更像你的</p>
-        </motion.button>
-
-        <motion.button
-          whileTap={{ scale: 0.97 }}
-          onClick={() => onNavigate('healer')}
-          className="w-full text-left p-3 rounded-2xl"
-          style={{ backgroundColor: '#FAF8F5' }}
-        >
-          <p className="text-sm font-medium" style={{ color: '#3D3530' }}>讓香氛師幫你</p>
         </motion.button>
       </motion.div>
 
@@ -5671,16 +5603,8 @@ function MemberPage({ records, onNavigate }: { records: HealingRecord[]; onNavig
           </div>
         )}
 
-        {/* Service hall + LINE + logout */}
+        {/* LINE + logout */}
         <div className="flex gap-2 pt-2">
-          <motion.button
-            whileTap={{ scale: 0.96 }}
-            onClick={() => onNavigate('service')}
-            className="flex-1 py-2.5 rounded-xl text-xs font-medium"
-            style={{ backgroundColor: '#FAF8F5', color: '#3D3530', border: '1px solid #F0EDE8' }}
-          >
-            🤲 服務大廳
-          </motion.button>
           <motion.a
             whileTap={{ scale: 0.96 }}
             href="https://page.line.me/296yrpvh?openQrModal=true"
@@ -6721,50 +6645,106 @@ function CardPage({ onTaskComplete, records }: { onTaskComplete: (key: TaskKey) 
         </>
       )}
 
-      {/* 我的收藏 */}
-      {savedCards.length > 0 && !drawnCard && (
-        <div>
-          <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>💾 我的收藏（{savedCards.length}）</p>
-          <div className="grid grid-cols-3 gap-2">
-            {savedCards.map(id => {
-              const card = HEALING_CARDS.find(c => c.id === id);
-              if (!card) return null;
-              const cfg = CARD_COLOR_CONFIG[card.color];
-              return (
-                <motion.div
-                  key={id}
-                  className="rounded-2xl overflow-hidden shadow-sm"
-                  style={{ backgroundColor: cfg.bgLight }}
-                  whileTap={{ scale: 0.95 }}
-                  onClick={() => {
-                    setDrawnCard(card);
-                    setIsFlipped(true);
-                    setImgLoaded(false);
-                  }}
-                >
-                  <div className="w-full h-20 overflow-hidden relative">
-                    <img
-                      src={card.image}
-                      alt={card.title}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = 'none';
-                      }}
-                    />
-                    <div className="absolute inset-0" style={{ background: cfg.gradient || `linear-gradient(135deg, ${cfg.hex}44, ${cfg.hex}11)` }} />
-                  </div>
-                  <div className="p-2 text-center">
-                    <div
-                      className="w-2.5 h-2.5 rounded-full mx-auto mb-1"
-                      style={{ backgroundColor: cfg.hex }}
-                    />
-                    <p className="text-xs font-medium" style={{ color: '#3D3530' }}>{card.title}</p>
-                  </div>
-                </motion.div>
-              );
-            })}
+      {/* 我的收藏 - 集卡冊風格（永遠顯示，空位提醒抽卡） */}
+      {!drawnCard && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+          <p className="text-sm font-bold mb-4" style={{ color: '#3D3530' }}>💾 我的療癒卡冊（{savedCards.length}）</p>
+          <p className="text-xs mb-4" style={{ color: '#8C7B72' }}>每一張都是你的療癒時刻✦</p>
+
+          {/* 卡冊網格 - 3列，卡槽設計 */}
+          <div className="grid grid-cols-3 gap-3">
+            {(() => {
+              // 生成最近30天的日期槽位
+              const today = new Date();
+              const slots: { date: string; cardId: string | null; emoji: string; title: string }[] = [];
+
+              for (let i = 29; i >= 0; i--) {
+                const d = new Date(today);
+                d.setDate(d.getDate() - i);
+                const dateStr = formatDate(d);
+                const cardId = localStorage.getItem(`card_drawn_${dateStr}`)
+                  ? HEALING_CARDS.find(c => c.id === (JSON.parse(localStorage.getItem(`card_drawn_${dateStr}`) || '{}').cardId))?.id
+                  : null;
+                const card = cardId ? HEALING_CARDS.find(c => c.id === cardId) : null;
+
+                slots.push({
+                  date: dateStr,
+                  cardId: card?.id || null,
+                  emoji: card?.emoji || '✨',
+                  title: card?.title || '未抽卡'
+                });
+              }
+
+              return slots.map((slot, idx) => {
+                const card = slot.cardId ? HEALING_CARDS.find(c => c.id === slot.cardId) : null;
+                const cfg = card ? CARD_COLOR_CONFIG[card.color] : null;
+                const isDrawn = !!card;
+                const dateObj = new Date(slot.date);
+                const dayNum = dateObj.getDate();
+
+                return (
+                  <motion.div
+                    key={slot.date}
+                    className="rounded-2xl p-3 flex flex-col items-center justify-center cursor-pointer transition-all"
+                    style={{
+                      backgroundColor: isDrawn ? (cfg?.bgLight || '#FFFEF9') : '#FFFEF9',
+                      border: isDrawn ? `2px solid ${cfg?.hex || '#8FA886'}` : '2px dashed #D4CCCB',
+                      aspectRatio: '1',
+                    }}
+                    whileTap={{ scale: 0.92 }}
+                    onClick={() => {
+                      if (isDrawn && card) {
+                        setDrawnCard(card);
+                        setIsFlipped(true);
+                        setImgLoaded(false);
+                      }
+                    }}
+                  >
+                    {isDrawn && card ? (
+                      // 已抽卡 - 展示卡面
+                      <motion.div
+                        className="w-full h-full flex flex-col items-center justify-center gap-1"
+                        initial={{ scale: 0.8, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        transition={{ type: 'spring', damping: 15 }}
+                      >
+                        <span className="text-3xl">{card.emoji}</span>
+                        <p className="text-[10px] font-medium text-center leading-tight" style={{ color: cfg?.hex }}>
+                          {card.title}
+                        </p>
+                        <span className="text-[8px] mt-0.5" style={{ color: '#8C7B72' }}>
+                          {dayNum}
+                        </span>
+                      </motion.div>
+                    ) : (
+                      // 未抽卡 - 顯示日期和提示
+                      <div className="w-full h-full flex flex-col items-center justify-center gap-0.5">
+                        <span className="text-xs" style={{ color: '#8C7B72' }}>?</span>
+                        <p className="text-[10px]" style={{ color: '#B8ADA6' }}>未抽卡</p>
+                        <span className="text-[8px]" style={{ color: '#D4CCCB' }}>
+                          {dayNum}
+                        </span>
+                      </div>
+                    )}
+                  </motion.div>
+                );
+              });
+            })()}
           </div>
-        </div>
+
+          {/* 說明文本 */}
+          <motion.div
+            className="mt-4 rounded-2xl p-3"
+            style={{ backgroundColor: '#FAF8F5' }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+          >
+            <p className="text-xs" style={{ color: '#8C7B72' }}>
+              💡 每天可抽一張療癒卡。點擊已填滿的卡槽，回顧那天的療癒訊息。
+            </p>
+          </motion.div>
+        </motion.div>
       )}
     </motion.div>
   );
@@ -6910,7 +6890,7 @@ function MyWorksWallPage({ userEmail, onNavigate, onAskTeacher }: { userEmail: s
 // ===================== PAGE: COLLECTION CENTER =====================
 
 function CollectionCenterPage({ userEmail, onNavigate }: { userEmail: string | null; onNavigate: (p: PageType) => void }) {
-  const [tab, setTab] = useState<'article' | 'card' | 'work'>('article');
+  const [tab, setTab] = useState<'article' | 'card' | 'work' | 'community' | 'product'>('article');
   const [collections, setCollections] = useState<CollectionItem[]>([]);
 
   useEffect(() => {
@@ -6934,24 +6914,43 @@ function CollectionCenterPage({ userEmail, onNavigate }: { userEmail: string | n
     { id: 'c7', type: 'article', title: '蠟燭燃燒的正確方式', topic: 'candle', savedAt: '2026-03-19' },
   ];
 
+  const demoCommunity = [
+    { id: 'cm1', type: 'community' as const, title: '分享我的多肉小花園', topic: 'plant', savedAt: '2026-03-26', author: '小花', emoji: '🌱' },
+    { id: 'cm2', type: 'community' as const, title: '第一次做蠟燭超療癒', topic: 'candle', savedAt: '2026-03-25', author: '阿明', emoji: '🕯️' },
+    { id: 'cm3', type: 'community' as const, title: '水晶手鍊搭配分享', topic: 'crystal', savedAt: '2026-03-24', author: '小珍', emoji: '💎' },
+  ];
+
+  const demoProducts = [
+    { id: 'p1', type: 'product' as const, title: '天然薰衣草精油 10ml', savedAt: '2026-03-26', price: 'NT$580', emoji: '🫧' },
+    { id: 'p2', type: 'product' as const, title: '手工水晶手鍊 — 月光石', savedAt: '2026-03-25', price: 'NT$1,280', emoji: '💎' },
+    { id: 'p3', type: 'product' as const, title: '療癒香氛蠟燭禮盒', savedAt: '2026-03-24', price: 'NT$960', emoji: '🕯️' },
+  ];
+
   const items = collections.length > 0 ? collections : demoCollections;
-  const filtered = items.filter(i => i.type === tab);
+  const getFiltered = () => {
+    if (tab === 'community') return demoCommunity;
+    if (tab === 'product') return demoProducts;
+    return items.filter(i => i.type === tab);
+  };
+  const filtered = getFiltered();
 
   const tabs: { key: typeof tab; label: string; emoji: string }[] = [
     { key: 'article', label: '文章', emoji: '📄' },
     { key: 'card', label: '卡片', emoji: '🃏' },
     { key: 'work', label: '作品', emoji: '✨' },
+    { key: 'community', label: '社群', emoji: '🎨' },
+    { key: 'product', label: '商品', emoji: '🎁' },
   ];
 
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
       <p className="text-lg font-bold" style={{ color: '#3D3530' }}>💝 我的收藏</p>
 
-      {/* Tabs */}
-      <div className="flex gap-2">
+      {/* Tabs - scrollable */}
+      <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
         {tabs.map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)} className="flex-1 py-2.5 rounded-2xl text-xs font-medium" style={{ backgroundColor: tab === t.key ? '#8FA886' : '#FAF8F5', color: tab === t.key ? 'white' : '#8C7B72' }}>
-            {t.emoji} {t.label} ({items.filter(i => i.type === t.key).length})
+          <button key={t.key} onClick={() => setTab(t.key)} className="px-3 py-2 rounded-2xl text-xs font-medium whitespace-nowrap" style={{ backgroundColor: tab === t.key ? '#8FA886' : '#FAF8F5', color: tab === t.key ? 'white' : '#8C7B72' }}>
+            {t.emoji} {t.label}
           </button>
         ))}
       </div>
@@ -6963,18 +6962,25 @@ function CollectionCenterPage({ userEmail, onNavigate }: { userEmail: string | n
             <p className="text-3xl mb-2">📌</p>
             <p className="text-sm" style={{ color: '#8C7B72' }}>還沒有收藏，去探索吧</p>
           </div>
-        ) : filtered.map(item => {
+        ) : filtered.map((item: any) => {
           const ti = item.topic ? TOPICS.find(t => t.key === item.topic) : null;
           return (
-            <div key={item.id} className="flex items-center gap-3 p-3 rounded-2xl" style={{ backgroundColor: '#FFFEF9' }}>
+            <motion.div key={item.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-3 p-3.5 rounded-2xl shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
               <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: ti?.color || '#F0EDE8' }}>
-                <span className="text-lg">{ti?.emoji || (item.type === 'card' ? '🃏' : '✨')}</span>
+                <span className="text-lg">{item.emoji || ti?.emoji || (item.type === 'card' ? '🃏' : '✨')}</span>
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate" style={{ color: '#3D3530' }}>{item.title}</p>
-                <p className="text-[10px] mt-0.5" style={{ color: '#8C7B72' }}>{item.savedAt}</p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  {item.author && <span className="text-[10px]" style={{ color: '#8FA886' }}>@{item.author}</span>}
+                  {item.price && <span className="text-[10px] font-bold" style={{ color: '#C9A96E' }}>{item.price}</span>}
+                  <span className="text-[10px]" style={{ color: '#8C7B72' }}>{item.savedAt}</span>
+                </div>
               </div>
-            </div>
+              {tab === 'product' && (
+                <span className="text-[10px] px-2 py-1 rounded-full" style={{ backgroundColor: '#FAF8F5', color: '#C9A96E' }}>想要</span>
+              )}
+            </motion.div>
           );
         })}
       </div>
@@ -7172,9 +7178,10 @@ function ExclusiveContentPage({ userEmail }: { userEmail: string | null }) {
 
 // ===================== PAGE: HEALER (REDESIGNED) =====================
 
-function HealerPage({ records, userEmail }: { records: HealingRecord[]; userEmail?: string | null }) {
-  const [personalityProfile, setPersonalityProfile] = useState<PersonalityProfile | null>(() => loadPersonalityProfile());
-  const [showQuiz, setShowQuiz] = useState(false);
+function HealerPage({ records, userEmail, onNavigate, onTaskComplete }: { records: HealingRecord[]; userEmail?: string | null; onNavigate?: (p: PageType) => void; onTaskComplete?: () => void }) {
+  const [activeExploreTab, setActiveExploreTab] = useState<'card' | 'tests' | 'personality'>('card');
+  const personalityProfile = loadPersonalityProfile();
+  const personalityInfo = personalityProfile ? HEALING_PERSONALITIES[personalityProfile.primary] : null;
 
   const totalDays = new Set(records.map(r => r.date)).size;
   const level = getLevel(totalDays);
@@ -7200,7 +7207,6 @@ function HealerPage({ records, userEmail }: { records: HealingRecord[]; userEmai
     if (primary !== personalityProfile.primary || secondary !== personalityProfile.secondary) {
       const updated = { ...personalityProfile, scores: newScores, primary, secondary, lastUpdated: new Date().toISOString() };
       savePersonalityProfile(updated);
-      setPersonalityProfile(updated);
     }
   }, [mostFrequent]); // eslint-disable-line
 
@@ -7243,31 +7249,6 @@ function HealerPage({ records, userEmail }: { records: HealingRecord[]; userEmai
     return { title: '芳療生活入門課程 🌿', desc: '認識精油，開啟療癒旅程' };
   }, [mostFrequent]);
 
-  // Show quiz for first-time users
-  if (showQuiz || (!personalityProfile?.quizDone)) {
-    return (
-      <div className="space-y-5">
-        <div className="text-center">
-          <span className="text-4xl">✨</span>
-          <h2 className="text-xl font-bold mt-2" style={{ color: '#3D3530' }}>發現你的療癒人格</h2>
-          <p className="text-sm mt-1" style={{ color: '#8C7B72' }}>回答 {PERSONALITY_QUIZ.length} 個小問題，找到最適合你的療癒方式</p>
-        </div>
-        {!personalityProfile?.quizDone ? (
-          <PersonalityQuiz onComplete={(profile) => {
-            setPersonalityProfile(profile);
-            setShowQuiz(false);
-          }} />
-        ) : (
-          <PersonalityQuiz onComplete={(profile) => {
-            setPersonalityProfile(profile);
-            setShowQuiz(false);
-          }} />
-        )}
-      </div>
-    );
-  }
-
-  const personalityInfo = personalityProfile ? HEALING_PERSONALITIES[personalityProfile.primary] : null;
 
   return (
     <motion.div
@@ -7276,55 +7257,6 @@ function HealerPage({ records, userEmail }: { records: HealingRecord[]; userEmai
       initial="initial"
       animate="animate"
     >
-      {/* Personality Card */}
-      {personalityInfo && personalityProfile && (
-        <motion.div
-          variants={staggerItem}
-          className="rounded-3xl p-5 shadow-sm"
-          style={{ background: personalityInfo.gradient }}
-        >
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <span className="text-2xl">{personalityInfo.emoji}</span>
-              <div>
-                <p className="text-base font-bold" style={{ color: '#3D3530' }}>{personalityInfo.label}</p>
-                <p className="text-xs" style={{ color: '#5C534C' }}>{personalityInfo.subtitle}</p>
-              </div>
-            </div>
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setShowQuiz(true)}
-              className="text-[10px] px-2 py-1 rounded-full"
-              style={{ backgroundColor: 'rgba(255,255,255,0.5)', color: '#5C534C' }}
-            >
-              重新測驗
-            </motion.button>
-          </div>
-          <div className="flex gap-1.5 mt-2">
-            {personalityInfo.traits.map(t => (
-              <span key={t} className="text-[10px] px-2 py-0.5 rounded-full" style={{ backgroundColor: 'rgba(255,255,255,0.5)', color: '#3D3530' }}>{t}</span>
-            ))}
-          </div>
-          {/* Score bars */}
-          <div className="mt-3 space-y-1.5">
-            {(Object.keys(personalityProfile.scores) as HealingPersonalityType[]).map(k => {
-              const info = HEALING_PERSONALITIES[k];
-              const maxScore = Math.max(...Object.values(personalityProfile.scores), 1);
-              const pct = (personalityProfile.scores[k] / maxScore) * 100;
-              return (
-                <div key={k} className="flex items-center gap-2">
-                  <span className="text-xs w-6">{info.emoji}</span>
-                  <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(255,255,255,0.4)' }}>
-                    <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.8, delay: 0.2 }} className="h-full rounded-full" style={{ backgroundColor: info.color }} />
-                  </div>
-                  <span className="text-[10px] w-6 text-right" style={{ color: '#5C534C' }}>{personalityProfile.scores[k]}</span>
-                </div>
-              );
-            })}
-          </div>
-        </motion.div>
-      )}
-
       {/* Healer Profile */}
       <motion.div
         variants={staggerItem}
@@ -7336,7 +7268,6 @@ function HealerPage({ records, userEmail }: { records: HealingRecord[]; userEmai
         </div>
         <h2 className="text-lg font-bold" style={{ color: '#3D3530' }}>AURA 療癒師</h2>
         <p className="text-sm" style={{ color: '#8C7B72' }}>你的體驗專家，溫柔地陪伴你</p>
-        {personalityProfile && <PersonalityBadge profile={personalityProfile} size="sm" />}
       </motion.div>
 
       {/* Analysis Card */}
@@ -7432,6 +7363,101 @@ function HealerPage({ records, userEmail }: { records: HealingRecord[]; userEmai
           <span>🌸 療癒者</span>
           <span>✨ 穩定之心</span>
         </div>
+      </motion.div>
+
+      {/* Explore Tabs Section */}
+      <motion.div variants={staggerItem} className="space-y-4">
+        <div>
+          <h3 className="text-lg font-bold" style={{ color: '#3D3530' }}>🔮 探索</h3>
+          <p className="text-sm mt-1" style={{ color: '#8C7B72' }}>透過卡牌與測驗，更深入地認識自己</p>
+        </div>
+
+        {/* Tab Buttons */}
+        <div className="flex gap-2">
+          {[
+            { key: 'card' as const, label: '✦ 療癒卡牌', desc: '每日一抽' },
+            { key: 'tests' as const, label: '🧠 心理測驗', desc: '探索自己' },
+            { key: 'personality' as const, label: '🌿 療癒人格', desc: personalityInfo ? personalityInfo.label : '探索你的人格' },
+          ].map(tab => (
+            <motion.button key={tab.key} whileTap={{ scale: 0.96 }}
+              onClick={() => setActiveExploreTab(tab.key)}
+              className="flex-1 rounded-2xl p-3 text-center"
+              style={{
+                backgroundColor: activeExploreTab === tab.key ? '#FFFEF9' : '#FAF8F5',
+                border: activeExploreTab === tab.key ? '1.5px solid #C9A96E40' : '1px solid #F0EDE8',
+              }}>
+              <p className="text-sm font-bold" style={{ color: activeExploreTab === tab.key ? '#3D3530' : '#8C7B72' }}>{tab.label}</p>
+              <p className="text-[10px] mt-0.5" style={{ color: '#B5AFA8' }}>{tab.desc}</p>
+            </motion.button>
+          ))}
+        </div>
+
+        {/* 卡牌區 */}
+        {activeExploreTab === 'card' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <CardPage onTaskComplete={onTaskComplete || (() => {})} records={records} />
+          </motion.div>
+        )}
+
+        {/* 心理測驗區 */}
+        {activeExploreTab === 'tests' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <PsychTestContainer />
+          </motion.div>
+        )}
+
+        {/* 療癒人格區 */}
+        {activeExploreTab === 'personality' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+            {personalityProfile ? (
+              <>
+                {/* 人格卡片 */}
+                <div className="rounded-2xl p-5 shadow-sm" style={{ background: personalityInfo?.gradient || 'linear-gradient(135deg, #FFFEF9 0%, #FAF8F5 100%)' }}>
+                  <div className="flex items-center gap-3 mb-3">
+                    <span className="text-4xl">{personalityInfo?.emoji}</span>
+                    <div>
+                      <p className="text-lg font-bold" style={{ color: '#3D3530' }}>{personalityInfo?.label}</p>
+                      <p className="text-xs" style={{ color: '#8C7B72' }}>{personalityInfo?.subtitle}</p>
+                    </div>
+                  </div>
+                  <p className="text-sm leading-relaxed" style={{ color: '#5C534C' }}>{personalityInfo?.description}</p>
+                  {personalityInfo?.traits && (
+                    <div className="flex flex-wrap gap-1.5 mt-3">
+                      {personalityInfo.traits.map(trait => (
+                        <span key={trait} className="text-xs px-2 py-1 rounded-lg" style={{ backgroundColor: '#FFFEF960', color: '#8C7B72' }}>{trait}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {/* 分數條 */}
+                <div className="rounded-2xl p-4 shadow-sm space-y-3" style={{ backgroundColor: '#FFFEF9' }}>
+                  <p className="text-sm font-bold" style={{ color: '#3D3530' }}>人格分佈</p>
+                  {(Object.keys(HEALING_PERSONALITIES) as HealingPersonalityType[]).map(type => {
+                    const info = HEALING_PERSONALITIES[type];
+                    const score = personalityProfile.scores[type] || 0;
+                    const maxScore = Math.max(...Object.values(personalityProfile.scores));
+                    const pct = maxScore > 0 ? (score / maxScore) * 100 : 0;
+                    return (
+                      <div key={type}>
+                        <div className="flex justify-between text-xs mb-1">
+                          <span style={{ color: '#3D3530' }}>{info.emoji} {info.label}</span>
+                          <span style={{ color: '#8C7B72' }}>{score}</span>
+                        </div>
+                        <div className="w-full h-2 rounded-full" style={{ backgroundColor: '#F0EDE8' }}>
+                          <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.6 }}
+                            className="h-full rounded-full" style={{ backgroundColor: info.color }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <PersonalityRecommendations profile={personalityProfile} />
+              </>
+            ) : (
+              <PersonalityQuiz onComplete={() => window.location.reload()} />
+            )}
+          </motion.div>
+        )}
       </motion.div>
 
       {/* Smart Personalized Reminders */}
@@ -7554,14 +7580,14 @@ function HealerPage({ records, userEmail }: { records: HealingRecord[]; userEmai
 
 const NAV_ITEMS: { key: PageType; icon: string; label: string }[] = [
   // Row 1
-  { key: 'home', icon: '☽', label: '陪伴' },
-  { key: 'diary', icon: '◎', label: '紀錄' },
-  { key: 'card', icon: '✦', label: '卡牌' },
   { key: 'healer', icon: '🌹', label: '療癒師' },
+  { key: 'journal', icon: '📓', label: '日記' },
+  { key: 'community', icon: '🎨', label: '社群' },
+  { key: 'library', icon: '✧', label: '專屬內容' },
   // Row 2
   { key: 'sound', icon: '♪', label: '聆聽' },
-  { key: 'library', icon: '✧', label: '懂你' },
-  { key: 'shop', icon: '🎁', label: '陪伴禮物' },
+  { key: 'collections', icon: '💝', label: '收藏' },
+  { key: 'shop', icon: '🎁', label: '療癒禮物' },
   { key: 'member', icon: '♡', label: '我的' },
 ];
 
@@ -7619,6 +7645,394 @@ const AFTERCARE_KNOWLEDGE = {
     { id: 'lk1', emoji: '👜', title: '皮革作品的日常保養', summary: '定期擦拭、避免潮濕、適時上油。好的保養讓皮革越用越有味道。', content: '皮革是有生命力的材質，好好照顧它會越來越美：\n\n日常擦拭：每週用柔軟的棉布輕輕擦去灰塵和指紋。\n\n防潮：皮革怕潮濕，不用時放在通風處，可放入防潮袋。淋雨後用乾布吸乾水分，自然風乾（不要用吹風機）。\n\n上油保養：每 1-3 個月用皮革專用保養油薄薄擦一層。不要用嬰兒油或凡士林，可能會堵塞毛孔。\n\n避免：長時間日曬（會褪色龜裂）、接觸化學品、用力摩擦。\n\n皮革的變色和使用痕跡是它的故事，養出屬於你的獨特色澤是手作皮革最迷人的地方。' },
   ],
 };
+
+// ===================== 日記頁面 =====================
+
+interface JournalEntry {
+  id?: string;
+  text: string;
+  symbols: string[];  // selected emoji/symbols
+  timestamp: number;
+  date: string; // YYYY-MM-DD
+}
+
+function JournalPage({ user }: { user: User | null }) {
+  const [entries, setEntries] = useState<JournalEntry[]>([]);
+  const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('day');
+  const [currentDate, setCurrentDate] = useState(getToday());
+  const [inputText, setInputText] = useState('');
+  const [selectedSymbols, setSelectedSymbols] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  const symbolPalette = ['😊', '😢', '😤', '😴', '🥰', '😌', '🤔', '💪', '☀️', '🌙', '⭐', '🌈', '🍃', '🔥', '💧', '🎵'];
+
+  // Load entries from Firestore or localStorage
+  useEffect(() => {
+    const loadEntries = async () => {
+      if (user) {
+        try {
+          const colRef = collection(db, 'journal_entries');
+          const q = query(colRef, where('userId', '==', user.uid), orderBy('timestamp', 'desc'));
+          const snapshot = await getDocs(q);
+          const loaded = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+          })) as JournalEntry[];
+          setEntries(loaded);
+        } catch (error) {
+          console.error('Failed to load journal entries:', error);
+          // Fallback to localStorage
+          const stored = localStorage.getItem('journal_entries');
+          if (stored) setEntries(JSON.parse(stored));
+        }
+      } else {
+        const stored = localStorage.getItem('journal_entries');
+        if (stored) setEntries(JSON.parse(stored));
+      }
+    };
+    loadEntries();
+  }, [user]);
+
+  const saveEntry = async () => {
+    if (!inputText.trim()) return;
+    setSaving(true);
+
+    const newEntry: JournalEntry = {
+      text: inputText.trim(),
+      symbols: selectedSymbols,
+      timestamp: Date.now(),
+      date: currentDate,
+    };
+
+    if (user) {
+      try {
+        const colRef = collection(db, 'journal_entries');
+        const docRef = await addDoc(colRef, {
+          userId: user.uid,
+          ...newEntry,
+          createdAt: Timestamp.now(),
+        });
+        newEntry.id = docRef.id;
+      } catch (error) {
+        console.error('Failed to save entry:', error);
+      }
+    }
+
+    const updated = [newEntry, ...entries];
+    setEntries(updated);
+    if (!user) {
+      localStorage.setItem('journal_entries', JSON.stringify(updated));
+    }
+
+    setInputText('');
+    setSelectedSymbols([]);
+    setSaving(false);
+    setShowSuccess(true);
+    setTimeout(() => setShowSuccess(false), 2000);
+  };
+
+  const toggleSymbol = (symbol: string) => {
+    setSelectedSymbols(prev =>
+      prev.includes(symbol) ? prev.filter(s => s !== symbol) : [...prev, symbol]
+    );
+  };
+
+  const filteredEntries = entries.filter(e =>
+    searchQuery ? e.text.toLowerCase().includes(searchQuery.toLowerCase()) : true
+  );
+
+  const getEntriesForDate = (dateStr: string) =>
+    filteredEntries.filter(e => e.date === dateStr);
+
+  const getEntriesForWeek = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const weekEntries: JournalEntry[] = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(date);
+      d.setDate(d.getDate() + i);
+      const dateKey = formatDate(d);
+      weekEntries.push(...getEntriesForDate(dateKey));
+    }
+    return weekEntries;
+  };
+
+  const getEntriesForMonth = (dateStr: string) => {
+    const [year, month] = dateStr.split('-');
+    return filteredEntries.filter(e => e.date.startsWith(`${year}-${month}`));
+  };
+
+  const navigateDate = (direction: number) => {
+    const d = new Date(currentDate);
+    if (viewMode === 'day') {
+      d.setDate(d.getDate() + direction);
+    } else if (viewMode === 'week') {
+      d.setDate(d.getDate() + direction * 7);
+    } else {
+      d.setMonth(d.getMonth() + direction);
+    }
+    setCurrentDate(formatDate(d));
+  };
+
+  const getDaysInMonth = (dateStr: string) => {
+    const [year, month] = dateStr.split('-');
+    return new Date(parseInt(year), parseInt(month), 0).getDate();
+  };
+
+  return (
+    <div className="w-full h-full flex flex-col overflow-hidden" style={{ backgroundColor: '#FFFEF9' }}>
+      {/* Header */}
+      <div className="flex-shrink-0 px-4 pt-4 pb-3" style={{ borderBottom: '1px solid #F0EDE8' }}>
+        <h1 className="text-lg font-bold mb-3" style={{ color: '#3D3530' }}>📔 日記</h1>
+
+        {/* Search Bar */}
+        <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-2xl" style={{ backgroundColor: '#FAF8F5', border: '1px solid #F0EDE8' }}>
+          <span>🔍</span>
+          <input
+            type="text"
+            placeholder="搜尋記錄..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="flex-1 bg-transparent outline-none text-sm"
+            style={{ color: '#3D3530' }}
+          />
+        </div>
+
+        {/* View Mode Toggle */}
+        <div className="flex gap-2">
+          {(['day', 'week', 'month'] as const).map(mode => (
+            <motion.button
+              key={mode}
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setViewMode(mode)}
+              className="px-3 py-1.5 text-xs font-medium rounded-full transition-all"
+              style={{
+                backgroundColor: viewMode === mode ? '#8FA886' : '#FAF8F5',
+                color: viewMode === mode ? 'white' : '#8C7B72',
+                border: viewMode === mode ? 'none' : '1px solid #F0EDE8',
+              }}
+            >
+              {mode === 'day' ? '日' : mode === 'week' ? '週' : '月'}
+            </motion.button>
+          ))}
+        </div>
+      </div>
+
+      {/* Content Area */}
+      <div className="flex-1 overflow-y-auto px-4 py-4">
+        {/* Input Section */}
+        {!searchQuery && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-4 p-4 rounded-3xl"
+            style={{ backgroundColor: '#FAF8F5', border: '1px solid #F0EDE8' }}
+          >
+            <p className="text-xs font-medium mb-2" style={{ color: '#8C7B72' }}>今天想說些什麼...</p>
+            <textarea
+              value={inputText}
+              onChange={(e) => setInputText(e.target.value)}
+              placeholder="寫下你的想法、感受或日常點滴..."
+              rows={3}
+              className="w-full mb-3 p-3 rounded-2xl resize-none outline-none text-sm"
+              style={{
+                backgroundColor: '#FFFEF9',
+                color: '#3D3530',
+                border: '1px solid #F0EDE8',
+              }}
+            />
+
+            {/* Symbol Picker */}
+            <div className="mb-3">
+              <p className="text-xs font-medium mb-2" style={{ color: '#8C7B72' }}>選擇心情符號</p>
+              <div className="flex flex-wrap gap-2">
+                {symbolPalette.map(symbol => (
+                  <motion.button
+                    key={symbol}
+                    whileTap={{ scale: 0.85 }}
+                    onClick={() => toggleSymbol(symbol)}
+                    className="text-lg p-2 rounded-lg transition-all"
+                    style={{
+                      backgroundColor: selectedSymbols.includes(symbol) ? '#8FA88620' : 'transparent',
+                      border: selectedSymbols.includes(symbol) ? '1.5px solid #8FA886' : '1px solid #F0EDE8',
+                    }}
+                  >
+                    {symbol}
+                  </motion.button>
+                ))}
+              </div>
+            </div>
+
+            {/* Save Button */}
+            <motion.button
+              whileTap={{ scale: 0.96 }}
+              onClick={saveEntry}
+              disabled={!inputText.trim() || saving}
+              className="w-full py-2.5 rounded-2xl font-medium text-sm transition-all"
+              style={{
+                backgroundColor: inputText.trim() ? '#8FA886' : '#E8E3DC',
+                color: inputText.trim() ? 'white' : '#B5AFA8',
+              }}
+            >
+              {saving ? '保存中...' : showSuccess ? '✓ 已記錄' : '保存記錄'}
+            </motion.button>
+          </motion.div>
+        )}
+
+        {/* View Sections */}
+        {viewMode === 'day' && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <motion.button whileTap={{ scale: 0.9 }} onClick={() => navigateDate(-1)} className="text-xl">←</motion.button>
+              <p className="font-medium" style={{ color: '#3D3530' }}>{currentDate}</p>
+              <motion.button whileTap={{ scale: 0.9 }} onClick={() => navigateDate(1)} className="text-xl">→</motion.button>
+            </div>
+
+            <div className="space-y-3">
+              {getEntriesForDate(currentDate).length === 0 ? (
+                <p className="text-center text-sm" style={{ color: '#B5AFA8' }}>今天還沒有記錄呢</p>
+              ) : (
+                getEntriesForDate(currentDate).map((entry, i) => {
+                  const time = new Date(entry.timestamp);
+                  return (
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="p-3 rounded-2xl"
+                      style={{ backgroundColor: '#FAF8F5', border: '1px solid #F0EDE8' }}
+                    >
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-xs" style={{ color: '#B5AFA8' }}>
+                          {time.getHours().toString().padStart(2, '0')}:{time.getMinutes().toString().padStart(2, '0')}
+                        </span>
+                      </div>
+                      {entry.symbols.length > 0 && (
+                        <div className="flex gap-1 mb-2">
+                          {entry.symbols.map(s => <span key={s} className="text-lg">{s}</span>)}
+                        </div>
+                      )}
+                      <p className="text-sm" style={{ color: '#3D3530' }}>{entry.text}</p>
+                    </motion.div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
+
+        {viewMode === 'week' && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <motion.button whileTap={{ scale: 0.9 }} onClick={() => navigateDate(-1)} className="text-xl">←</motion.button>
+              <p className="font-medium" style={{ color: '#3D3530' }}>周視圖</p>
+              <motion.button whileTap={{ scale: 0.9 }} onClick={() => navigateDate(1)} className="text-xl">→</motion.button>
+            </div>
+
+            <div className="grid grid-cols-7 gap-1">
+              {Array.from({ length: 7 }).map((_, i) => {
+                const d = new Date(currentDate);
+                d.setDate(d.getDate() + i);
+                const dateKey = formatDate(d);
+                const dayEntries = getEntriesForDate(dateKey);
+                return (
+                  <div key={i} className="p-2 rounded-lg text-center" style={{ backgroundColor: '#FAF8F5' }}>
+                    <p className="text-xs font-medium mb-1" style={{ color: '#8C7B72' }}>
+                      {d.getDate()}
+                    </p>
+                    {dayEntries.length > 0 && (
+                      <>
+                        <p className="text-xs line-clamp-2" style={{ color: '#3D3530' }}>
+                          {dayEntries[0].text.substring(0, 15)}...
+                        </p>
+                        <p className="text-xs mt-1" style={{ color: '#C9A96E' }}>
+                          {dayEntries.length} 筆
+                        </p>
+                      </>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {viewMode === 'month' && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <motion.button whileTap={{ scale: 0.9 }} onClick={() => navigateDate(-1)} className="text-xl">←</motion.button>
+              <p className="font-medium" style={{ color: '#3D3530' }}>{currentDate.slice(0, 7)}</p>
+              <motion.button whileTap={{ scale: 0.9 }} onClick={() => navigateDate(1)} className="text-xl">→</motion.button>
+            </div>
+
+            <div className="grid grid-cols-7 gap-1">
+              {Array.from({ length: getDaysInMonth(currentDate) }).map((_, i) => {
+                const [year, month] = currentDate.split('-');
+                const dateKey = `${year}-${month}-${(i + 1).toString().padStart(2, '0')}`;
+                const hasEntry = getEntriesForDate(dateKey).length > 0;
+                return (
+                  <div
+                    key={i}
+                    className="p-2 rounded-lg text-center aspect-square flex items-center justify-center text-sm"
+                    style={{
+                      backgroundColor: hasEntry ? '#8FA88620' : '#FAF8F5',
+                      border: hasEntry ? '1.5px solid #8FA886' : '1px solid #F0EDE8',
+                      color: '#3D3530',
+                    }}
+                  >
+                    <div>
+                      <p className="font-medium">{i + 1}</p>
+                      {hasEntry && <p className="text-xs" style={{ color: '#8FA886' }}>●</p>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Search Results */}
+        {searchQuery && (
+          <div className="space-y-3">
+            <p className="text-xs font-medium" style={{ color: '#8C7B72' }}>
+              搜尋結果 ({filteredEntries.length})
+            </p>
+            {filteredEntries.length === 0 ? (
+              <p className="text-center text-sm" style={{ color: '#B5AFA8' }}>沒有符合的記錄</p>
+            ) : (
+              filteredEntries.map((entry, i) => {
+                const time = new Date(entry.timestamp);
+                return (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="p-3 rounded-2xl"
+                    style={{ backgroundColor: '#FAF8F5', border: '1px solid #F0EDE8' }}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-medium" style={{ color: '#8C7B72' }}>{entry.date}</span>
+                      <span className="text-xs" style={{ color: '#B5AFA8' }}>
+                        {time.getHours().toString().padStart(2, '0')}:{time.getMinutes().toString().padStart(2, '0')}
+                      </span>
+                    </div>
+                    {entry.symbols.length > 0 && (
+                      <div className="flex gap-1 mb-2">
+                        {entry.symbols.map(s => <span key={s} className="text-lg">{s}</span>)}
+                      </div>
+                    )}
+                    <p className="text-sm" style={{ color: '#3D3530' }}>{entry.text}</p>
+                  </motion.div>
+                );
+              })
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 // --- 課後照顧 localStorage helpers ---
 const STORAGE_KEYS = {
@@ -8464,7 +8878,7 @@ function PersonalityRecommendations({ profile }: { profile: PersonalityProfile }
   );
 }
 
-function HealingLibraryPage({ userEmail }: { userEmail: string | null }) {
+function HealingLibraryPage({ userEmail, onNavigate }: { userEmail: string | null; onNavigate?: (p: PageType) => void }) {
   const [view, setView] = useState<LibraryView>('home');
   const [selectedOil, setSelectedOil] = useState<OilLibraryItem | null>(null);
   const [selectedCrystal, setSelectedCrystal] = useState<CrystalItem | null>(null);
@@ -8563,6 +8977,9 @@ function HealingLibraryPage({ userEmail }: { userEmail: string | null }) {
 
   // 選中的植物
   const [selectedPlant, setSelectedPlant] = useState<PlantRecord | null>(null);
+
+  // 新增課程相關
+  const [showAddCourseModal, setShowAddCourseModal] = useState(false);
 
   // ===== AI 個人化內容 =====
   const [aiContent, setAiContent] = useState<{
@@ -9462,8 +9879,8 @@ function HealingLibraryPage({ userEmail }: { userEmail: string | null }) {
         <div>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs tracking-widest" style={{ color: '#C9A96E' }}>KNOW YOU</p>
-              <h2 className="text-xl font-bold mt-1" style={{ color: '#3D3530' }}>懂你</h2>
+              <p className="text-xs tracking-widest" style={{ color: '#C9A96E' }}>PERSONAL CONTENT</p>
+              <h2 className="text-xl font-bold mt-1" style={{ color: '#3D3530' }}>專屬內容</h2>
             </div>
             {userEmail && <PointsBadge userEmail={userEmail} />}
           </div>
@@ -9538,91 +9955,139 @@ function HealingLibraryPage({ userEmail }: { userEmail: string | null }) {
           </div>
         )}
 
-        {/* Section 1: 我的課後照顧（快捷入口） */}
+        {/* Section 1: 專屬課程選擇 */}
         <div>
-          <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>今天想先照顧哪一個作品？</p>
-          <div className="grid grid-cols-2 gap-3">
-            {quickAccessCards.map((card, i) => (
-              <motion.button
-                key={card.title}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.06 }}
-                whileTap={{ scale: 0.96 }}
-                onClick={card.action}
-                className="rounded-2xl p-4 text-left shadow-sm relative overflow-hidden"
-                style={cardStyle}
-              >
-                <span className="text-2xl">{card.emoji}</span>
-                <p className="text-sm font-bold mt-2" style={{ color: '#3D3530' }}>{card.title}</p>
-                {card.count > 0 && (
-                  <p className="text-xs mt-0.5" style={{ color: '#8FA886' }}>{card.count} 筆紀錄</p>
-                )}
-                <div className="absolute -bottom-2 -right-2 text-5xl opacity-[0.06]">{card.emoji}</div>
-              </motion.button>
-            ))}
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-bold" style={{ color: '#3D3530' }}>專屬內容</p>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={() => setShowAddCourseModal(true)}
+              className="text-sm font-medium px-3 py-1.5 rounded-lg"
+              style={{ backgroundColor: '#8FA88620', color: '#8FA886' }}
+            >
+              ＋ 新增你做過的課程
+            </motion.button>
           </div>
-        </div>
 
-        {/* Section 2: 今日提醒 */}
-        <div>
-          <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>今日小提醒</p>
-          <div className="rounded-3xl p-4 shadow-sm space-y-2.5" style={{ backgroundColor: '#FAF8F5' }}>
-            {dailyReminders.map((r, i) => (
+          {courseTypes.length === 0 ? (
+            <div className="rounded-2xl p-6 text-center shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
+              <p className="text-sm" style={{ color: '#8C7B72' }}>還沒選擇任何課程？點選上方按鈕新增你做過的課程</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {careEntries
+                .filter(e => courseTypes.includes(e.key))
+                .map((entry, i) => {
+                  const viewMap: Record<CourseType, LibraryView> = {
+                    fragrance: 'care-fragrance', plant: 'care-plant', crystal: 'care-crystal',
+                    leather: 'care-leather', candle: 'care-candle',
+                  };
+                  return (
+                    <motion.button
+                      key={entry.key}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.04 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => setView(viewMap[entry.key])}
+                      className="w-full rounded-2xl p-4 shadow-sm text-left flex items-center gap-3.5"
+                      style={{ backgroundColor: '#FFFEF9' }}
+                    >
+                      <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl flex-shrink-0"
+                        style={{ backgroundColor: entry.color + '30' }}>
+                        {entry.emoji}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-bold" style={{ color: '#3D3530' }}>{entry.title}</p>
+                          <span className="text-xs px-1.5 py-0.5 rounded-lg font-medium" style={{ backgroundColor: '#8FA88620', color: '#8FA886' }}>已上課</span>
+                        </div>
+                        <p className="text-xs mt-0.5 leading-relaxed" style={{ color: '#8C7B72' }}>{entry.subtitle}</p>
+                      </div>
+                      <span style={{ color: '#C9A96E' }}>›</span>
+                    </motion.button>
+                  );
+                })}
+            </div>
+          )}
+
+          {/* Add Course Modal */}
+          {showAddCourseModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black bg-opacity-40 flex items-end z-50"
+              onClick={() => setShowAddCourseModal(false)}
+            >
               <motion.div
-                key={i}
-                initial={{ opacity: 0, x: -10 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.08 }}
-                className="flex items-center gap-3 rounded-2xl px-3.5 py-3"
-                style={cardStyle}
+                initial={{ y: 300 }}
+                animate={{ y: 0 }}
+                exit={{ y: 300 }}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full rounded-t-3xl p-6 shadow-2xl"
+                style={{ backgroundColor: '#FFFEF9' }}
               >
-                <span className="text-lg">{r.emoji}</span>
-                <p className="text-sm leading-relaxed" style={{ color: '#3D3530' }}>{r.message}</p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold" style={{ color: '#3D3530' }}>選擇你做過的課程</h3>
+                  <motion.button
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setShowAddCourseModal(false)}
+                    className="text-2xl"
+                    style={{ color: '#C9A96E' }}
+                  >
+                    ✕
+                  </motion.button>
+                </div>
 
-        {/* Section 3: 作品分類照顧入口 */}
-        <div>
-          <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>作品照顧分類</p>
-          <div className="space-y-2.5">
-            {careEntries.map((entry, i) => {
-              const viewMap: Record<CourseType, LibraryView> = {
-                fragrance: 'care-fragrance', plant: 'care-plant', crystal: 'care-crystal',
-                leather: 'care-leather', candle: 'care-candle',
-              };
-              const isAttended = courseTypes.includes(entry.key);
-              return (
-                <motion.button
-                  key={entry.key}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.04 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => setView(viewMap[entry.key])}
-                  className="w-full rounded-2xl p-4 shadow-sm text-left flex items-center gap-3.5"
-                  style={cardStyle}
-                >
-                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-xl flex-shrink-0"
-                    style={{ backgroundColor: entry.color + '30' }}>
-                    {entry.emoji}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-bold" style={{ color: '#3D3530' }}>{entry.title}</p>
-                      {isAttended && (
-                        <span className="text-xs px-1.5 py-0.5 rounded-lg font-medium" style={{ backgroundColor: '#8FA88620', color: '#8FA886' }}>已上課</span>
+                <div className="space-y-2">
+                  {[
+                    { key: 'fragrance' as CourseType, emoji: '🫧', name: '調香' },
+                    { key: 'plant' as CourseType, emoji: '🌱', name: '植栽' },
+                    { key: 'crystal' as CourseType, emoji: '💎', name: '水晶' },
+                    { key: 'leather' as CourseType, emoji: '👜', name: '皮革' },
+                    { key: 'candle' as CourseType, emoji: '🕯️', name: '蠟燭' },
+                  ].map((item) => (
+                    <motion.button
+                      key={item.key}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => {
+                        if (!courseTypes.includes(item.key)) {
+                          setCourseTypes(prev => [...prev, item.key]);
+                        }
+                        setShowAddCourseModal(false);
+                      }}
+                      disabled={courseTypes.includes(item.key)}
+                      className={`w-full rounded-xl p-4 text-left flex items-center gap-3 ${
+                        courseTypes.includes(item.key) ? 'opacity-50 cursor-not-allowed' : ''
+                      }`}
+                      style={{
+                        backgroundColor: courseTypes.includes(item.key) ? '#F0EDE8' : '#FFFEF9',
+                        border: courseTypes.includes(item.key) ? '2px solid #8FA886' : '1px solid #E8E0D7'
+                      }}
+                    >
+                      <span className="text-2xl">{item.emoji}</span>
+                      <div className="flex-1">
+                        <p className="text-sm font-bold" style={{ color: '#3D3530' }}>{item.name}</p>
+                      </div>
+                      {courseTypes.includes(item.key) && (
+                        <span style={{ color: '#8FA886' }}>✓</span>
                       )}
-                    </div>
-                    <p className="text-xs mt-0.5 leading-relaxed" style={{ color: '#8C7B72' }}>{entry.subtitle}</p>
-                  </div>
-                  <span style={{ color: '#C9A96E' }}>›</span>
+                    </motion.button>
+                  ))}
+                </div>
+
+                <motion.button
+                  whileTap={{ scale: 0.96 }}
+                  onClick={() => setShowAddCourseModal(false)}
+                  className="w-full mt-4 rounded-lg py-3 font-bold"
+                  style={{ backgroundColor: '#8FA886', color: '#FFFEF9' }}
+                >
+                  完成
                 </motion.button>
-              );
-            })}
-          </div>
+              </motion.div>
+            </motion.div>
+          )}
         </div>
 
         {/* Section 4: 課後知識區 */}
@@ -9658,7 +10123,7 @@ function HealingLibraryPage({ userEmail }: { userEmail: string | null }) {
         <div>
           <div className="flex items-center justify-between mb-3">
             <p className="text-sm font-bold" style={{ color: '#3D3530' }}>⭐ 本週精選作品</p>
-            <motion.button whileTap={{ scale: 0.95 }} onClick={() => setView('community-works-board')}
+            <motion.button whileTap={{ scale: 0.95 }} onClick={() => onNavigate?.('community')}
               className="text-xs" style={{ color: '#C9A96E' }}>看更多 ›</motion.button>
           </div>
           <WeeklyFeaturedWorks />
@@ -9676,11 +10141,11 @@ function HealingLibraryPage({ userEmail }: { userEmail: string | null }) {
             <div className="absolute -bottom-2 -right-2 text-5xl opacity-[0.06]">📚</div>
           </motion.button>
           <motion.button whileTap={{ scale: 0.96 }}
-            onClick={() => setView('community-works-board')}
+            onClick={() => onNavigate?.('community')}
             className="rounded-2xl p-4 shadow-sm text-left relative overflow-hidden"
             style={{ background: 'linear-gradient(135deg, #E8F5E9 0%, #FFFEF9 100%)' }}>
             <span className="text-2xl">🎨</span>
-            <p className="text-sm font-bold mt-2" style={{ color: '#3D3530' }}>作品社群</p>
+            <p className="text-sm font-bold mt-2" style={{ color: '#3D3530' }}>社群</p>
             <p className="text-xs mt-0.5" style={{ color: '#8C7B72' }}>看看大家的作品</p>
             <div className="absolute -bottom-2 -right-2 text-5xl opacity-[0.06]">🎨</div>
           </motion.button>
@@ -10606,40 +11071,40 @@ function KnowledgeArticlesGridView({ userEmail, goBack }: {
   // 內建範例文章（當 Firestore 無資料時顯示）
   const sampleArticles: KnowledgeArticle[] = [
     // 植栽
-    { id: 'sa-1', title: '多肉換盆的最佳時機', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2023/01/798736.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2023/01/798736.jpg', topic: 'plant', summary: '春秋兩季是最適合換盆的時機，避開夏季高溫和冬季休眠期', content: '春秋兩季是最適合換盆的時機。這時候多肉的根系活性最強，換盆後恢復快。建議選擇天氣穩定、溫度在15-25°C之間的日子進行。\n\n換盆步驟：\n1. 停止澆水3-5天，讓土壤乾燥\n2. 輕輕取出植株，抖掉老土\n3. 檢查根系，修剪枯根\n4. 晾根1-2天\n5. 放入新盆新土，先不澆水\n6. 3-5天後少量澆水', authorName: '隨手作老師', authorEmoji: '🌱', likeCount: 28, createdAt: '2026-03-20' },
-    { id: 'sa-2', title: '葉插繁殖全攻略', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2023/01/798735.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2023/01/798735.jpg', topic: 'plant', summary: '用一片葉子就能種出一盆新多肉！', content: '葉插是多肉植物最簡單的繁殖方式：\n\n1. 選擇健康飽滿的葉片，輕輕左右搖動摘下（要完整帶蒂）\n2. 將葉片放在乾燥通風處晾1-2天，讓傷口癒合\n3. 平放在微濕的土面上（不要插入土裡）\n4. 放在明亮散射光處\n5. 每3-4天用噴霧輕噴土面保持微濕\n6. 約2-4週會長出小根和芽\n\n成功率約60-80%，多試幾片就好！', authorName: '隨手作老師', authorEmoji: '🌱', likeCount: 39, createdAt: '2026-03-08' },
-    { id: 'sa-3', title: '微景觀組盆的配色美學', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2023/01/1009941_0.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2023/01/1009941_0.jpg', topic: 'plant', summary: '學會這幾個配色原則，你的組盆作品立刻升級', content: '組盆不只是把多肉塞在一起，配色是關鍵：\n\n漸層法：選同色系但深淺不同的品種，例如從淺綠到深綠。\n\n對比法：互補色搭配，例如紫色系搭黃綠色系。\n\n點綴法：大面積用同色系，搭配一小株亮色系當視覺焦點。\n\n高低錯落：把高的放後面、矮的放前面，營造層次感。\n\n留白很重要：不要塞太滿，適當留白讓視覺更舒服。', authorName: '隨手作老師', authorEmoji: '🌱', likeCount: 45, createdAt: '2026-03-05' },
+    { id: 'sa-1', title: '多肉換盆的最佳時機', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2023/01/798736.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2023/01/798736.jpg', topic: 'plant', summary: '春秋兩季是最適合換盆的時機，幫助根系恢復、讓多肉長得更健康', content: '你有沒有發現，你的多肉最近好像有點「委屈」？葉片沒以前飽滿、生長速度變慢、甚至根從盆底竄出來？那就是它在告訴你：該換新家了。\n\n最佳換盆時間是春季（3-5月）和秋季（9-11月），這兩個季節溫度穩定在15-25°C之間，多肉的根系活性最強，換盆後恢復速度最快。夏季高溫時根系容易受傷後腐爛，冬季低溫時植物進入休眠期代謝緩慢，都不適合動根。\n\n換盆的完整步驟：\n\n第一步，提前3-5天停止澆水，讓土壤充分乾燥。乾燥的土壤更容易脫落，也減少拔出時傷根的機率。\n\n第二步，輕輕倒扣花盆，用手指從底孔推出土球。如果卡住了，可以用竹籤沿盆壁鬆動。千萬不要硬拔，耐心是最好的園藝工具。\n\n第三步，抖掉老土，仔細觀察根系狀態。健康的根應該是白色或淺棕色的，如果發現黑色的腐根或乾枯的死根，用乾淨的剪刀修剪掉。\n\n第四步，這一步很關鍵——晾根。把修剪後的多肉放在陰涼通風處晾1-2天，讓傷口自然癒合形成保護層。這就像我們受傷後讓傷口結痂一樣。\n\n第五步，準備新盆新土。盆底放一層顆粒土（赤玉土或麥飯石）幫助排水，上面鋪混合土（泥炭土:珍珠岩:顆粒土 = 1:1:1），把植株放入後輕填土固定。\n\n第六步，放在散射光處3-5天後，再開始少量澆水。這段時間就是讓它安靜適應新環境的「療養期」。\n\n記住，每次換盆都是你和植物之間的一次對話。慢慢來，它能感受到你的用心。', authorName: '隨手作老師', authorEmoji: '🌱', likeCount: 28, createdAt: '2026-03-20' },
+    { id: 'sa-2', title: '葉插繁殖全攻略', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2023/01/798735.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2023/01/798735.jpg', topic: 'plant', summary: '用一片葉子就能種出一盆新多肉——這大概是園藝裡最有魔法的事', content: '想像一下，從一棵多肉上摘下一片葉子，三週後它就長出了自己的小根和小芽，變成一株全新的生命。這不是什麼神奇魔法，而是多肉植物最迷人的天賦——葉插繁殖。\n\n這個過程其實呼應了一個很美的概念：生命的韌性。即使只是一小片葉子，只要有適當的環境和耐心，它就能重新開始。\n\n選葉很重要。挑選靠近植株中段、飽滿健康的葉片。太嫩的頂端葉片養分不足，太老的底部葉片活力不夠。用手輕輕左右搖動摘下，確保蒂頭完整——蒂頭就是葉片連接莖的那個小小月牙形，新芽會從那裡萌出。\n\n晾葉是容易被忽略但很關鍵的步驟。摘下的葉片放在乾燥通風處晾1-2天，讓傷口形成一層薄膜（愈傷組織）。如果傷口還是濕潤的就放到土上，很容易感染黑腐。\n\n擺放方式有講究。把葉片平放在微濕的介質表面（赤玉土、珍珠岩都可以），蒂頭朝上不要插入土裡。放在明亮但沒有直射陽光的地方，直射光會曬傷還沒生根的葉片。\n\n接下來就是最考驗耐心的部分——等待。大約5-7天會開始冒出粉色的小根，2-3週會長出米粒大小的芽。在這段時間，每3-4天用噴霧輕噴介質表面，保持微濕即可，千萬不要澆透。\n\n有些品種的成功率可以到80%以上（像是朧月、姬朧月、黛比），有些則比較難（像是玉露、萬象）。所以多試幾片，總會有驚喜。\n\n當小苗長到硬幣大小時，就可以移到小盆裡正式養護了。那個時候母葉會慢慢乾枯——它把所有的養分都給了新生命。\n\n這不就是自然界最溫柔的傳承嗎？', authorName: '隨手作老師', authorEmoji: '🌱', likeCount: 39, createdAt: '2026-03-08' },
+    { id: 'sa-3', title: '微景觀組盆的配色美學', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2023/01/1009941_0.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2023/01/1009941_0.jpg', topic: 'plant', summary: '組盆不只是把多肉放在一起，學會配色原則讓你的作品立刻升級', content: '組盆是一門小小的藝術，它把園藝和美學結合在一起。很多人做出的組盆看起來「說不上哪裡不對」，其實問題往往出在配色和構圖上。\n\n色彩學在組盆中的應用：\n\n漸層法是最安全也最優雅的配色方式。選同色系但深淺不同的品種，像是從淺粉到深紫的系列——白牡丹（淺綠白）搭初戀（粉紫）再到紫珍珠（深紫），這樣的漸層讓視覺自然過渡，不會突兀。\n\n對比法適合想要作品更有視覺張力的人。在色輪上互補的顏色搭配起來最有衝擊力：紫色系（紫珍珠）配黃綠色系（黃金萬年草），或者紅色系（火祭）搭藍綠色系（薄雪萬年草）。\n\n點綴法是進階技巧。大面積使用柔和的同色系打底（比如各種綠色系），然後放一小株色彩鮮明的品種當視覺焦點——就像一幅畫中的「畫眼」。\n\n構圖原則同樣重要：\n\n高低層次——把高的直立型品種（像是虹之玉、乙女心）放後方，蓮座型的放中間，匍匐型的（佛甲草、薄雪萬年草）放在盆邊讓它自然垂下。\n\n黃金比例——主角不要放在正中央，稍微偏一側（約三分之一處），這樣構圖更生動。\n\n留白的藝術——千萬不要塞太滿！適當的土面留白或搭配小石子，讓每株多肉有「呼吸空間」，視覺上更舒服。\n\n最後一個小秘訣：在組好的盆面上鋪一層鋪面石（白色麥飯石或赤玉土），整體質感會瞬間提升好幾個檔次。就像化妝最後的定妝一樣重要。', authorName: '隨手作老師', authorEmoji: '🌱', likeCount: 45, createdAt: '2026-03-05' },
     // 調香
-    { id: 'sa-4', title: '居家擴香的五個小秘密', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2025/03/精油芳療滾珠瓶5.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2025/03/精油芳療滾珠瓶5.jpg', topic: 'fragrance', summary: '讓空間香氣持久又自然的擴香技巧', content: '1. 擴香石的正確使用：滴 3-5 滴精油，放在通風處讓香氣自然擴散。\n\n2. 不同空間不同香氣：客廳用柑橘類提振精神，臥室用薰衣草助眠。\n\n3. 擴香瓶保養：定期翻轉藤條，讓香氣持續。\n\n4. 季節搭配：夏天選清爽的薄荷、尤加利；冬天選溫暖的雪松、檀香。\n\n5. 香氣層次：可混合2-3種精油創造獨特香氛。', authorName: '隨手作老師', authorEmoji: '🫧', likeCount: 42, createdAt: '2026-03-18' },
-    { id: 'sa-5', title: '認識前中後調：調香入門', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2025/03/精油芳療滾珠瓶4.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2025/03/精油芳療滾珠瓶4.jpg', topic: 'fragrance', summary: '前調清新、中調花香、後調深沉，三者搭配才完整', content: '調香就像譜一首曲子，前中後三個調性各有角色：\n\n前調（Top Notes）：第一印象，柑橘、薄荷等清新香氣，約15-30分鐘。\n\n中調（Middle Notes）：香水的心臟，花香或草本香氣，持續2-4小時。\n\n後調（Base Notes）：深沉持久的底蘊，木質、樹脂或麝香類，持續6小時以上。\n\n建議比例：前調15-25%、中調30-40%、後調30-40%。', authorName: '隨手作老師', authorEmoji: '🫧', likeCount: 56, createdAt: '2026-03-01' },
+    { id: 'sa-4', title: '居家擴香的五個小秘密', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2025/03/精油芳療滾珠瓶5.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2025/03/精油芳療滾珠瓶5.jpg', topic: 'fragrance', summary: '讓空間充滿療癒香氣，其實有一些你可能不知道的小細節', content: '氣味是直接連結大腦邊緣系統的感官——它不需要經過理性思考，就能影響你的情緒和記憶。這就是為什麼聞到某個香味會突然想起某個場景、某個人。善用擴香，你可以主動為家裡創造一個「情緒錨點」。\n\n秘密一：不同空間需要不同的香氣人格\n\n客廳是你和家人、朋友共處的空間，適合明亮、開放的香氣——甜橙、佛手柑、葡萄柚這些柑橘類精油能提振精神又不過於強烈。臥室是你放鬆入眠的聖地，薰衣草（真正薰衣草 Lavandula angustifolia）是公認最有效的助眠精油，搭配雪松或岩蘭草更有層次。書房適合迷迭香搭配薄荷，研究顯示迷迭香的香氣成分1,8-桉葉素能提升記憶力和專注力。\n\n秘密二：擴香石的正確使用方式\n\n很多人把精油滴上去就不管了。其實每次滴3-5滴就夠了（多滴不會更香，只會浪費），等第一次的香味完全消散後再滴第二次。擴香石放在進門處、床頭或冷氣出風口附近效果最好。\n\n秘密三：季節搭配法則\n\n夏天選擇清爽上揚的香氣——薄荷、尤加利、檸檬草，給人降溫的感覺。冬天選溫暖擁抱感的香氣——雪松、檀香、肉桂、乳香，讓冷冷的日子多一份暖意。換季時混搭，像是初秋可以用佛手柑（清新）加雪松（溫暖），過渡非常自然。\n\n秘密四：不要同時擴散超過三種香氣\n\n在同一個空間裡，最多混合2-3種精油就好。太多種類的香氣混在一起會變得混濁，反而失去療癒效果。\n\n秘密五：你的嗅覺會疲勞\n\n在同一個香氛環境待超過30分鐘，你可能覺得「好像不香了？」這不是精油失效，而是嗅覺適應（olfactory adaptation）——大腦自動降低了對持續刺激的敏感度。離開那個空間一會兒再回來，你就會重新聞到了。', authorName: '隨手作老師', authorEmoji: '🫧', likeCount: 42, createdAt: '2026-03-18' },
+    { id: 'sa-5', title: '認識前中後調：調香入門', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2025/03/精油芳療滾珠瓶4.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2025/03/精油芳療滾珠瓶4.jpg', topic: 'fragrance', summary: '前調清新、中調溫柔、後調深邃——三段式結構創造出完美的嗅覺旅程', content: '調香就像在寫一首音樂。前調是開場的旋律，中調是故事的主題，後調是餘韻和結尾。每一段都有自己的角色，三者搭配得宜，才能創造一個完整的嗅覺體驗。\n\n前調（Top Notes）——第一印象\n\n前調是你聞到香水的第一個印象，通常在15-30分鐘內會漸漸消散。這些是分子量小、揮發速度快的精油：柑橘類（佛手柑、甜橙、檸檬）、薄荷、尤加利。前調決定了別人靠近你的第一感覺——是清爽？是甜美？還是神秘？\n\n中調（Middle Notes / Heart Notes）——故事的心臟\n\n中調才是一支香水真正的「靈魂」。它在前調消散後浮現，持續2-4小時。花香系（玫瑰、茉莉、依蘭依蘭）、草本系（薰衣草、天竺葵、快樂鼠尾草）、辛香系（肉桂、丁香）都屬於中調。中調佔整體香水配方的40-60%。\n\n後調（Base Notes）——深沉的底蘊\n\n後調像是一首歌曲最後的和弦，在中調消散後緩慢浮現，能持續6小時甚至更久。木質調（雪松、檀香、花梨木）、樹脂調（乳香、沒藥、安息香）、動物調（麝香、龍涎香）都是典型的後調。後調的作用是讓整個香氣有「根」、有重量感。\n\n建議配方比例：前調15-25%、中調30-40%、後調30-40%\n\n新手入門配方推薦：\n- 清新型：佛手柑(前) + 薰衣草(中) + 雪松(後)\n- 甜美型：甜橙(前) + 依蘭依蘭(中) + 香草(後)\n- 沉穩型：佛手柑(前) + 天竺葵(中) + 檀香(後)\n\n調香的過程本身就是一種冥想。當你專注在不同的香氣之間尋找平衡時，外面的世界會暫時安靜下來。', authorName: '隨手作老師', authorEmoji: '🫧', likeCount: 56, createdAt: '2026-03-01' },
     // 水晶
-    { id: 'sa-6', title: '水晶手鍊斷了怎麼辦？', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2026/03/1043595_0.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2026/03/1043595_0.jpg', topic: 'crystal', summary: '手鍊斷裂不用慌，教你DIY修復', content: '水晶手鍊的彈力線使用久了會老化、斷裂是正常的。\n\n修復方式：\n- 準備0.8mm彈力線和打火機\n- 將水晶按原來的順序排好\n- 穿線時預留10cm打結\n- 打2-3個結，用打火機微燒固定\n- 多餘的線頭塞入珠子孔中\n\n如果不想DIY，也可以帶回工作室，我們免費幫你穿線！', authorName: '隨手作老師', authorEmoji: '💎', likeCount: 35, createdAt: '2026-03-15' },
-    { id: 'sa-7', title: '生命靈數與水晶的搭配', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2026/03/1043594_0.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2026/03/1043594_0.jpg', topic: 'crystal', summary: '根據你的生命靈數，找到最適合的水晶能量', content: '生命靈數是把出生年月日的數字加總到個位數：\n\n1號人（領導者）→ 虎眼石：增強自信與決斷力\n2號人（和平者）→ 月光石：增進直覺與溫柔\n3號人（表達者）→ 黃水晶：帶來歡樂與創造力\n4號人（建構者）→ 黑曜石：穩定與保護\n5號人（自由者）→ 海藍寶：勇氣與表達\n6號人（照顧者）→ 粉晶：愛與療癒\n7號人（探索者）→ 紫水晶：智慧與靈性\n8號人（成就者）→ 綠幽靈：財富與成長\n9號人（奉獻者）→ 白水晶：淨化與連結', authorName: '隨手作老師', authorEmoji: '💎', likeCount: 72, createdAt: '2026-02-28' },
+    { id: 'sa-6', title: '水晶手鍊斷了怎麼辦？', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2026/03/1043595_0.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2026/03/1043595_0.jpg', topic: 'crystal', summary: '手鍊斷裂不用驚慌——它可能正在告訴你一些事', content: '水晶手鍊突然斷了，很多人第一反應是「是不是有什麼不好的事？」其實從實用角度來說，彈力線使用久了自然會老化、氧化而失去彈性，加上日常摩擦和拉扯，斷裂只是材質壽命到了。\n\n但在水晶療癒的觀點中，也有一個溫柔的說法：手鍊斷裂可能代表它已經完成了在這個階段對你的陪伴。無論你相信哪一種，最實際的做法是——修好它，讓它繼續陪你。\n\n自己修復的步驟：\n\n準備工具：0.8mm 透明彈力線（水晶專用）、剪刀、打火機（或透明膠水）、一個淺盤子（防止珠子滾走）。\n\n第一步，把所有珠子按照原來的順序排好在盤子裡。如果你記不得順序，也沒關係——這是一個重新設計排列的好機會。\n\n第二步，量出手腕周長再加上10公分的線長，用剪刀剪下。\n\n第三步，在線的一端打一個臨時結（或用膠帶固定），開始穿珠子。穿的時候注意方向，有些珠子有天然紋路的正反面。\n\n第四步，全部穿好後，把兩端拉緊對齊，打2-3個外科結（就是普通結打兩圈再拉緊）。結要緊但不要太用力，否則線容易在結點斷裂。\n\n第五步，用打火機的火焰快速掃過結點（不要燒太久！），讓彈力線微微融化固定。然後把多餘的線頭剪短，塞進最近的珠子孔裡。\n\n保養小撇步：每3-6個月可以把手鍊拆下來重新穿線，就像定期保養一樣。洗澡、游泳、運動時記得摘下來，水和汗液都會加速彈力線老化。\n\n如果你不想自己動手，帶回隨手作工作室，我們幫你免費穿線。', authorName: '隨手作老師', authorEmoji: '💎', likeCount: 35, createdAt: '2026-03-15' },
+    { id: 'sa-7', title: '生命靈數與水晶的搭配', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2026/03/1043594_0.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2026/03/1043594_0.jpg', topic: 'crystal', summary: '根據你的出生日期，找到與你頻率共振的水晶', content: '生命靈數是古老的數字命理學之一，把你的出生年月日所有數字相加，直到剩下一個個位數，就是你的生命靈數。比如1990年5月12日：1+9+9+0+5+1+2 = 27 → 2+7 = 9，靈數就是9。\n\n每個靈數都對應著特定的人格特質和能量需求，而不同的水晶剛好能補充或強化這些能量：\n\n1號人——領導者｜虎眼石\n你有強烈的獨立意識和領導力，但有時會過於固執。虎眼石的金棕色光澤象徵著大地的穩定力量，能幫你在堅持自我的同時保持靈活。戴在右手，增強行動力。\n\n2號人——和平者｜月光石\n你天生敏感、善解人意，是人群中的安撫者。月光石散發著溫柔的藍色光暈，能增進你的直覺力，同時保護你的敏感不被過度消耗。戴在左手，接收月亮的柔和能量。\n\n3號人——表達者｜黃水晶\n你充滿創造力和表達欲，是天生的藝術家。黃水晶（Citrine）是「太陽石」，它明亮的能量能激發你的靈感，同時帶來樂觀和自信。放在工作桌上，創作時特別有幫助。\n\n4號人——建構者｜黑曜石\n你踏實、有責任感，但容易承擔太多壓力。黑曜石是最強的保護石之一，能吸收負面能量、幫你建立健康的界限。隨身攜帶或放在枕頭下。\n\n5號人——自由者｜海藍寶\n你渴望自由、熱愛冒險。海藍寶的清澈藍色像大海一樣開闊，能增強你的溝通能力和勇氣，同時幫你在自由與責任之間找到平衡。\n\n6號人——照顧者｜粉晶\n你是天生的照顧者，但常常忘了照顧自己。粉晶是「愛的石頭」，它不只能吸引愛情，更重要的是提醒你：自愛是一切愛的起點。\n\n7號人——探索者｜紫水晶\n你有深度的思考能力和靈性傾向。紫水晶開啟第三眼（眉心輪），增強直覺和洞察力。冥想時握著紫水晶，會幫助你進入更深的寧靜。\n\n8號人——成就者｜綠幽靈\n你有強大的企圖心和實現目標的能力。綠幽靈水晶的綠色幻影代表著成長和豐盛的能量，是公認的「財富之石」。戴在左手接收豐盛能量。\n\n9號人——奉獻者｜白水晶\n你有博大的愛和服務他人的渴望。白水晶是「萬能水晶」，它純淨的能量能放大你的善意，同時幫你淨化環境中的混亂能量。', authorName: '隨手作老師', authorEmoji: '💎', likeCount: 72, createdAt: '2026-02-28' },
     // 蠟燭
-    { id: 'sa-8', title: '蠟燭第一次點燃很重要', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2025/03/705960_0.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2025/03/705960_0.jpg', topic: 'candle', summary: '第一次點蠟燭的方式會決定它之後的壽命', content: '第一次燃燒蠟燭時，一定要讓蠟池擴展到整個容器邊緣。這通常需要1-2小時。\n\n如果第一次沒有讓蠟池完全擴展，會形成「記憶環」，之後每次點燃都只會融化那個範圍。\n\n其他小技巧：每次點燃不超過4小時、修剪燭芯至0.5-0.8cm、遠離風口。', authorName: '隨手作老師', authorEmoji: '🕯️', likeCount: 51, createdAt: '2026-03-12' },
-    { id: 'sa-9', title: '大豆蠟 vs 蜂蠟 vs 石蠟：你的蠟燭用什麼做的？', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2025/03/705959_0.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2025/03/705959_0.jpg', topic: 'candle', summary: '不同蠟材的特性和使用差異', content: '大豆蠟：植物性、燃燒乾�淨、容易清洗，但凝固後表面可能不平整。最適合容器蠟燭。\n\n蜂蠟：天然蜂巢香氣、燃燒時間最長、能淨化空氣。價格較高，適合柱狀蠟燭。\n\n石蠟：最便宜、顏色鮮豔、表面光滑。但燃燒時可能產生微量有害物質。\n\n椰子蠟：質地柔軟、擴香效果最好、燃燒均勻。是目前高級蠟燭的首選。\n\n我們工作室使用的是大豆蠟，環保又安全。', authorName: '隨手作老師', authorEmoji: '🕯️', likeCount: 38, createdAt: '2026-02-25' },
+    { id: 'sa-8', title: '蠟燭第一次點燃很重要', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2025/03/705960_0.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2025/03/705960_0.jpg', topic: 'candle', summary: '蠟燭也有「記憶」——第一次點燃的方式會決定它往後的表現', content: '你知道蠟燭有「記憶」嗎？這不是什麼玄學，而是蠟的物理特性。蠟燭在第一次燃燒時形成的蠟池範圍，會成為它之後每次燃燒的「記憶邊界」。這個現象叫做「蠟燭隧道效應」（Candle Tunneling）。\n\n如果你第一次點蠟燭時只燒了20分鐘就吹熄，蠟池只擴展到燭芯周圍一小圈，那之後無論你燒多久，蠟的融化範圍都不會超過那個圈。結果就是——蠟燭中間燒出一個深深的隧道，周圍留下大量沒有被利用的蠟。白白浪費了你親手做的作品。\n\n正確的第一次：\n\n第一次點燃時，確保有足夠的時間（通常1-2小時）讓蠟池完全擴展到容器邊緣。大豆蠟的融點較低（約46-52°C），擴展速度會比石蠟快一些。你可以偶爾看一下，當整個表面都變成均勻的液態蠟時，就可以熄滅了。\n\n日常使用的小知識：\n\n修剪燭芯——每次點燃前把燭芯修到0.5-0.8公分。太長的燭芯會產生黑煙和蘑菇頭（碳球），太短則可能被融化的蠟淹沒而熄滅。專業的燭芯剪是最好用的工具。\n\n控制燃燒時間——單次不要超過4小時。長時間燃燒會讓容器過熱，不僅危險也會影響精油的香氣品質（高溫會加速精油揮發，前調的清新感會消失）。\n\n熄滅的方式——不要直接吹！用滅燭器或蓋子蓋住（斷氧熄滅），或用金屬工具把燭芯按入蠟池再拉起。這樣可以避免產生黑煙和蠟液飛濺，下次點燃也更容易。\n\n存放注意——遠離陽光直射和高溫環境。大豆蠟的融點低，夏天擺在窗邊可能會自己軟化變形。不點的時候蓋上蓋子，防止灰塵沉積和香味提前散逸。\n\n蠟燭是最有儀式感的療癒工具之一。點亮的那一刻，你就在為自己創造一個安靜的結界。', authorName: '隨手作老師', authorEmoji: '🕯️', likeCount: 51, createdAt: '2026-03-12' },
+    { id: 'sa-9', title: '大豆蠟 vs 蜂蠟 vs 石蠟', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2025/03/705959_0.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2025/03/705959_0.jpg', topic: 'candle', summary: '你的蠟燭是什麼材質做的？不同蠟材的優缺點一次看懂', content: '選擇蠟材就像選擇料理的食材——每一種都有自己的個性，適合不同的用途和需求。\n\n大豆蠟（Soy Wax）——環保派的首選\n大豆蠟萃取自天然大豆油，是100%可再生的植物性蠟材。它燃燒乾淨，幾乎不產生黑煙和有害物質，蠟漬也很容易用溫水清洗。大豆蠟的融點較低（46-52°C），釋放香氣的溫度也低，適合搭配精油使用。不過它凝固後表面可能出現不平整的「霜花」，這是天然特徵不是瑕疵。最適合做容器蠟燭。隨手作工作室使用的就是大豆蠟。\n\n蜂蠟（Beeswax）——大自然的禮物\n蜂蠟是蜜蜂築巢時分泌的天然蠟質，帶有淡淡的蜂蜜甜香。它的融點最高（62-65°C），燃燒時間也最長。更特別的是，蜂蠟燃燒時會釋放負離子，能中和空氣中的灰塵和過敏原。缺點是價格較高，且因為本身有香味，不太適合做加香蠟燭。最適合做柱狀蠟燭和蜂巢造型蠟燭。\n\n石蠟（Paraffin Wax）——商業蠟燭的主力\n石蠟是石油精煉的副產品，歷史最悠久也最便宜。它的優點是色彩鮮豔（吃色性好）、表面光滑、穩定性高。但燃燒時可能產生微量的苯和甲苯等有害物質。通風良好的環境下使用是安全的，但如果你或家人有呼吸敏感的問題，建議改用植物性蠟材。\n\n椰子蠟（Coconut Wax）——新寵兒\n椰子蠟質地柔軟如奶油，擴香效果是所有蠟材中最好的，燃燒非常均勻。缺點是融點極低（35-40°C），夏天容易軟化，通常需要和大豆蠟或蜂蠟混合使用。高級香氛品牌越來越多採用椰子蠟混合配方。\n\n選擇建議：如果你注重環保和健康，選大豆蠟；如果喜歡天然蜂蜜香氣和長燃時間，選蜂蠟；如果追求最佳擴香效果，選椰子蠟混合配方。', authorName: '隨手作老師', authorEmoji: '🕯️', likeCount: 38, createdAt: '2026-02-25' },
     // 皮革
-    { id: 'sa-10', title: '皮革作品的日常保養指南', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2026/03/1033816_0.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2026/03/1033816_0.jpg', topic: 'leather', summary: '好好照顧，讓皮革越用越有味道', content: '皮革是有生命力的材質：\n\n日常擦拭：每週用柔軟棉布輕拭灰塵。\n\n防潮：不用時放在通風處，可放防潮袋。淋雨後用乾布吸水，自然風乾。\n\n上油保養：每1-3個月用皮革專用保養油薄塗一層。\n\n避免：長時間日曬、接觸化學品、用力摩擦。\n\n皮革的變色和使用痕跡是它的故事，養出屬於你的獨特色澤是手作皮革最迷人的地方。', authorName: '隨手作老師', authorEmoji: '👜', likeCount: 33, createdAt: '2026-03-10' },
-    { id: 'sa-11', title: '手縫皮革的基本針法', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2026/03/1033815_0.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2026/03/1033815_0.jpg', topic: 'leather', summary: '雙針縫法是手作皮革最常用的技法', content: '手縫皮革使用「鞍針縫法」（Saddle Stitch）：\n\n1. 準備兩支針，線長約縫合長度的3.5倍\n2. 線穿過兩支針，一針在上一針在下\n3. 第一針從正面穿入，拉到中間\n4. 第二針從背面同一個孔穿入\n5. 兩邊均勻拉緊，力道要一致\n\n重點：菱斬打洞要直、針距要均勻、拉線力道要一致。\n\n手縫比機縫更耐用，因為即使斷了一針，其他針腳也不會散開。', authorName: '隨手作老師', authorEmoji: '👜', likeCount: 29, createdAt: '2026-02-20' },
+    { id: 'sa-10', title: '皮革作品的日常保養指南', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2026/03/1033816_0.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2026/03/1033816_0.jpg', topic: 'leather', summary: '好好照顧你的皮革——它會用時間回報你一份獨一無二的光澤', content: '皮革是有生命力的材質。不同於塑膠或金屬製品會越用越舊，真皮在使用和保養的過程中會產生「養皮」效果——顏色會逐漸加深、光澤會越來越溫潤，手感也會變得更加柔軟。日本人把這種變化稱為「エイジング」（aging），中文叫「包漿」。那是時間和使用痕跡交織出的獨特美感。\n\n日常清潔\n每週用乾淨的柔軟棉布輕輕擦拭皮面，帶走灰塵和油脂。不要用面紙（會留下纖維），也不要用濕巾（含有化學成分可能損傷皮面）。如果有輕微髒污，用微濕的棉布以圓弧方式輕拭，然後立刻用乾布吸乾水分。\n\n防潮保護\n皮革最怕兩件事：過度潮濕和過度乾燥。台灣的梅雨季和夏天特別需要注意。不使用時放在通風良好的地方，可以放防潮袋但不要直接接觸皮面。如果不小心淋到雨，用乾布輕壓吸水（不要擦！），然後放在陰涼處自然風乾，千萬不要用吹風機或放在陽光下曬——高溫會讓皮革收縮變硬。\n\n上油保養\n每1-3個月用皮革專用保養油（推薦貂油或荷荷巴油基底的保養油）薄薄塗一層。重點是「薄塗」——取黃豆大小的油，先在棉布上均勻推開，再以圓弧方式塗抹在整個皮面上。塗完後靜置15-30分鐘讓皮革吸收，再用乾淨棉布輕輕拋光。\n\n絕對要避免的事\n長時間日曬（紫外線會讓皮革褪色龜裂）；接觸酒精、香水、化妝品（會溶解皮革表面的油脂保護層）；用力摩擦（會破壞皮紋結構）；放在密封塑膠袋裡（皮革需要呼吸）。\n\n你在隨手作做的皮革作品，承載著那個下午你專注打洞、穿線的記憶。好好養護它，每次看到上面的使用痕跡，都是你和它一起走過的日子。', authorName: '隨手作老師', authorEmoji: '👜', likeCount: 33, createdAt: '2026-03-10' },
+    { id: 'sa-11', title: '手縫皮革的基本針法', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2026/03/1033815_0.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2026/03/1033815_0.jpg', topic: 'leather', summary: '鞍針縫法是手作皮革的靈魂——一針一線都是專注的練習', content: '手縫皮革使用的「鞍針縫法」（Saddle Stitch）已經有幾百年的歷史。它是目前所有皮革縫合方法中最堅固的一種，比機器車縫更耐用。原因很簡單：機縫是一條線在上下交叉形成鏈鎖式結構，一旦某一點斷了，整條縫線會像拉鏈一樣散開。而手縫是兩條線獨立穿過同一個孔，即使斷了一針，其他針腳依然牢固。\n\n工具準備\n菱斬（打洞工具，有2齒和4齒可選）、蠟線（麻線或尼龍線，先過蠟增加滑順度和防水性）、兩支圓頭皮革手縫針、木槌、橡膠墊。\n\n打洞是基礎\n用菱斬沿著你的縫合線打洞，保持垂直和等距。打洞時先用4齒菱斬打出參考線，最後一齒對準上一組最後一個洞繼續打，這樣孔距才會一致。轉角處改用2齒菱斬，更容易控制方向。\n\n穿線技巧\n量出縫合長度的3.5倍線長，兩端各穿一支針。穿針後把針穿過線的中間（不是打結），這樣針不會在縫的過程中脫落。\n\n縫合步驟\n1. 從第一個洞的正面穿入第一支針，拉到兩邊等長。\n2. 第二支針從同一個洞的背面穿入。這時候注意：始終讓同一支針（比如右手針）在另一支針的上方穿過。\n3. 兩邊均勻拉緊。拉線的力道要一致——太鬆縫線會鬆垮，太緊皮革會皺縮。\n4. 重複到最後一個洞，回縫2-3針固定。\n\n最重要的心法：不要急。手縫皮革的魅力就在於那個緩慢而有節奏的過程。針穿入、線拉緊、下一針。這個重複的動作會讓你的呼吸自然變慢、注意力自然集中，就像一種動態的冥想。\n\n每一個整齊均勻的針腳背後，都是你那天的專注和耐心。這就是手作比機器更有溫度的原因。', authorName: '隨手作老師', authorEmoji: '👜', likeCount: 29, createdAt: '2026-02-20' },
     // 手工皂
-    { id: 'sa-12', title: '手工皂的熟成等待', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2023/08/e6898be4bd9cdiye69d90e.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2023/08/e6898be4bd9cdiye69d90e.jpg', topic: 'soap', summary: '為什麼手工皂要等 4-6 週才能用？', content: '手工皂需要「熟成期」（Curing）：\n\n冷製皂在脫模後，皂化反應還在持續。pH值仍然偏高，直接使用會刺激皮膚。\n\n熟成期間，多餘水分蒸發、皂體變硬、pH值降低到適合肌膚的範圍（約pH 8-9）。\n\n保存方式：放在通風陰涼處，底部墊烘焙紙，每週翻面一次。\n\n判斷熟成：表面乾燥不黏手、切面顏色均勻、用試紙測pH值在9以下。\n\n等待是值得的，熟成後的手工皂泡沫綿密、洗感溫和。', authorName: '隨手作老師', authorEmoji: '🧼', likeCount: 41, createdAt: '2026-03-06' },
-    { id: 'sa-13', title: '手工皂添加物指南：花草、精油、色粉', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2022/02/LINE_ALBUM_1108-花圈皂_220706.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2022/02/LINE_ALBUM_1108-花圈皂_220706.jpg', topic: 'soap', summary: '如何讓你的手工皂更美更香更好用', content: '花草入皂：乾燥花瓣可灑在皂面裝飾，但大部分花材入皂後會變色變咖啡。建議只做表面裝飾。\n\n精油用量：一般以油重的2-3%計算。薰衣草、茶樹等溫和精油適合新手。柑橘類精油要注意光敏性。\n\n天然色粉：可可粉（咖啡色）、抹茶粉（綠色）、紫草根粉（紫色）、薑黃粉（黃色）。\n\n礦泥：法國綠泥（控油）、粉紅泥（敏感肌）、白高嶺土（溫和去角質）。\n\n注意：食用色素入皂會褪色，請用專用皂用色粉。', authorName: '隨手作老師', authorEmoji: '🧼', likeCount: 36, createdAt: '2026-02-22' },
+    { id: 'sa-12', title: '手工皂的熟成等待', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2023/08/e6898be4bd9cdiye69d90e.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2023/08/e6898be4bd9cdiye69d90e.jpg', topic: 'soap', summary: '為什麼手工皂要等4-6週？因為美好的事物值得等待', content: '剛從模具裡取出的手工皂看起來已經很完美了——光滑的表面、美麗的花紋。但如果你急著用，會發現它洗起來刺刺的，泡沫也不夠綿密。這是因為「皂化反應」還在進行中。\n\n什麼是皂化反應？\n手工皂的製作原理是：油脂 + 氫氧化鈉（鹼） → 皂 + 甘油。這個化學反應叫「皂化」。在脫模的時候，大約有80%的油鹼已經轉化成皂，但剩下的20%還需要時間慢慢完成。\n\n熟成期間發生了什麼？\n第1-2週：殘餘的氫氧化鈉繼續和油脂反應，pH值逐漸從12-13（強鹼）降低。皂體開始排出多餘水分，質地變硬。\n第3-4週：皂化反應接近完成，pH值降到9-10左右。皂的結晶結構更加穩定，泡沫開始變得細緻綿密。\n第5-6週：理想的使用時機。pH值穩定在8-9（接近皮膚可接受的範圍），洗感溫和、泡沫豐富，香氣也更加圓潤。\n\n正確的熟成方式\n放在通風、陰涼、避光的地方。底部墊一層烘焙紙或晾皂架，讓空氣能從底部流通。每週翻面一次，讓乾燥更均勻。如果是多塊一起晾，之間要保持至少2公分的間距。\n\n如何判斷熟成完畢？\n外觀——表面乾燥不黏手，切面顏色均勻（沒有透明的未皂化油斑）。\n觸感——用手指輕壓，質地堅實不軟爛。\n試紙——用pH試紙測試，數值在9以下。\n舌尖測試（傳統方法）——用舌尖輕觸皂的表面，如果感到麻麻的刺激，代表鹼性還太高。如果沒有刺激感，就可以安心使用了。\n\n等待是手工皂最有溫度的一部分。在那4-6週裡，你每次路過看到它們靜靜躺在架上慢慢變化，其實就是在見證一個「從混亂到穩定」的過程——某種程度上，也像是我們自己的療癒旅程。', authorName: '隨手作老師', authorEmoji: '🧼', likeCount: 41, createdAt: '2026-03-06' },
+    { id: 'sa-13', title: '手工皂添加物指南', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2022/02/LINE_ALBUM_1108-花圈皂_220706.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2022/02/LINE_ALBUM_1108-花圈皂_220706.jpg', topic: 'soap', summary: '花草、精油、色粉——讓你的手工皂更美更香更好用的秘密', content: '基礎的手工皂已經很好用了，但加入不同的添加物可以讓它變得更特別——不只是外觀上的美，也能增加功能性。\n\n花草入皂的浪漫與現實\n想像把漂亮的乾燥花瓣嵌入透明的皂裡，是不是很浪漫？現實是，大部分花材入皂後會因為鹼性環境而變色——紅玫瑰會變褐色，薰衣草會變灰綠色。所以花材建議只做表面裝飾，撒在皂的頂部，不要混入皂液裡。少數耐鹼的花材：金盞花（能保持黃色）、矢車菊（保持藍色但會褪）。\n\n精油選擇與用量\n精油的添加量通常是油脂總重的2-3%。但不是所有精油都適合入皂。\n新手推薦：薰衣草（溫和百搭、香氣穩定）、茶樹（天然抗菌、適合油性肌膚）、甜橙（心情愉悅，但香氣消散較快）。\n進階選擇：廣藿香（earthy深邃、定香效果好）、迷迭香（清新提神）、依蘭依蘭（花香甜美）。\n注意事項：柑橘類精油有光敏性，做成的皂建議在室內使用或晚間使用。\n\n天然色粉讓手工皂穿上美麗外衣\n可可粉——溫暖的巧克力棕色，帶有淡淡可可香。\n抹茶粉——清新的草綠色（但放久會褪色變土黃，加入維他命E可延緩）。\n紫草根粉——從淡紫到深紫，是最受歡迎的天然紫色來源。\n薑黃粉——明亮的黃色，薑黃素有抗發炎的保養功效。\n備長炭粉——深黑色，有很好的吸附力，適合做潔面皂。\n\n礦泥——功能性添加物\n法國綠泥：深層清潔控油，適合油性肌膚。\n粉紅泥：溫和去角質，適合敏感肌膚。\n白高嶺土：最溫和的黏土，增加皂的滑順感。\n\n一個小提醒：每次只嘗試一種新的添加物，這樣才能清楚知道效果如何。手工皂的美在於每一塊都是你的實驗和記錄。', authorName: '隨手作老師', authorEmoji: '🧼', likeCount: 36, createdAt: '2026-02-22' },
     // 花藝
-    { id: 'sa-14', title: '鮮花買回家怎麼養更久？', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2023/10/1052600.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2023/10/1052600.jpg', topic: 'floral', summary: '五個延長花期的實用技巧', content: '1. 斜切花莖：45度角斜切，增加吸水面積。每2-3天重新修剪一次。\n\n2. 清水換新：每天換水，加入保鮮劑或幾滴漂白水（500ml水+1滴）。\n\n3. 去除浸水葉片：水面以下的葉片全部去掉，防止細菌滋生。\n\n4. 避開直射陽光：放在陰涼通風處，遠離水果（水果會釋放乙烯加速花朵凋謝）。\n\n5. 花材分類照顧：玫瑰喜歡溫水、百合要去花蕊（防止花粉沾染）、繡球可以整朵泡水急救。', authorName: '隨手作老師', authorEmoji: '💐', likeCount: 58, createdAt: '2026-03-14' },
-    { id: 'sa-15', title: '乾燥花製作入門', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2023/10/1052599.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2023/10/1052599.jpg', topic: 'floral', summary: '在家就能做的三種乾燥花方法', content: '自然風乾法（最簡單）：\n把花束倒掛在通風陰暗處，等待1-2週。適合滿天星、尤加利、薰衣草。\n\n矽膠乾燥法（保色最好）：\n把花材埋入矽膠乾燥劑中，3-7天完成。適合玫瑰、繡球等需要保持形狀的花。\n\n壓花法（最有文藝感）：\n把花材放在書本中壓平，2-3週後取出。適合做卡片、手機殼、書籤。\n\n小技巧：在花朵半開時就開始乾燥，效果最好。', authorName: '隨手作老師', authorEmoji: '💐', likeCount: 47, createdAt: '2026-02-15' },
+    { id: 'sa-14', title: '鮮花買回家怎麼養更久？', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2023/10/1052600.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2023/10/1052600.jpg', topic: 'floral', summary: '五個延長花期的實用技巧，讓一束花陪你更久', content: '花市買回來的鮮花，有些人養三天就凋了，有些人卻能養超過兩週。差別往往在那些小小的細節裡。\n\n技巧一：斜切花莖，製造最大吸水面\n回家後第一件事就是重新修剪花莖——在水中以45度角斜切。為什麼要在水中？因為花莖切口暴露在空氣中時會形成氣栓（air embolism），阻礙水分吸收。在水裡剪，氣泡進不去。每2-3天重新修剪一次，每次剪掉1-2公分。\n\n技巧二：換水是最重要的日常\n每天換水是延長花期最有效的方法，沒有之一。舊水裡的細菌會堵塞花莖的導管。換水時順便清洗花瓶內壁（用刷子刷掉那層滑滑的生物膜）。如果加了保鮮劑，可以2天換一次。\n\n自製保鮮劑：500ml的水 + 半茶匙糖（提供養分） + 幾滴白醋或漂白水（抑制細菌）。\n\n技巧三：去除水面以下所有葉片\n任何浸泡在水中的葉片都會迅速腐敗，成為細菌的培養皿。把水位以下的葉子全部摘掉，可能的話連水位以上5公分的也摘。這不是虐待花，而是幫助它把養分集中在花朵上。\n\n技巧四：位置比你想的更重要\n遠離水果。水果（尤其是蘋果和香蕉）會釋放乙烯（ethylene），這是一種「催熟荷爾蒙」，會加速花朵衰老。也要遠離陽光直射、暖氣出風口和電器散熱處。陰涼通風的桌面是最好的位置。\n\n技巧五：不同花材不同照顧\n玫瑰——喜歡溫水（25-30°C），溫水的分子運動快，更容易被吸收。但開放後改用冷水延緩盛放。\n百合——花苞打開後，記得用紙巾摘掉花蕊（雄蕊上的花粉囊），否則花粉掉在花瓣和桌面上會留下難以清洗的橘色痕跡。\n繡球——整株花朝下泡在水裡「急救」2小時可以救活已經垂頭的繡球。繡球的花瓣本身就能吸水。\n\n鮮花雖然終究會凋謝，但在它開放的每一天，都為你的空間帶來了一點不同的生命力。', authorName: '隨手作老師', authorEmoji: '💐', likeCount: 58, createdAt: '2026-03-14' },
+    { id: 'sa-15', title: '乾燥花製作入門', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2023/10/1052599.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2023/10/1052599.jpg', topic: 'floral', summary: '把花的美凝結在時間裡——三種在家就能做的乾燥花方法', content: '鮮花的美是短暫的，但乾燥花把那份美停留在了某一刻。做乾燥花不需要特殊設備，在家就能完成，而且過程本身也是一種療癒。\n\n方法一：自然風乾法（最簡單、最推薦新手）\n\n把花束用麻繩或橡皮筋綁好（注意花莖乾燥後會縮小，用橡皮筋比較不會鬆脫），倒掛在通風良好、避免陽光直射的地方。廚房和浴室因為濕氣重，不適合。玄關的掛鉤、書房的層架都是好地方。\n\n等待1-2週，花材完全乾燥後就完成了。適合的花材：滿天星、尤加利葉、薰衣草、棉花、蠟菊。這些花材水分含量低，乾燥後形態變化小。\n\n方法二：矽膠乾燥法（保色效果最好）\n\n在密封容器底部鋪一層矽膠乾燥劑（藥局或網路都買得到），把花朵正面朝上放在上面，再小心地用湯匙把矽膠倒入花瓣之間的縫隙，直到完全覆蓋。密封後等3-7天。\n\n這個方法最大的優點是保色和保型。玫瑰乾燥後還能維持原有的紅色和立體形狀，幾乎像是時間停止了一樣。矽膠可以反覆使用，用烤箱低溫烘烤後就能再次吸濕。\n\n方法三：壓花法（最有文藝感）\n\n把花材和葉子放在兩張吸水紙之間，再放入厚重的書本裡壓平。每隔2-3天換一次吸水紙（排除多餘水分），大約2-3週就完成了。\n\n壓花適合用來做：手帳裝飾、手機殼、書籤、卡片、相框畫。小雛菊、三葉草、蕨類葉片壓出來特別好看。\n\n小秘訣：在花朵半開的時候就開始乾燥處理，效果比全開時好。全開的花瓣更脆弱，乾燥過程中容易掉落。\n\n把一束鮮花變成乾燥花，其實也是一種「轉化」的練習。不是所有美好都必須永恆，而是學會在不同的狀態下，找到不同的美。', authorName: '隨手作老師', authorEmoji: '💐', likeCount: 47, createdAt: '2026-02-15' },
     // 樹脂
-    { id: 'sa-16', title: 'UV 樹脂 vs 環氧樹脂：怎麼選？', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2021/04/1010233_0.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2021/04/1010233_0.jpg', topic: 'resin', summary: '兩種樹脂的特性、適用場景和注意事項', content: 'UV 樹脂：\n- 紫外線照射 2-5 分鐘即硬化\n- 適合小型飾品、薄層作品\n- 每層不超過 3mm\n- 操作簡單，適合新手\n\n環氧樹脂（AB膠）：\n- A劑+B劑混合後 24-48 小時硬化\n- 可做大型、厚層作品\n- 透明度更高\n- 需要精確的比例（通常 1:1 或 2:1）\n\n共通注意：戴手套操作、保持通風、避免氣泡（可用熱風槍消泡）。', authorName: '隨手作老師', authorEmoji: '✨', likeCount: 44, createdAt: '2026-03-03' },
+    { id: 'sa-16', title: 'UV 樹脂 vs 環氧樹脂：怎麼選？', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2021/04/1010233_0.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2021/04/1010233_0.jpg', topic: 'resin', summary: '兩種樹脂各有優缺點，選對了才能做出理想的作品', content: '樹脂工藝可以把花瓣、亮粉、小配件封存在晶透的琥珀色中，做出像小宇宙一樣的飾品。但面對UV樹脂和環氧樹脂兩種選擇，新手常常一頭霧水。\n\nUV 樹脂——快速入門的好夥伴\n\nUV樹脂是單液型膠體，擠出來就能用，不需要混合。塗在作品上後用UV燈照射2-5分鐘就會硬化。整個過程從開始到完成可能不到30分鐘，非常適合性急的朋友和入門體驗。\n\n適合的作品：耳環、戒指、吊飾、手機殼裝飾等小型薄層作品。每層厚度不要超過3mm，太厚的話紫外線照不透，中間會留下未硬化的軟心。所以做厚實的作品需要分層操作——塗一層、照一次、再塗一層。\n\n缺點：價格較高（以克計價），長期曝曬陽光可能會泛黃，不適合做大件作品。\n\n環氧樹脂（AB膠）——專業級的選擇\n\n環氧樹脂需要把A劑（樹脂）和B劑（硬化劑）按照精確的比例混合（通常是1:1或2:1，看品牌），混合後緩慢硬化，完全固化需要24-48小時。\n\n最大的優點是可以一次灌注大面積、厚層的作品——像是海洋波浪畫、桌面塗層、大型標本封存。透明度也比UV樹脂更高，成品更加晶瑩剔透。\n\n缺點：操作時間長、需要精確計量（比例不對會不硬化或發黃）、固化期間不能移動。\n\n兩者通用的安全須知：\n一定要戴手套操作。樹脂未硬化前是化學物質，長期皮膚接觸可能引起過敏。保持環境通風。氣泡是大敵——混合後靜置幾分鐘讓大氣泡浮出，小氣泡可以用熱風槍或打火機快速掃過表面消除。\n\n新手建議從UV樹脂開始，等熟悉操作流程後再挑戰環氧樹脂。', authorName: '隨手作老師', authorEmoji: '✨', likeCount: 44, createdAt: '2026-03-03' },
     // 擴香石
-    { id: 'sa-17', title: '擴香石的正確使用方式', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2023/12/611782-1.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2023/12/611782-1.jpg', topic: 'diffuser', summary: '讓你的擴香石發揮最大效果', content: '擴香石是用石膏或水泥製成的多孔材質，能吸收精油並緩慢釋放香氣。\n\n使用方式：\n- 每次滴 3-5 滴精油在石頭表面\n- 放在通風處或冷氣出風口附近\n- 香氣約持續 2-3 天\n\n保養方式：\n- 顏色變深是正常的（吸收了精油）\n- 想換香味時，先讓它自然揮發 3-5 天\n- 不要用水沖洗，會破壞多孔結構\n- 放在盤子上，避免沾染桌面', authorName: '隨手作老師', authorEmoji: '🪨', likeCount: 32, createdAt: '2026-02-18' },
+    { id: 'sa-17', title: '擴香石的正確使用方式', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2023/12/611782-1.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2023/12/611782-1.jpg', topic: 'diffuser', summary: '你的擴香石可能沒有發揮全部的實力——幾個小技巧讓香氣更持久', content: '擴香石（又叫香氛石）是用石膏或水泥製成的多孔材質。它的表面佈滿肉眼看不見的微小毛細孔，能像海綿一樣吸收精油，然後透過自然蒸發緩慢釋放香氣。不用火、不用電，是最安全的居家擴香方式。\n\n使用方式的關鍵細節：\n\n每次滴3-5滴精油在石頭表面就足夠了。精油會在幾秒鐘內被吸收，然後在接下來2-3天裡慢慢釋放。如果你滴太多，石頭表面會形成一層油膜，反而影響揮發效率。\n\n放置位置很重要。最佳位置是人經常走動的地方（進出門處、走廊）或有氣流的地方（冷氣出風口附近、窗邊）。空氣的流動會幫助帶出香氣分子。但不要放在太熱或陽光直射的地方，高溫會讓精油快速揮發完。\n\n保養小知識：\n\n顏色變深是正常現象。長期吸收精油後，擴香石會從純白慢慢變成淡黃或淡棕色。這代表它的毛細孔已經充分被「養」過了，擴香效果會越來越好。\n\n想換香味時，不要急著滴新的精油。讓舊的香味自然揮發3-5天，等石頭恢復到幾乎沒有味道了再換。如果直接覆蓋新香味，兩種精油混在一起可能產生你不喜歡的味道。\n\n千萬不要用水沖洗。水會破壞石膏的多孔結構，讓毛細孔堵塞、失去吸附能力。如果表面有灰塵，用軟毛刷輕輕刷掉就好。\n\n建議搭配小盤子使用。精油偶爾會從底部滲出，小盤子可以保護你的桌面或書架。選一個自己喜歡的小碟子，也能增加擺設的美感。\n\n擴香石是「低調但持續存在的陪伴」——不張揚，卻在你需要的每一刻，安靜地釋放著療癒。', authorName: '隨手作老師', authorEmoji: '🪨', likeCount: 32, createdAt: '2026-02-18' },
     // 畫畫
-    { id: 'sa-18', title: '流體畫的魔法：零基礎也能創作', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2022/02/6.jpeg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2022/02/6.jpeg', topic: 'painting', summary: '不需要繪畫技巧，讓顏料自己流動出美', content: '流體畫（Fluid Art）是近年最受歡迎的零基礎繪畫體驗：\n\n材料：壓克力顏料 + 助流劑（Pouring Medium）+ 畫布\n\n基本技法：\n- 髒倒法：把不同顏色倒在同一個杯子裡，一次倒出\n- 翻杯法：把杯子倒扣在畫布上，掀開讓顏料流動\n- 吹畫法：用吹風機或吸管吹出方向感\n\n配色建議：選3-4個顏色就好，太多會變灰。\n\n加入矽油可以產生美麗的細胞紋路！', authorName: '隨手作老師', authorEmoji: '🎨', likeCount: 53, createdAt: '2026-03-09' },
+    { id: 'sa-18', title: '流體畫的魔法：零基礎也能創作', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2022/02/6.jpeg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2022/02/6.jpeg', topic: 'painting', summary: '不需要任何繪畫技巧——把控制權交給顏料，讓它自由流動出驚喜', content: '「我不會畫畫」——這是很多人面對畫布時的第一句話。但流體畫（Fluid Art）完全打破了這個限制。它不需要素描底子、不需要配色天賦，你唯一需要做的就是：調好顏料，然後讓它流動。\n\n流體畫的原理很簡單。把壓克力顏料加入助流劑（Pouring Medium），讓顏料變成像蜂蜜一樣的流動質地，然後倒在畫布上，讓重力和顏料之間的密度差自然形成圖案。每一次的結果都是獨一無二的——即使用相同的顏色和同樣的技法，也不會產生兩幅一樣的畫。\n\n三種最受歡迎的技法：\n\n髒倒法（Dirty Pour）：把3-4種不同顏色的顏料依序倒入同一個杯子裡（不要攪拌），然後一次倒在畫布上。顏料在流動的過程中自然混合出漸層和紋理。這是最簡單也最常用的方法。\n\n翻杯法（Flip Cup）：把調好的顏料倒入杯子，把畫布倒蓋在杯子上，然後快速翻轉。掀開杯子的瞬間，顏料像花朵一樣向外綻放。那個翻轉的瞬間是最令人期待的。\n\n吹畫法：先在畫布上倒少量顏料，然後用吹風機、吸管或嘴巴吹出方向性的紋路。可以做出像樹枝、閃電、或海浪的效果。\n\n配色建議：\n3-4個顏色就足夠了，太多顏色混在一起容易變灰暗。選擇同一色系（如藍+白+銀+金）或互補色（如深藍+銅金+白）。白色和金色/銀色是萬能搭配色。\n\n魔法密技——加入矽油\n在其中一種顏料裡滴入2-3滴矽油（dimethicone），會在顏料流動時產生美麗的「細胞」紋路。這些圓形的細胞效果是流體畫最迷人的特徵之一，看起來像是顯微鏡下的生物組織或外太空的星雲。\n\n流體畫的過程是一種「放手的練習」。你無法完全控制結果，但正是這種不確定性，創造出超越你想像的美。', authorName: '隨手作老師', authorEmoji: '🎨', likeCount: 53, createdAt: '2026-03-09' },
     // 編織
-    { id: 'sa-19', title: 'Macramé 編織：最療癒的手作之一', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2022/01/380726.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2022/01/380726.jpg', topic: 'weaving', summary: '重複的打結動作本身就是一種冥想', content: 'Macramé 是用繩結編織的工藝，基本結法只有四種：\n\n1. 平結（Square Knot）：最基本也最常用\n2. 螺旋結（Spiral Knot）：做出螺旋效果\n3. 半結（Half Hitch）：可做出斜線圖案\n4. 卷結（Gathering Knot）：收束用\n\n新手推薦從杯墊或小掛飾開始，棉繩選3-4mm粗的最好操作。\n\n編織的過程非常療癒，重複的動作讓大腦放鬆，就像動態冥想。', authorName: '隨手作老師', authorEmoji: '🧶', likeCount: 37, createdAt: '2026-02-12' },
+    { id: 'sa-19', title: 'Macramé 編織：最療癒的手作之一', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2022/01/380726.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2022/01/380726.jpg', topic: 'weaving', summary: '重複的打結動作會讓你的大腦安靜下來——這是一種動態的冥想', content: 'Macramé（瑪克拉美繩結藝術）起源於13世紀的阿拉伯織工，後來傳入歐洲成為裝飾工藝。經過數百年的演變，它在現代重新成為最受歡迎的手作類型之一——不只因為成品好看，更因為它的製作過程本身就是一種深度放鬆。\n\n為什麼編織特別療癒？\n\n神經科學研究發現，重複性的手部動作（如打結、鉤針、揉麵團）能觸發「放鬆反應」（Relaxation Response）——降低心率、減少壓力荷爾蒙皮質醇的分泌、增加血清素的產生。這跟冥想時大腦的狀態非常相似。\n\n而且打結需要「剛剛好」的專注度——不需要太用力思考，但又不能完全放空。這種「心流」（Flow State）是最有效的壓力解藥。\n\n基本結法只有四種：\n\n平結（Square Knot）：最基本也最常用，左右交替打結形成扁平的繩帶。學會平結就能做杯墊、植物吊架、手環。\n\n螺旋結（Spiral Knot）：只用平結的前半段重複打，繩帶會自然旋轉成螺旋狀。做出來的效果很有設計感。\n\n半結（Half Hitch）：一條線繞著另一條線打結，可以做出斜線、曲線圖案。進階一點可以做出羽毛、樹葉的形狀。\n\n卷結（Gathering Knot）：用來收束和裝飾，通常用在作品的起始和結尾處。\n\n新手建議：\n從簡單的杯墊或鑰匙圈開始，棉繩選3-4mm粗的最好操作。純棉繩質地柔軟，適合初學者；尼龍繩光滑耐用，適合做飾品。選自己喜歡的顏色——當你對材料有好感時，你會更享受整個過程。\n\n準備好一杯茶、一首輕音樂，然後開始打你的第一個結。你會發現，當雙手忙碌的時候，腦袋裡那些吵雜的聲音就安靜了。', authorName: '隨手作老師', authorEmoji: '🧶', likeCount: 37, createdAt: '2026-02-12' },
     // 藍染
-    { id: 'sa-20', title: '藍染的迷人之處：每件都是唯一', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2022/01/764868_0.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2022/01/764868_0.jpg', topic: 'indigo', summary: '天然藍染的魅力在於不可預測的美', content: '藍染是台灣傳統工藝之一，使用天然藍靛植物染料。\n\n基本技法：\n- 綁染（Shibori）：用橡皮筋、夾子綁出圖案\n- 板染：用木板夾出幾何圖案\n- 蠟染：用蠟畫出圖案再染色\n\n特別之處：\n- 每次浸染的時間、溫度不同，顏色都不一樣\n- 需要反覆浸染-氧化 5-10 次才能達到深藍\n- 剛染好的是綠色，接觸空氣氧化後才會變藍\n\n這種不可控的美，就是藍染最迷人的地方。', authorName: '隨手作老師', authorEmoji: '🫐', likeCount: 46, createdAt: '2026-02-10' },
+    { id: 'sa-20', title: '藍染的迷人之處：每件都是唯一', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2022/01/764868_0.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2022/01/764868_0.jpg', topic: 'indigo', summary: '天然藍染的魅力在於不可預測——你永遠不知道打開的那一刻會看到什麼', content: '藍染是台灣最古老的染色技藝之一。在化學染料出現之前的數百年裡，我們的祖先用大菁（馬藍）、木藍、蓼藍等植物提取天然藍色染料，為布料賦予從淺藍到深靛的各種藍色。\n\n藍染最神奇的一刻\n\n當你把纏繞綁紮好的布料從染缸中取出時，布是深綠色的——不是藍色！這是因為藍靛染料在缺氧環境（染缸裡）是溶解態的綠色。接觸空氣後，染料氧化，顏色會在你眼前慢慢從綠色轉變成藍色。這個「見色」的過程每次都讓人心跳加速。\n\n基本技法：\n\n綁染（Shibori）——最自由的表現\n用橡皮筋、棉線、夾子在布料上創造不同的綁法，被綁住的部分染料進不去，拆開後就會形成白色的圖案。每一種綁法產生的圖案都不同：\n- 蜘蛛紋：抓起布料的一點用繩子纏繞\n- 圈圈紋：用橡皮筋綁幾段\n- 雲朵紋：隨意揉成一團用繩綁緊\n\n板染——幾何之美\n把布料折疊後用木板或三角板夾住，染料只能滲入沒被夾住的部分。做出來的是整齊的幾何圖案——三角形、方格、菱形。摺法和夾法決定了最終的圖案。\n\n蠟染——精緻的藝術\n用蜂蠟或石蠟在布上繪製圖案，蠟覆蓋的部分拒絕染料進入。染色後去除蠟，就會留下精緻的白色圖案。這個技法需要比較多練習，但成品最有藝術性。\n\n深度的秘密在於「反覆」\n\n一次浸染只能得到很淺的藍色。要達到深藍或靛藍，需要反覆浸染-氧化-浸染，通常5-10次。每多一次浸染，藍色就深一層。最深的靛藍可能需要浸染超過20次。這個「一層一層加深」的過程，就像人的成長——深度不是一次就能達到的，需要反覆的沉澱。\n\n藍染最迷人的地方在於不可控。同一缸染液、同一塊布、同樣的綁法，每次做出來的都不一樣。你學會的不是控制結果，而是接納和欣賞每一次的獨特。', authorName: '隨手作老師', authorEmoji: '🫐', likeCount: 46, createdAt: '2026-02-10' },
     // 生活療癒
-    { id: 'sa-21', title: '手作療癒的心理學', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2023/12/611781-1.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2023/12/611781-1.jpg', topic: 'lifestyle', summary: '為什麼動手做東西會讓人感到放鬆？', content: '心理學研究發現，手作活動能啟動「心流狀態」(Flow)，讓大腦暫時放下焦慮。\n\n當我們專注於手中的工作時，前額葉皮質的活動改變，進入類似冥想的狀態。觸覺刺激也會促進血清素和多巴胺分泌。\n\n這就是為什麼下班後來做手作，比滑手機更能讓你感到放鬆和充實。', authorName: '隨手作老師', authorEmoji: '🌿', likeCount: 67, createdAt: '2026-03-10' },
-    { id: 'sa-22', title: '打造你的居家療癒角落', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2024/01/610543.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2024/01/610543.jpg', topic: 'lifestyle', summary: '不需要大空間，一個小角落就能讓你回到平靜', content: '療癒角落的三個元素：\n\n視覺：一盆小植物、一幅喜歡的畫、柔和的燈光。\n\n嗅覺：擴香石滴上喜歡的精油、點一支蠟燭。\n\n觸覺：一條柔軟的毯子、一個舒服的靠墊。\n\n不需要很大的空間，窗邊一個角落、書桌旁的小桌子都可以。\n\n重要的是：這個角落只屬於你，是你放下一切、回到自己的地方。\n\n把你在隨手作帶回家的作品擺在這裡，每次看到都會想起那個放鬆的午後。', authorName: '隨手作老師', authorEmoji: '🌿', likeCount: 61, createdAt: '2026-02-08' },
+    { id: 'sa-21', title: '手作療癒的心理學', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2023/12/611781-1.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2023/12/611781-1.jpg', topic: 'lifestyle', summary: '為什麼動手做東西會讓人感到放鬆？科學告訴我們答案', content: '下班後你會做什麼？很多人選擇滑手機、看影片「放鬆」，但常常發現滑了兩小時反而更累。而如果你曾經花一個下午做手作，會發現離開工作室時，整個人是真正放鬆的。\n\n這不是錯覺，而是有科學根據的。\n\n心流狀態（Flow State）\n匈牙利心理學家 Mihaly Csikszentmihalyi 提出的「心流」概念，描述的是一種完全沉浸在活動中、忘記時間流逝的狀態。手作是最容易進入心流的活動之一，因為它符合心流的三個條件：目標明確（完成一個作品）、即時回饋（你可以看到進度）、挑戰與技巧平衡（不太難也不太簡單）。\n\n在心流狀態中，大腦前額葉皮質的活動模式會改變——負責自我批評和擔憂的區域暫時「安靜」下來。這就是為什麼做手作時你不會一直想著工作壓力或人際煩惱。\n\n觸覺的療癒力量\n我們的手指尖有大量的觸覺受器。當你揉捏黏土、切削皮革、穿珠子時，這些觸覺刺激會傳遞到大腦的體感皮質，促進血清素（快樂荷爾蒙）的分泌。\n\n這也是為什麼「手感」在手作中這麼重要——紗線的柔軟、陶土的溫涼、木料的溫暖，每一種觸感都在和你的神經系統對話。\n\n從「消費」到「創造」的心理轉變\n現代生活讓我們大部分時間都在「消費」——消費資訊、消費娛樂、消費商品。這種模式久了會讓人感到空虛。手作把你從消費者變成創造者。當你親手做出一個成品，那種「我做到了」的成就感（心理學稱為 self-efficacy）是滑再多手機也給不了的。\n\n有趣的是，作品不需要「完美」就能帶來這種感覺。研究顯示，手作過程中的療癒效果跟成品品質沒有關係——做了一個歪歪的杯墊和做了一個完美的杯墊，帶來的心理益處是一樣的。因為重點不在結果，而在那段「全然專注在當下」的時光。\n\n所以下次當你覺得疲憊或焦慮時，試著用雙手做一件小事。哪怕只是折一朵紙花、打一個繩結。你的大腦會感謝你的。', authorName: '隨手作老師', authorEmoji: '🌿', likeCount: 67, createdAt: '2026-03-10' },
+    { id: 'sa-22', title: '打造你的居家療癒角落', coverUrl: 'https://xiabenhow.com/wp-content/uploads/2024/01/610543.jpg', coverThumbUrl: 'https://xiabenhow.com/wp-content/uploads/2024/01/610543.jpg', topic: 'lifestyle', summary: '不需要大空間——一個小角落就能成為你每天回到自己的地方', content: '在日本有一個詞叫「居場所」（いばしょ），意思是「讓你能安心待著的地方」。它不一定是一個房間，可能只是窗邊的一張小椅子、陽台的一個角落、書桌上的一小塊空間。重要的是，那是「屬於你」的地方。\n\n打造療癒角落的三感原則：\n\n視覺——讓眼睛休息\n一盆小植物是最好的起點。多肉植物不需要太多照顧，一盆綠色就能讓整個角落「活」起來。加一盞暖黃色的小燈（3000K色溫最舒服），避免使用白色的LED日光燈。如果有你喜歡的畫、照片或手作作品，掛在這個角落裡。\n\n研究顯示，望著綠色植物5分鐘就能降低心率和肌肉緊張度。而暖色光會促進褪黑激素的分泌，幫助身體進入放鬆模式。\n\n嗅覺——創造記憶錨點\n在你的療癒角落放一塊擴香石，滴上你最喜歡的精油。每天在這裡花幾分鐘靜坐或喝茶時，那個香氣就會和「放鬆」這個狀態連結。日子久了，你只要聞到那個氣味，身體就會自動開始放鬆——這就是嗅覺的「錨定效應」。\n\n如果你喜歡蠟燭，在這裡點一支自己做的香氛蠟燭也很棒。火焰的搖曳有天然的安撫效果。\n\n觸覺——被溫柔包圍\n一條柔軟的毛毯、一個舒服的靠墊。觸覺上的溫暖和包覆感會啟動副交感神經系統——就是讓你從「戰或逃」模式切換到「休息和消化」模式的系統。\n\n材質很重要：選天然棉、亞麻或羊毛製品。手作的織品（你在課堂上做的macramé或編織作品）放在這裡，會增添一份專屬於你的溫度。\n\n使用你的療癒角落：\n\n不需要做什麼特別的事。在這裡喝一杯茶、翻幾頁書、閉上眼睛深呼吸三次，或者什麼都不做就坐著。\n\n重要的是：告訴自己和家人——「我在這裡的時候，是我的充電時間。」\n\n把你在隨手作帶回家的每一個作品都擺在這個角落：親手做的擴香石、多肉組盆、水晶手鍊、蠟燭。每一件都是你某個下午好好照顧自己的證明。\n\n每個人都值得有一個這樣的角落。小小的，但完全是你的。', authorName: '隨手作老師', authorEmoji: '🌿', likeCount: 61, createdAt: '2026-02-08' },
   ];
 
   const displayArticles = articles.length > 0 ? filtered : (selectedTopic === 'all' ? sampleArticles : sampleArticles.filter(a => a.topic === selectedTopic));
@@ -10710,19 +11175,33 @@ function KnowledgeArticlesGridView({ userEmail, goBack }: {
         ))}
       </div>
 
-      {/* 訂閱提示 */}
+      {/* 訂閱主題 - 橫向顯眼提示 */}
       {userEmail && (
-        <div className="flex items-center justify-between rounded-2xl px-3 py-2" style={{ backgroundColor: '#C9A96E08' }}>
-          <p className="text-xs" style={{ color: '#8C7B72' }}>訂閱主題，新文章通知你</p>
-          <div className="flex gap-1">
+        <div className="rounded-2xl p-4 shadow-sm" style={{ background: 'linear-gradient(135deg, #FFF8E1 0%, #FFFEF9 100%)', border: '1px solid #F0EDE8' }}>
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-lg">🔔</span>
+            <div>
+              <p className="text-sm font-bold" style={{ color: '#3D3530' }}>訂閱你感興趣的主題</p>
+              <p className="text-xs" style={{ color: '#8C7B72' }}>新文章上架時通知你</p>
+            </div>
+          </div>
+          <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
             {TOPICS.map(t => (
               <motion.button key={t.key} whileTap={{ scale: 0.9 }} onClick={() => toggleSubscribe(t.key)}
-                className="w-7 h-7 rounded-lg flex items-center justify-center text-sm"
-                style={{ backgroundColor: subscribedTopics.includes(t.key) ? t.color + '40' : '#F5F0EB' }}>
-                {t.emoji}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium flex-shrink-0"
+                style={{
+                  backgroundColor: subscribedTopics.includes(t.key) ? t.color + '35' : '#F5F0EB',
+                  color: subscribedTopics.includes(t.key) ? '#3D3530' : '#8C7B72',
+                  border: subscribedTopics.includes(t.key) ? `1px solid ${t.color}60` : '1px solid transparent'
+                }}>
+                {t.emoji} {t.label}
+                {subscribedTopics.includes(t.key) && <span style={{ color: '#C9A96E' }}>✓</span>}
               </motion.button>
             ))}
           </div>
+          {subscribedTopics.length > 0 && (
+            <p className="text-[10px] mt-2" style={{ color: '#C9A96E' }}>已訂閱 {subscribedTopics.length} 個主題</p>
+          )}
         </div>
       )}
 
@@ -12133,6 +12612,1584 @@ function HandsOnCard({ onNavigate }: { onNavigate: (p: PageType) => void }) {
 
 // ===================== BOTTOM NAV =====================
 
+// ===================== PAGE: 探索 (Explore - Cards + Psychological Tests) =====================
+
+// ===== 療癒心理測驗 Data =====
+interface HealingTestQuestion {
+  question: string;
+  options: { key: 'A' | 'B' | 'C' | 'D'; text: string }[];
+}
+interface HealingTestResult {
+  key: 'A' | 'B' | 'C' | 'D';
+  emoji: string;
+  title: string;
+  subtitle: string;
+  description: string;
+  recommendation: string;
+  shareQuote: string;
+}
+interface HealingTest {
+  id: number;
+  emoji: string;
+  title: string;
+  subtitle: string;
+  questions: HealingTestQuestion[];
+  results: HealingTestResult[];
+}
+
+const HEALING_TESTS: HealingTest[] = [
+  {
+    id: 1, emoji: '💎', title: '你的水晶陪伴類型是什麼？',
+    subtitle: '水晶不只是石頭，它是一種頻率。你和哪一種頻率最共鳴？',
+    questions: [
+      { question: '你最常在哪個時刻感覺需要支撐？', options: [
+        { key: 'A', text: '跟某些人相處完，感覺能量被抽乾' },
+        { key: 'B', text: '一個人靜下來，才發現心裡很空' },
+        { key: 'C', text: '遇到重要決策，不知道往哪走' },
+        { key: 'D', text: '長期疲憊，身心都需要充電' },
+      ]},
+      { question: '你最害怕的事情是？', options: [
+        { key: 'A', text: '被人背叛，或遇到算計你的人' },
+        { key: 'B', text: '重要的人不再愛你、離你遠去' },
+        { key: 'C', text: '原地踏步，錯過對的時機' },
+        { key: 'D', text: '一直付出卻把自己耗盡' },
+      ]},
+      { question: '朋友眼中的你，最像哪種人？', options: [
+        { key: 'A', text: '看起來很神秘，但超級可靠' },
+        { key: 'B', text: '溫柔體貼，讓人很想靠近' },
+        { key: 'C', text: '有目標感，做事俐落有主見' },
+        { key: 'D', text: '像棵大樹，穩穩的讓人安心' },
+      ]},
+      { question: '你對「療癒」的想像是？', options: [
+        { key: 'A', text: '一個人待在安全的空間，不被打擾' },
+        { key: 'B', text: '被溫柔對待，感受到愛' },
+        { key: 'C', text: '想通了某件事，豁然開朗' },
+        { key: 'D', text: '身體放鬆，睡一場好覺' },
+      ]},
+      { question: '你覺得自己目前生活中最缺少的是？', options: [
+        { key: 'A', text: '界限感，需要保護自己的結界' },
+        { key: 'B', text: '溫暖，有人懂我就好' },
+        { key: 'C', text: '方向，知道下一步怎麼走' },
+        { key: 'D', text: '元氣，充飽電再出發' },
+      ]},
+      { question: '如果你是一種夜晚，你是？', options: [
+        { key: 'A', text: '月圓之夜，清冷神秘' },
+        { key: 'B', text: '微雨夜，溫柔濕潤' },
+        { key: 'C', text: '晴夜繁星，清晰遼闊' },
+        { key: 'D', text: '霧夜，慵懶而深邃' },
+      ]},
+      { question: '你最喜歡哪種礦石質感？', options: [
+        { key: 'A', text: '深邃、有光澤、像護盾' },
+        { key: 'B', text: '粉嫩、透光、像棉花糖' },
+        { key: 'C', text: '金黃、有紋路、充滿力量感' },
+        { key: 'D', text: '清透、有層次、像森林光線' },
+      ]},
+    ],
+    results: [
+      { key: 'A', emoji: '💜', title: '守護者型', subtitle: '紫水晶、黑曜石、黑金超七',
+        description: '你是一個能量敏感的人，容易感受到環境和他人情緒的影響。你需要的不只是療癒，更是一道隱形的保護罩。紫水晶幫你沉澱雜亂的思緒，黑曜石為你建立清晰的界限，讓你在保護自己的同時，仍然保有溫柔。',
+        recommendation: '下班隨手飾｜水晶手鍊 DIY', shareQuote: '月亮不需要解釋自己為什麼發光。你也是。' },
+      { key: 'B', emoji: '💗', title: '療癒者型', subtitle: '粉水晶、草莓晶、北投石',
+        description: '你是個感情豐富、容易共情的人。你給了身邊很多愛，但有時候忘了把愛也留給自己。粉水晶喚醒你內心最柔軟的角落，草莓晶為你吸引好的人緣與溫暖，提醒你——你值得被愛。',
+        recommendation: '下班隨手飾｜水晶手鍊 DIY', shareQuote: '你值得被溫柔以待，尤其是被自己。' },
+      { key: 'C', emoji: '💛', title: '引路人型', subtitle: '黃虎眼、金髮晶、超七',
+        description: '你是個目標感強、渴望突破的人。你知道自己想去哪，只是有時候缺一點「那股氣」。黃虎眼給你勇氣和自信，金髮晶為你聚集財富能量，讓你走在對的路上，步步踩實。',
+        recommendation: '下班隨手飾｜水晶手鍊 DIY', shareQuote: '勇氣不是不害怕，是帶著害怕繼續前進。' },
+      { key: 'D', emoji: '💚', title: '滋養者型', subtitle: '螢石、綠幽靈、紅膠花',
+        description: '你是個長期付出、忘了補充自己的人。你像一株一直在開花的植物，但需要有人幫你澆水。螢石帶來深層療癒與靜心，綠幽靈為你注入新生能量，讓你從內而外慢慢恢復。',
+        recommendation: '下班隨手飾｜水晶手鍊 DIY', shareQuote: '照顧自己，才是最深的療癒。' },
+    ],
+  },
+  {
+    id: 2, emoji: '🌸', title: '你的香氣人格是什麼？',
+    subtitle: '香氣是最誠實的語言，你的靈魂，散發著什麼味道？',
+    questions: [
+      { question: '你喜歡的周末是怎樣的？', options: [
+        { key: 'A', text: '在家插花、佈置空間、看浪漫電影' },
+        { key: 'B', text: '去公園散步、在陽台種植、喝草本茶' },
+        { key: 'C', text: '約朋友出門、吃好料、笑到肚子痛' },
+        { key: 'D', text: '一個人靜靜，看書、泡澡、什麼都不做' },
+      ]},
+      { question: '你最喜歡哪種蠟燭香氣描述？', options: [
+        { key: 'A', text: '玫瑰、牡丹、茉莉——像走進花園' },
+        { key: 'B', text: '尤加利、茶樹、薄荷——清新醒腦' },
+        { key: 'C', text: '甜橙、葡萄柚、檸檬——充滿活力' },
+        { key: 'D', text: '雪松、廣藿香、麝香——深沉有溫度' },
+      ]},
+      { question: '你最容易被哪種人吸引？', options: [
+        { key: 'A', text: '溫柔、有藝術氣質、說話很美' },
+        { key: 'B', text: '自然不做作、踏實、有生活感' },
+        { key: 'C', text: '陽光開朗、幽默、充滿活力' },
+        { key: 'D', text: '神秘低調、有深度、氣場很穩' },
+      ]},
+      { question: '你最喜歡的生活場景？', options: [
+        { key: 'A', text: '花市、咖啡廳、飄著淡香的小店' },
+        { key: 'B', text: '市集、農場、充滿植物的空間' },
+        { key: 'C', text: '夜市、海邊、充滿笑聲的地方' },
+        { key: 'D', text: '圖書館、山中小屋、寂靜的深夜' },
+      ]},
+      { question: '你覺得自己的個性比較像？', options: [
+        { key: 'A', text: '感性、浪漫、細膩' },
+        { key: 'B', text: '平靜、真實、接地氣' },
+        { key: 'C', text: '熱情、直接、帶動氣氛' },
+        { key: 'D', text: '內斂、深沉、有自己的世界' },
+      ]},
+      { question: '壓力大的時候你會？', options: [
+        { key: 'A', text: '去買花、佈置房間、讓環境美起來' },
+        { key: 'B', text: '去爬山、摸土、接近大自然' },
+        { key: 'C', text: '找朋友訴說、大笑、轉換心情' },
+        { key: 'D', text: '一個人泡澡、點蠟燭、什麼都不說' },
+      ]},
+      { question: '你的房間最可能有什麼？', options: [
+        { key: 'A', text: '乾燥花、香氛蠟燭、粉色系佈置' },
+        { key: 'B', text: '多肉植物、木質傢俱、天然材質' },
+        { key: 'C', text: '明亮色系、照片牆、充滿生活感' },
+        { key: 'D', text: '暗色系、書堆、氣氛燈' },
+      ]},
+    ],
+    results: [
+      { key: 'A', emoji: '🌸', title: '花香調', subtitle: '浪漫夢幻型',
+        description: '你是個用美感過生活的人，對細節有要求，喜歡把日常變成儀式。你的香氣是盛開的玫瑰與牡丹，帶著一點甜，一點夢。調香關鍵詞：玫瑰、茉莉、桂花、白麝香。',
+        recommendation: '精油調香體驗課 / 花藝課', shareQuote: '我的靈魂散發著花香，因為我選擇活在美的裡面。' },
+      { key: 'B', emoji: '🌿', title: '草木調', subtitle: '自然清醒型',
+        description: '你是個活得很「真」的人，不需要太多包裝，最喜歡的狀態就是自然舒服。你的香氣是雨後的森林，清新又有生命力。調香關鍵詞：尤加利、茶樹、迷迭香、綠葉。',
+        recommendation: '精油調香體驗課 / 多肉植栽課', shareQuote: '最好的香氣，是自然本身的味道。' },
+      { key: 'C', emoji: '🍊', title: '柑橘調', subtitle: '活力陽光型',
+        description: '你是個走進來就讓空氣變亮的人，情緒飽滿、充滿感染力。你的香氣是早晨現切的甜橙，酸甜清爽，讓人精神一振。調香關鍵詞：甜橙、葡萄柚、檸檬、薑。',
+        recommendation: '精油調香體驗課 / 香氛蠟燭課', shareQuote: '陽光是我的味道，走到哪裡都帶著光。' },
+      { key: 'D', emoji: '🌙', title: '木質調', subtitle: '沉穩神秘型',
+        description: '你是個有深度的人，不輕易展示自己，但一旦靠近就讓人著迷。你的香氣是深山裡的老木，溫暖而有力量。調香關鍵詞：雪松、廣藿香、岩蘭草、麝香。',
+        recommendation: '精油調香體驗課 / 香氛蠟燭課', shareQuote: '沉穩是一種香氣，不張揚卻讓人著迷。' },
+    ],
+  },
+  {
+    id: 3, emoji: '🛠️', title: '你適合哪種療癒型手作？',
+    subtitle: '手作是一種冥想，當雙手忙碌，心才真正安靜下來。',
+    questions: [
+      { question: '你喜歡的手作過程是？', options: [
+        { key: 'A', text: '有構圖、有美感，成品要好看' },
+        { key: 'B', text: '有步驟、有邏輯，做出來有成就感' },
+        { key: 'C', text: '可以挑選、搭配，做出獨一無二的' },
+        { key: 'D', text: '要有耐心、慢慢來，看著它成長' },
+      ]},
+      { question: '你希望手作帶給你什麼感受？', options: [
+        { key: 'A', text: '被美麗包圍，生活像電影場景' },
+        { key: 'B', text: '沉澱、安靜，像一場獨處的儀式' },
+        { key: 'C', text: '感受到某種能量或連結' },
+        { key: 'D', text: '有一個生命陪著我，不孤單' },
+      ]},
+      { question: '你平常生活中最在意的是？', options: [
+        { key: 'A', text: '空間美不美、有沒有生活感' },
+        { key: 'B', text: '心情好不好、當天的狀態' },
+        { key: 'C', text: '自己戴的東西有沒有意義' },
+        { key: 'D', text: '家裡有沒有生命力、自然感' },
+      ]},
+      { question: '你最喜歡哪種成品？', options: [
+        { key: 'A', text: '美麗的花束或乾燥花擺設' },
+        { key: 'B', text: '一罐有自己氣味的香氛蠟燭' },
+        { key: 'C', text: '一條有故事的水晶手鍊' },
+        { key: 'D', text: '一盆自己種的多肉或植物' },
+      ]},
+      { question: '你最容易沉浸在哪種狀態？', options: [
+        { key: 'A', text: '在佈置空間、挑選顏色搭配中' },
+        { key: 'B', text: '在一個人安靜、不被打擾的時刻' },
+        { key: 'C', text: '在挑選有共鳴的東西、搭配時' },
+        { key: 'D', text: '在照顧植物、觀察生長的過程' },
+      ]},
+      { question: '你覺得送給朋友最好的禮物是？', options: [
+        { key: 'A', text: '一束親手做的乾燥花束' },
+        { key: 'B', text: '一罐手工香氛蠟燭' },
+        { key: 'C', text: '一條有寓意的水晶手鍊' },
+        { key: 'D', text: '一盆精心照料的療癒植物' },
+      ]},
+    ],
+    results: [
+      { key: 'A', emoji: '💐', title: '花藝', subtitle: '你是個用美感說話的人',
+        description: '你天生有審美眼光，對顏色、空間、構圖都有感知力。花藝讓你用雙手把美具象化，每一個作品都是你內心世界的延伸。當你把花朵一枝一枝排列，修剪、搭色、調整比例，你進入了一種「心流」狀態。',
+        recommendation: '韓式花藝課、花圈課', shareQuote: '用雙手把美做成一朵花的形狀。' },
+      { key: 'B', emoji: '🕯', title: '香氛蠟燭', subtitle: '你是個需要儀式感的人',
+        description: '你不只是做手作，你在為自己的生活創造一個「停頓」。點蠟燭、聞香氣，是你給自己的一個信號：現在，只屬於我。香氛蠟燭最適合你——因為那個「製作的過程」本身就是療癒。',
+        recommendation: '香氛蠟燭課', shareQuote: '做蠟燭是一場給自己的儀式。' },
+      { key: 'C', emoji: '💎', title: '水晶飾品', subtitle: '你是個重視能量連結的人',
+        description: '你相信萬物有靈，你選擇的東西要有「意義」。水晶手鍊對你來說不只是配件，是你每天戴著走的意圖與祝福。親手挑選每一顆珠子的過程，其實也是你在和自己對話。',
+        recommendation: '水晶手鍊 DIY', shareQuote: '每一顆水晶，都是和自己的一次對話。' },
+      { key: 'D', emoji: '🪴', title: '植栽', subtitle: '你是個渴望陪伴的人',
+        description: '你喜歡有生命感的東西，你需要的療癒不只是「做」，而是「一起生活」。植物是最好的陪伴——它不說話，但它每天都在成長，提醒你生命的節奏。',
+        recommendation: '多肉植栽課', shareQuote: '最好的陪伴，是一起安靜地成長。' },
+    ],
+  },
+  {
+    id: 4, emoji: '🌊', title: '你現在最需要哪種療癒？',
+    subtitle: '有時候身體會比大腦更早知道答案。不用想太多，憑直覺選吧。',
+    questions: [
+      { question: '最近你最常有的感受是？', options: [
+        { key: 'A', text: '腦袋轉不停，靜不下來' },
+        { key: 'B', text: '有很多情緒悶在心裡，說不出口' },
+        { key: 'C', text: '疲憊，對很多事都提不起勁' },
+        { key: 'D', text: '卡關，知道想做但不知道怎麼開始' },
+      ]},
+      { question: '你最近的睡眠狀況？', options: [
+        { key: 'A', text: '很難入睡，思緒太多' },
+        { key: 'B', text: '睡著了但還是很累，夢很多' },
+        { key: 'C', text: '很容易睏但睡再多也沒精神' },
+        { key: 'D', text: '時常因為想事情睡到一半醒來' },
+      ]},
+      { question: '現在最想做的事是？', options: [
+        { key: 'A', text: '什麼都不做，只想放空' },
+        { key: 'B', text: '大哭一場，或大笑一場' },
+        { key: 'C', text: '被好好照顧，喝熱湯、被擁抱' },
+        { key: 'D', text: '出去走走，做點什麼改變現狀' },
+      ]},
+      { question: '你覺得自己最缺的是？', options: [
+        { key: 'A', text: '一段清靜，讓心靈重新歸零' },
+        { key: 'B', text: '一個可以說真心話的出口' },
+        { key: 'C', text: '好好補眠、好好吃飯、好好喘息' },
+        { key: 'D', text: '一個推你一把的力量' },
+      ]},
+      { question: '如果可以的話，你最想去哪裡？', options: [
+        { key: 'A', text: '一個安靜的地方，只有自己' },
+        { key: 'B', text: '海邊、山上，可以吼叫或痛哭的地方' },
+        { key: 'C', text: '一個溫暖的地方，有人照顧你' },
+        { key: 'D', text: '一個新的地方，沒去過的、陌生的' },
+      ]},
+      { question: '你最近最難以忍受的事？', options: [
+        { key: 'A', text: '噪音、人群、被打擾' },
+        { key: 'B', text: '假裝沒事、繼續表演正常' },
+        { key: 'C', text: '一直給、一直付出、沒人補充你' },
+        { key: 'D', text: '原地等待、停滯不前' },
+      ]},
+    ],
+    results: [
+      { key: 'A', emoji: '🌊', title: '沉澱型療癒', subtitle: '需要安靜與清空',
+        description: '你的內心太滿了。不是因為你不夠好，而是你承接了太多——太多的想法、太多的資訊、太多的他人情緒。你現在需要的不是「做更多」，而是清空。找一個安靜的下午，點一支自己喜歡的香氛蠟燭，讓雙手動起來——做手作是一種主動冥想。',
+        recommendation: '香氛蠟燭課', shareQuote: '清空，才能重新裝進真正重要的東西。' },
+      { key: 'B', emoji: '🔥', title: '釋放型療癒', subtitle: '需要出口與流動',
+        description: '你壓著太多了。情緒沒有出口，就會向內消耗。你不是脆弱，你只是太久沒有好好「讓自己流動」了。做一件讓手忙起來的事，手忙的時候，心才有機會說話。試試調香課，因為氣味是最直接的情緒語言。',
+        recommendation: '精油調香體驗課 / 流體畫課', shareQuote: '情緒不是問題，沒有出口才是。' },
+      { key: 'C', emoji: '🌿', title: '滋養型療癒', subtitle: '需要補充與照顧',
+        description: '你是那種總是照顧別人、最後才想到自己的人。你給了太多，現在輪到你被好好對待了。不是努力，不是成長，就只是好好吃飯、好好休息、做一件讓自己開心的事。',
+        recommendation: '水晶手鍊 DIY / 多肉植栽課', shareQuote: '現在，輪到你被好好照顧了。' },
+      { key: 'D', emoji: '✨', title: '啟動型療癒', subtitle: '需要動力與方向',
+        description: '你不是累，你是卡住了。你知道自己想要什麼，但中間好像有一道牆。你需要的不是休息，而是一個重新啟動的信號。給自己一個「儀式感的開始」——親手做一條水晶手鍊，設定你的意圖，戴上它，出發。',
+        recommendation: '水晶手鍊 DIY / 招財水晶樹課', shareQuote: '有時候只需要一個信號，就能重新出發。' },
+    ],
+  },
+  {
+    id: 5, emoji: '🌙', title: '你是哪種療癒系女生？',
+    subtitle: '每個女生都有屬於自己的療癒頻率，你的，是哪一種？',
+    questions: [
+      { question: '你最喜歡哪個時間段？', options: [
+        { key: 'A', text: '深夜，世界安靜下來的時候' },
+        { key: 'B', text: '早晨，陽光灑進來的那一刻' },
+        { key: 'C', text: '黃昏，充滿流動感和橘光' },
+        { key: 'D', text: '午後，慵懶不需要交代的時光' },
+      ]},
+      { question: '你理想中的療癒空間？', options: [
+        { key: 'A', text: '昏暗的燈光、精油、水晶和神秘感' },
+        { key: 'B', text: '明亮、溫暖、有人一起、有香氣的廚房' },
+        { key: 'C', text: '開闊的、有風的地方，最好靠近水' },
+        { key: 'D', text: '植物、木質、自然光、可以發呆的角落' },
+      ]},
+      { question: '你最常用什麼方式放鬆？', options: [
+        { key: 'A', text: '冥想、塔羅、寫日記、獨處儀式' },
+        { key: 'B', text: '煮東西給人吃、陪伴別人、熱熱鬧鬧' },
+        { key: 'C', text: '旅行、探索新地方、做沒做過的事' },
+        { key: 'D', text: '健走、種植、整理空間、慢慢泡茶' },
+      ]},
+      { question: '你的朋友最常來找你做什麼？', options: [
+        { key: 'A', text: '聽你說一些「神奇」的見解或直覺' },
+        { key: 'B', text: '被你照顧、聽你安慰、感受你的溫暖' },
+        { key: 'C', text: '跟你去冒險、跟你一起衝動' },
+        { key: 'D', text: '在你旁邊靜靜待著，感覺很安心' },
+      ]},
+      { question: '你覺得哪句話最像你？', options: [
+        { key: 'A', text: '「我感覺到了，說不清楚，但就是知道」' },
+        { key: 'B', text: '「你還好嗎？有沒有吃飯？」' },
+        { key: 'C', text: '「走吧，說走就走！」' },
+        { key: 'D', text: '「慢慢來，急什麼」' },
+      ]},
+      { question: '你最容易被哪種事物療癒？', options: [
+        { key: 'A', text: '月亮、星座、水晶、神秘能量' },
+        { key: 'B', text: '擁抱、溫熱的食物、熟悉的人' },
+        { key: 'C', text: '海風、音樂、在陌生城市迷路' },
+        { key: 'D', text: '泥土的氣味、植物、雨聲、沉默' },
+      ]},
+      { question: '你對「下班後的時光」的使用方式？', options: [
+        { key: 'A', text: '一個人的儀式感，神聖不可打擾' },
+        { key: 'B', text: '照顧家人朋友，讓身邊的人都好' },
+        { key: 'C', text: '出去走走，不想待在同一個地方' },
+        { key: 'D', text: '慢慢做喜歡的事，不趕時間' },
+      ]},
+    ],
+    results: [
+      { key: 'A', emoji: '🌙', title: '月亮女神型', subtitle: '神秘直覺派',
+        description: '你是個與生俱來的直覺者。你感受事物的方式比別人更細膩、更深層，你懂得用看不見的事物為自己補充能量。你在夜晚最有力量，你的空間需要儀式感，你的療癒需要「深度」而不是「熱鬧」。',
+        recommendation: '水晶手鍊 DIY + 精油調香 + 香氛蠟燭課', shareQuote: '月亮不需要解釋自己為什麼發光。你也是。🌙' },
+      { key: 'B', emoji: '🌞', title: '太陽暖女型', subtitle: '溫暖給予派',
+        description: '你是那個讓所有人都覺得「有你真好」的人。你的存在本身就是療癒——但你有沒有想過，誰來療癒你？你習慣給予，偶爾要記得讓自己也被照顧。',
+        recommendation: '水晶手鍊 DIY + 花藝課', shareQuote: '太陽也需要雲朵偶爾遮住，讓自己休息一下。☀️' },
+      { key: 'C', emoji: '🌊', title: '海浪自由型', subtitle: '率性流動派',
+        description: '你是個充滿生命力、永遠在流動的人。你害怕固定，你喜歡變化，你需要的療癒是「讓自己繼續動起來」。不要壓抑你的衝動，你的直覺力和行動力是你最大的禮物。',
+        recommendation: '挑一個從來沒試過的課程', shareQuote: '海浪從不問海岸能不能接住它，它只管繼續湧來。🌊' },
+      { key: 'D', emoji: '🌿', title: '森林靜謐型', subtitle: '自然沉澱派',
+        description: '你是個把「慢」活成一種哲學的人。你不趕流行，你有自己的節奏，你的存在像深山裡的老樹，不顯眼但根很深。你的療癒需要「靜」和「長」——不是一次性的爆發，而是每天一點點的滋養。',
+        recommendation: '多肉植栽課 + 精油調香', shareQuote: '森林不急著長大，它只是每天都在。🌿' },
+    ],
+  },
+  {
+    id: 6, emoji: '⚡', title: '你的生活缺哪一種能量？',
+    subtitle: '生活像一首曲子，有時某個音符悄悄地不見了。聽聽內心的聲音，找回屬於你的那個頻率。',
+    questions: [
+      { question: '最近你最常有哪種感受？', options: [
+        { key: 'A', text: '覺得自己很孤單，想被人好好陪著' },
+        { key: 'B', text: '總是不安，擔心一切隨時會失控' },
+        { key: 'C', text: '腦袋一片空白，好久沒有想做什麼了' },
+        { key: 'D', text: '每天都很疲倦，提不起勁做任何事' },
+      ]},
+      { question: '看到朋友的生活動態，你第一個念頭是？', options: [
+        { key: 'A', text: '好羨慕，他們看起來好被愛' },
+        { key: 'B', text: '希望我的生活也能這麼穩定踏實' },
+        { key: 'C', text: '他們怎麼這麼有創意，我怎麼都沒有靈感' },
+        { key: 'D', text: '他們好有動力，我好像原地踏步' },
+      ]},
+      { question: '週末最不想做的事是？', options: [
+        { key: 'A', text: '一個人宅在家，沒有人可以說話' },
+        { key: 'B', text: '做很多計畫外的事，感覺什麼都不確定' },
+        { key: 'C', text: '一直重複相同的事，沒有任何新鮮感' },
+        { key: 'D', text: '坐著不動，什麼都不想做' },
+      ]},
+      { question: '你的包包裡最缺哪樣東西？', options: [
+        { key: 'A', text: '一張你最在乎的人寫給你的小紙條' },
+        { key: 'B', text: '一本讓你安心的記事本，把事情都記清楚' },
+        { key: 'C', text: '一本靈感筆記，可以隨時寫下新想法' },
+        { key: 'D', text: '一瓶提振精神的精油或咖啡因補給' },
+      ]},
+      { question: '如果可以許一個願望，你最想要？', options: [
+        { key: 'A', text: '有人無條件地愛你、陪著你' },
+        { key: 'B', text: '一個不會改變的溫暖角落，永遠屬於你' },
+        { key: 'C', text: '突然蹦出一個讓你眼睛發亮的好點子' },
+        { key: 'D', text: '重新找回那個對什麼都充滿熱血的自己' },
+      ]},
+      { question: '哪種植物最像你現在的狀態？', options: [
+        { key: 'A', text: '盆栽裡的玫瑰，需要人細心澆水才會開花' },
+        { key: 'B', text: '被移植的多肉，根還沒扎穩，有點飄' },
+        { key: 'C', text: '乾燥花，曾經美麗，但失去了水分和色彩' },
+        { key: 'D', text: '休眠期的球根，埋在土裡，等待一個發芽的契機' },
+      ]},
+      { question: '最近你最需要的一句話是？', options: [
+        { key: 'A', text: '「我在這裡，你不是一個人。」' },
+        { key: 'B', text: '「一切都會沒事的，你很安全。」' },
+        { key: 'C', text: '「你本來就很有創造力，靈感只是暫時躲起來了。」' },
+        { key: 'D', text: '「你可以的，那個熱情還在你心裡。」' },
+      ]},
+    ],
+    results: [
+      { key: 'A', emoji: '🌸', title: '愛與連結', subtitle: '你的心正在渴望一個溫暖的懷抱',
+        description: '不是軟弱，是你太久沒有讓人好好靠近你了。你習慣獨自承擔，習慣說「我沒事」，但其實那顆心已經悄悄乾渴。療癒從連結開始，用雙手串起一串有意義的水晶，讓它陪著你。',
+        recommendation: '水晶手鍊 DIY 體驗', shareQuote: '我不是不需要愛，我只是太久沒有開口說需要了。' },
+      { key: 'B', emoji: '🏔', title: '穩定與安全感', subtitle: '你的內心正在尋找一個定點',
+        description: '一個不管外面世界怎麼晃動，都能讓你踩穩腳步的地方。也許是一個熟悉的氣味，也許是一雙自己親手做出來的東西。香氛蠟燭是一種儀式，點燃它的那一刻，你在對自己說——此刻，我允許自己停下來。',
+        recommendation: '香氛蠟燭手作課', shareQuote: '不是世界先穩定，是我先讓自己安定下來。' },
+      { key: 'C', emoji: '💡', title: '創意與靈感', subtitle: '你的靈魂裡有一把火，只是最近被風吹得有點小',
+        description: '你不是失去創意，你是太久沒有玩了。生活的重量把那個會胡思亂想、隨手塗鴉的你壓在底下，但它從來沒有消失。讓你的手先動起來，靈感不是等來的，是在「做」的過程中悄悄出現的。',
+        recommendation: '流體畫／皮革手作體驗', shareQuote: '我不是沒有靈感，我只是太久沒有給自己玩耍的空間。' },
+      { key: 'D', emoji: '⚡', title: '熱情與行動力', subtitle: '你還記得上一次眼睛發亮是什麼時候嗎',
+        description: '那個會為一件事熬夜、會衝動報名課程的你，還在嗎？熱情有時候只是在充電，不是消失了。試著做一件「只為了好玩」的事，不帶目的，不求結果。調一瓶屬於現在這個你的香氣。',
+        recommendation: '精油調香體驗課', shareQuote: '熱情不是消失了，它只是在等你給它一個出口。' },
+    ],
+  },
+  {
+    id: 7, emoji: '🧸', title: '你的內在小孩，現在想要什麼？',
+    subtitle: '在所有長大的樣子底下，住著一個還沒被好好照顧的孩子。',
+    questions: [
+      { question: '小時候最怕的事情是？', options: [
+        { key: 'A', text: '被忽略，沒有人在意你' },
+        { key: 'B', text: '被規定，什麼都不能自由做' },
+        { key: 'C', text: '太吵太亂，沒有可以安靜的角落' },
+        { key: 'D', text: '做了很多努力，卻沒有人說「你做得很好」' },
+      ]},
+      { question: '你最懷念的童年時光是？', options: [
+        { key: 'A', text: '被大人抱著、不用想任何事的時候' },
+        { key: 'B', text: '在地上爬來爬去、隨便畫畫的午後' },
+        { key: 'C', text: '一個人在房間裡，安安靜靜看書或發呆' },
+        { key: 'D', text: '上台表演或被老師點名稱讚的那一刻' },
+      ]},
+      { question: '最近你最想逃去哪裡？', options: [
+        { key: 'A', text: '一個有人陪著你、會說「我在這裡」的地方' },
+        { key: 'B', text: '沒有規定、沒有時間表，可以做任何事的空間' },
+        { key: 'C', text: '安靜的山上或海邊，只有風和自己' },
+        { key: 'D', text: '一個能讓人看見你、記住你的舞台' },
+      ]},
+      { question: '哪句話讓你最觸動？', options: [
+        { key: 'A', text: '「你不用一個人扛，我陪你。」' },
+        { key: 'B', text: '「你想做什麼就做什麼，沒關係的。」' },
+        { key: 'C', text: '「先休息，一切等你好了再說。」' },
+        { key: 'D', text: '「你做的事，真的很了不起。」' },
+      ]},
+      { question: '如果內在小孩可以說話，她最可能說？', options: [
+        { key: 'A', text: '「我好累，我只想被好好抱著。」' },
+        { key: 'B', text: '「我想要玩！不想管那麼多！」' },
+        { key: 'C', text: '「我只想一個人靜一靜，不要打擾我。」' },
+        { key: 'D', text: '「我想讓你們都看到我，看到我的努力。」' },
+      ]},
+      { question: '你最近有沒有為自己做過什麼「小小的寵愛」？', options: [
+        { key: 'A', text: '沒有，一直在照顧別人，忘了照顧自己' },
+        { key: 'B', text: '偶爾，但總覺得不夠盡興，有點放不開' },
+        { key: 'C', text: '很少，因為太累了，什麼都不想做' },
+        { key: 'D', text: '幾乎沒有，因為怕別人覺得我太愛出風頭' },
+      ]},
+      { question: '你覺得自己現在最需要的一種顏色是？', options: [
+        { key: 'A', text: '柔和的粉色，溫暖而安全' },
+        { key: 'B', text: '繽紛的彩虹色，每一種都想試試' },
+        { key: 'C', text: '霧藍或深灰，安靜而沉穩' },
+        { key: 'D', text: '閃閃發光的金色，耀眼而自信' },
+      ]},
+      { question: '此刻你最想做的事是？', options: [
+        { key: 'A', text: '找一個人，靜靜依偎在一起' },
+        { key: 'B', text: '隨便拿什麼材料，開始做一件沒有目的的東西' },
+        { key: 'C', text: '關掉手機，窩在某個角落什麼都不做' },
+        { key: 'D', text: '做一件讓人眼睛一亮的作品，然後大聲說「這是我做的！」' },
+      ]},
+    ],
+    results: [
+      { key: 'A', emoji: '🤗', title: '被擁抱', subtitle: '你的內在小孩正在等一個擁抱',
+        description: '不是隨便的那種，是那種讓你感覺「你不用假裝沒事」的擁抱。你太習慣堅強了，堅強到忘了自己也可以脆弱。水晶有一種很安靜的陪伴能量，讓自己選一顆，感受它放在手心的重量。',
+        recommendation: '水晶手鍊 DIY 體驗', shareQuote: '我允許自己脆弱，因為被擁抱從來不是弱點。' },
+      { key: 'B', emoji: '🎨', title: '自由玩耍', subtitle: '你的內在小孩想要出來玩了',
+        description: '那個會因為顏料混在一起變出新顏色而開心尖叫、不怕把手弄髒的你，還在。只是長大之後，你開始覺得「玩」是一件需要理由的事。不需要理由，讓內在小孩出來主導一次。',
+        recommendation: '流體畫／手工皂體驗', shareQuote: '長大不代表要停止玩耍，玩耍才是靈魂的呼吸。' },
+      { key: 'C', emoji: '🌙', title: '安靜休息', subtitle: '你的內在小孩太累了',
+        description: '她需要的不是更多的事情，不是更多的人，只是一個什麼都不用做的角落，可以安靜地坐著，讓時間慢下來。點燃一根蠟燭，讓香氣輕輕填滿空間。你已經足夠了。',
+        recommendation: '香氛蠟燭手作課', shareQuote: '休息不是放棄，是讓自己有力氣再愛這個世界。' },
+      { key: 'D', emoji: '🌟', title: '被看見', subtitle: '你的內在小孩想要站在光裡',
+        description: '她做了很多、努力了很久，只是想要有人說：「我看見你了，你真的很棒。」這不是虛榮，是每個人心底最真實的渴望。做一件只屬於你的作品，讓那件作品成為你被自己看見的第一步。',
+        recommendation: '精油調香體驗課', shareQuote: '被看見，從先看見自己開始。' },
+    ],
+  },
+  {
+    id: 8, emoji: '😤', title: '你的壓力長什麼樣子？',
+    subtitle: '壓力不是敵人，它只是一個還沒被理解的情緒。認識它，才能溫柔地和它說再見。',
+    questions: [
+      { question: '壓力累積的時候，你通常怎麼辦？', options: [
+        { key: 'A', text: '悶在心裡，繼續撐，等它自己過去' },
+        { key: 'B', text: '忽然有一天，什麼小事就讓你情緒崩潰' },
+        { key: 'C', text: '完全不知道怎麼辦，腦子空白，什麼都動不了' },
+        { key: 'D', text: '去找事情填滿自己，讓自己沒空去想那些壓力' },
+      ]},
+      { question: '別人問你「你還好嗎」的時候，你的第一反應是？', options: [
+        { key: 'A', text: '「還好，沒事。」（但心裡不是這樣）' },
+        { key: 'B', text: '「說不定我真的快不好了……」' },
+        { key: 'C', text: '「我……我不知道。」' },
+        { key: 'D', text: '「好啊好啊，我去買個東西就好了。」' },
+      ]},
+      { question: '有人惹你不開心，你會怎麼做？', options: [
+        { key: 'A', text: '說「算了」，把不滿往肚子裡吞' },
+        { key: 'B', text: '一開始忍，但到某個點可能突然爆發' },
+        { key: 'C', text: '愣住，不知道該說什麼，結果什麼都沒說' },
+        { key: 'D', text: '趕快找別的事情轉移注意力' },
+      ]},
+      { question: '壓力大的夜晚，你最可能？', options: [
+        { key: 'A', text: '躺在床上睡不著，但不想打擾任何人' },
+        { key: 'B', text: '翻來覆去，偶爾把枕頭打一下，或在心裡罵人' },
+        { key: 'C', text: '發呆，腦袋一片空白，不知道時間怎麼過的' },
+        { key: 'D', text: '滑手機滑到凌晨，或出門亂買東西' },
+      ]},
+      { question: '你身邊的人可能不知道，其實你正在？', options: [
+        { key: 'A', text: '默默承受很多，但表面看起來沒事' },
+        { key: 'B', text: '快要爆炸了，只差一個引爆點' },
+        { key: 'C', text: '整個人卡住，什麼都處理不了' },
+        { key: 'D', text: '不停地找事情逃避，但越逃壓力越大' },
+      ]},
+      { question: '當一切都太多的時候，你最需要？', options: [
+        { key: 'A', text: '一個可以安靜地說出「我其實很累」的出口' },
+        { key: 'B', text: '一個讓情緒有地方去、不傷人也不傷己的方式' },
+        { key: 'C', text: '有人陪你一起坐著，不用說話，只是在' },
+        { key: 'D', text: '一件讓雙手忙碌起來的事，讓腦子可以暫時空下來' },
+      ]},
+    ],
+    results: [
+      { key: 'A', emoji: '🌀', title: '悶燒型', subtitle: '壓力像炭火，藏在灰燼底下',
+        description: '看起來沒事，其實一直在燒。你太會照顧別人了，所以你把自己的情緒練習得看不出來。說「沒事」的次數太多，久了連自己都快信了。找一個出口，讓雙手的動作代替你表達那些你還說不出口的感受。',
+        recommendation: '樹脂／皮革手作體驗', shareQuote: '我不是沒有情緒，我只是還不知道怎麼讓它們說話。' },
+      { key: 'B', emoji: '💥', title: '爆炸型', subtitle: '壓力像高壓鍋，蓋得越緊遲早要衝出來',
+        description: '你不是情緒化，你只是壓了太久。那些沒有說出口的委屈、沒有被接住的感受，都在等一個安全的地方流出來。流體畫是一種很好的釋放方式，顏料在畫布上流動蔓延，沒有規則。',
+        recommendation: '流體畫體驗課', shareQuote: '情緒不是問題，沒有出口才是。' },
+      { key: 'C', emoji: '🧊', title: '凍結型', subtitle: '壓力把你凍住了',
+        description: '不是不想動，是整個人像被按了暫停鍵。這不是懶，這是身心在用最後的力氣保護你。多肉不需要你做很多，它只需要你在旁邊，偶爾看它一眼。讓自己跟著植物的節奏，慢慢解凍。',
+        recommendation: '多肉植栽體驗', shareQuote: '凍住不是終點，是身體在說：先停下來，好好喘口氣。' },
+      { key: 'D', emoji: '🏃', title: '逃跑型', subtitle: '你一直在跑，但你知道跑不掉的',
+        description: '不是你不勇敢，是面對它太難了。忙完了、滑完了、買完了，那個東西還在那裡。試試調香，在過程裡讓自己慢下來，一瓶一瓶地聞，那是一種很溫柔的方式，讓你從「逃」慢慢回到「在」。',
+        recommendation: '精油調香體驗課', shareQuote: '跑不是解法，但停下來也不用一下子就面對全部。' },
+    ],
+  },
+  {
+    id: 9, emoji: '🌃', title: '今晚你需要哪種儀式感？',
+    subtitle: '每一個夜晚，都值得一個小小的儀式。不為誰，只為把今天好好地收尾。',
+    questions: [
+      { question: '今天的你，最需要的是？', options: [
+        { key: 'A', text: '和所有人斷線，只跟自己在一起' },
+        { key: 'B', text: '用手做一件事，讓腦子安靜下來' },
+        { key: 'C', text: '走出去，換一個空間，換一種呼吸' },
+        { key: 'D', text: '用一種感官的體驗，讓自己回到當下' },
+      ]},
+      { question: '理想的今晚，你最希望？', options: [
+        { key: 'A', text: '燈光暗一點，香氣淡一點，世界小一點' },
+        { key: 'B', text: '把手弄髒，做一件有生命的事' },
+        { key: 'C', text: '穿上一件喜歡的衣服，帶著好能量出門' },
+        { key: 'D', text: '在一排小瓶子前面，一個個打開來聞' },
+      ]},
+      { question: '今天讓你最累的是？', options: [
+        { key: 'A', text: '太多人、太多聲音、太多要回應的事' },
+        { key: 'B', text: '坐著不動，腦子轉個不停，身體沒有出口' },
+        { key: 'C', text: '一直困在同一個空間，呼吸都覺得悶' },
+        { key: 'D', text: '感覺和自己的身體失聯了' },
+      ]},
+      { question: '你的今晚，最不需要的是？', options: [
+        { key: 'A', text: '任何人的打擾或訊息通知' },
+        { key: 'B', text: '繼續看螢幕，繼續動腦' },
+        { key: 'C', text: '繼續待在家裡，繼續原地' },
+        { key: 'D', text: '味道太複雜的空間' },
+      ]},
+      { question: '什麼樣的夜晚，會讓你覺得「今天值了」？', options: [
+        { key: 'A', text: '獨處，什麼事都不做，什麼人都不見' },
+        { key: 'B', text: '親手完成一件小事，看著它在那裡' },
+        { key: 'C', text: '帶著好心情出門，吹到風，看到星星' },
+        { key: 'D', text: '調出一種只屬於今晚的氣味' },
+      ]},
+      { question: '如果今晚是一首歌，你希望它是？', options: [
+        { key: 'A', text: '低沉、緩慢、只有樂器，沒有人聲' },
+        { key: 'B', text: '自然的聲音，雨聲、蟲鳴、葉子的聲音' },
+        { key: 'C', text: '輕快有節奏，讓你想走路的那種' },
+        { key: 'D', text: '帶一點夢幻感，像是香水廣告的配樂' },
+      ]},
+      { question: '你最想用哪個字形容今晚你想要的狀態？', options: [
+        { key: 'A', text: '靜' },
+        { key: 'B', text: '踏實' },
+        { key: 'C', text: '自由' },
+        { key: 'D', text: '沉浸' },
+      ]},
+    ],
+    results: [
+      { key: 'A', emoji: '🕯', title: '點燃蠟燭獨處', subtitle: '今晚你需要的只有自己和一點點光',
+        description: '不需要解釋，不需要陪伴，只需要一根蠟燭，把房間的邊界縮小到只剩你的呼吸範圍。這種獨處不是寂寞，是充電。點燃一根自己做的香氛蠟燭，讓它陪你把今天的喧囂一起燃完。',
+        recommendation: '香氛蠟燭手作課', shareQuote: '今晚，我把所有的門關上，只開一盞給自己的燈。' },
+      { key: 'B', emoji: '🪴', title: '動手種植靜心', subtitle: '今晚讓手代替腦子說話',
+        description: '種一株植物、整理一個盆栽，讓指尖碰到土的那一刻，你就從「腦袋裡的世界」落回「真實的世界」。這是一種非常古老的療癒方式，踏實而有效。',
+        recommendation: '多肉植栽體驗', shareQuote: '把手放進土裡的那一刻，所有浮躁都沉下去了。' },
+      { key: 'C', emoji: '💎', title: '戴上水晶走出去', subtitle: '今晚你需要換一口空氣',
+        description: '不是要去哪裡，不是要見誰，只是換一個空間，讓身體知道：我不是被困住的。帶上一串有能量的水晶手鍊，讓它成為你今晚的護身符。',
+        recommendation: '水晶手鍊 DIY 體驗', shareQuote: '有時候最好的療癒，是換一個地方站著呼吸。' },
+      { key: 'D', emoji: '🌸', title: '調一瓶屬於自己的香', subtitle: '今晚用嗅覺找回自己',
+        description: '香氣是一種直達情緒的語言，它不繞過大腦，直接和你的感受說話。調一瓶只屬於「今天的你」的香，讓它停留在皮膚上，陪你度過今晚。',
+        recommendation: '精油調香體驗課', shareQuote: '調香是一種自白，告訴今晚的自己：我在，我值得被好好對待。' },
+    ],
+  },
+  {
+    id: 10, emoji: '🎨', title: '你的療癒色彩是什麼？',
+    subtitle: '顏色是情緒的另一種語言，它不需要翻譯，直接說話。',
+    questions: [
+      { question: '你最喜歡的室內燈光是？', options: [
+        { key: 'A', text: '溫暖的粉色調，像黃昏的光' },
+        { key: 'B', text: '自然的白光，像窗邊透進來的陽光' },
+        { key: 'C', text: '冷白光，讓你清醒、專注' },
+        { key: 'D', text: '暖黃燈，有點閃爍的那種，像蠟燭' },
+      ]},
+      { question: '你的手機桌布最可能是？', options: [
+        { key: 'A', text: '花朵、漸層、夢幻感的照片' },
+        { key: 'B', text: '自然風景，森林、苔蘚、多肉植物' },
+        { key: 'C', text: '簡潔的幾何、純色、留白設計' },
+        { key: 'D', text: '充滿色彩和活力的圖案或藝術畫' },
+      ]},
+      { question: '你最喜歡穿的衣服顏色？', options: [
+        { key: 'A', text: '粉色、薰衣草紫、玫瑰色' },
+        { key: 'B', text: '大地色系——卡其、棕、橄欖綠' },
+        { key: 'C', text: '白、灰、深藍，乾淨俐落' },
+        { key: 'D', text: '橘、紅、芥末黃，有點搶眼的' },
+      ]},
+      { question: '你理想的假日早晨，空間是什麼感覺？', options: [
+        { key: 'A', text: '柔和、花香、有點夢幻的' },
+        { key: 'B', text: '清新、有植物、窗外有鳥聲的' },
+        { key: 'C', text: '整齊、安靜、一杯咖啡的溫度' },
+        { key: 'D', text: '陽光充足、有點活潑、準備去做點什麼的' },
+      ]},
+      { question: '你最喜歡哪種香氣？', options: [
+        { key: 'A', text: '玫瑰、牡丹、甜美花香' },
+        { key: 'B', text: '雪松、廣藿香、泥土後的雨香' },
+        { key: 'C', text: '薄荷、尤加利、清爽草本' },
+        { key: 'D', text: '柑橘、薑、肉桂，溫暖又有活力' },
+      ]},
+      { question: '看到哪個場景，你最想停下來拍一張？', options: [
+        { key: 'A', text: '一束粉色花，放在窗邊，陽光打下來的樣子' },
+        { key: 'B', text: '苔蘚上的露水，或是多肉們排排坐的樣子' },
+        { key: 'C', text: '留白的白牆，一個影子，構圖很完美' },
+        { key: 'D', text: '市場裡的橘色燈光，或夕陽把天空燒成橘紅色' },
+      ]},
+    ],
+    results: [
+      { key: 'A', emoji: '🌸', title: '粉紫', subtitle: '溫柔感性',
+        description: '你的世界是粉紫色的，像春天最後一場雨後的花園。你對美有很細膩的感受，容易被一首歌、一個顏色、一個眼神打動。這種敏感是你的天賦，不是弱點。花藝課是屬於你的療癒。',
+        recommendation: '花藝手作課', shareQuote: '我的世界是粉色的，因為我選擇溫柔地感受一切。' },
+      { key: 'B', emoji: '🍃', title: '綠棕', subtitle: '自然踏實',
+        description: '你的能量來自大地，你是那種讓人覺得「靠近你很安心」的人。不喜歡浮誇，不追求表面，你相信真實的東西。多肉植栽是最適合你的課程。',
+        recommendation: '多肉植栽體驗', shareQuote: '我不追求最亮眼的，我追求最真實的。' },
+      { key: 'C', emoji: '🔷', title: '藍白', subtitle: '清醒理性',
+        description: '你的美學是留白和清醒，你知道「少即是多」的道理。你欣賞有條理的美，喜歡乾淨的線條。皮革手作的精工細節，正適合你。',
+        recommendation: '皮革手作體驗', shareQuote: '留白不是空洞，是我給自己最清醒的溫柔。' },
+      { key: 'D', emoji: '🔥', title: '橘金', subtitle: '熱烈行動',
+        description: '你的顏色是太陽的顏色，溫暖、有能量、讓人想靠近。你走進一個空間，空氣都會跟著熱起來。流體畫是你的舞台，讓顏色在畫布上碰撞、創造意外的美麗。',
+        recommendation: '流體畫體驗課', shareQuote: '我的顏色是橘金色，因為我選擇用熱烈的方式活著。' },
+    ],
+  },
+  {
+    id: 11, emoji: '🌱', title: '你是哪種植物靈魂？',
+    subtitle: '每個人心裡都住著一株植物，它的樣子，就是你現在靈魂的形狀。',
+    questions: [
+      { question: '朋友說你最像哪種人？', options: [
+        { key: 'A', text: '獨立、不太需要別人、自己可以撐起一片天' },
+        { key: 'B', text: '療癒系的，靠近你就覺得很放鬆' },
+        { key: 'C', text: '感情豐富，對美的事物很敏感，有點浪漫主義' },
+        { key: 'D', text: '活力充沛，走到哪裡都帶來好氣氛' },
+      ]},
+      { question: '你的生存哲學是？', options: [
+        { key: 'A', text: '不管環境多惡劣，我都能活下去' },
+        { key: 'B', text: '小小的幸福就夠了，不需要太多' },
+        { key: 'C', text: '寧願把事情做得很美，也不要妥協將就' },
+        { key: 'D', text: '生命就是要動，停下來才是最可怕的' },
+      ]},
+      { question: '你最需要哪種環境？', options: [
+        { key: 'A', text: '不需要太多照顧，給我空間就好' },
+        { key: 'B', text: '穩定、不太變動，讓我慢慢長' },
+        { key: 'C', text: '有人愛護我、細心對待我，我才能開花' },
+        { key: 'D', text: '新鮮的空氣和流動的環境，讓我充滿生機' },
+      ]},
+      { question: '你如何面對困境？', options: [
+        { key: 'A', text: '把自己縮起來，用刺保護自己，等到安全再出來' },
+        { key: 'B', text: '把水分存起來，慢慢地度過難關' },
+        { key: 'C', text: '也許會受傷，但還是選擇繼續開花' },
+        { key: 'D', text: '換一個方向繼續長，找到縫隙就繼續' },
+      ]},
+      { question: '你最享受的獨處方式是？', options: [
+        { key: 'A', text: '什麼都不做，靜靜地曬太陽' },
+        { key: 'B', text: '做一些小手作，讓心情慢慢沉澱' },
+        { key: 'C', text: '聽音樂、寫日記、沉浸在自己的感受裡' },
+        { key: 'D', text: '出去走走，讓身體動起來' },
+      ]},
+      { question: '你最害怕的事是？', options: [
+        { key: 'A', text: '太依賴別人，失去自己的獨立' },
+        { key: 'B', text: '被要求太多，壓力超過自己能承受的' },
+        { key: 'C', text: '不被珍視，或愛到最後什麼都沒有' },
+        { key: 'D', text: '原地不動，停滯、無聊、沒有改變' },
+      ]},
+      { question: '哪句話最像你？', options: [
+        { key: 'A', text: '「我不需要很多，但我一定要夠強壯。」' },
+        { key: 'B', text: '「一杯奶茶、一個下午，就是好日子。」' },
+        { key: 'C', text: '「帶刺也要開花，因為美是值得的。」' },
+        { key: 'D', text: '「我的能量就是我最好的禮物。」' },
+      ]},
+    ],
+    results: [
+      { key: 'A', emoji: '🌵', title: '仙人掌', subtitle: '獨立堅韌',
+        description: '你是那種不需要太多水也能活得很好的人。你的強大來自你的獨立，你不依賴，你不抱怨。那些刺不是攻擊，是你對自己的保護。但偶爾，仙人掌也需要一點水。',
+        recommendation: '水晶手鍊 DIY 體驗', shareQuote: '我在最乾燥的地方長大，所以我知道生命有多頑強。' },
+      { key: 'B', emoji: '🌿', title: '多肉', subtitle: '療癒小確幸',
+        description: '你是那種讓身邊的人覺得「靠近你很安心」的存在。不張揚，不複雜，你的美藏在細節裡。多肉不需要很多，但它把那一點點好好地儲存著，就像你。',
+        recommendation: '多肉植栽體驗', shareQuote: '不需要轟轟烈烈，把每一個小幸福存起來，就是豐盛。' },
+      { key: 'C', emoji: '🌹', title: '玫瑰', subtitle: '感性浪漫',
+        description: '你是帶刺的花，美麗而真實。你知道開花是有代價的，但你還是選擇盛開。你對美有很深的嚮往，對情感有很強烈的感受。花藝是為你而生的課程。',
+        recommendation: '花藝手作課', shareQuote: '帶刺，是因為我知道自己值得被珍惜。' },
+      { key: 'D', emoji: '🍀', title: '薄荷', subtitle: '清新活力',
+        description: '你是那種走進一個房間，空氣都會被你帶活的人。你的能量是清新的，你不是表演出來的開朗，是真的覺得生命有很多值得期待的地方。薄荷越剪越旺，就像你。',
+        recommendation: '精油調香體驗課', shareQuote: '我的出現，是為了讓這個空間更清新一點。' },
+    ],
+  },
+  {
+    id: 12, emoji: '🤝', title: '你的人際能量是哪種類型？',
+    subtitle: '每段關係都是一種能量的流動，而你，是那條河的哪一段？',
+    questions: [
+      { question: '朋友遇到困難，你的第一反應是？', options: [
+        { key: 'A', text: '馬上想辦法幫他，先把他的事解決再說' },
+        { key: 'B', text: '靜靜地聽，讓他說完，你需要一點時間消化' },
+        { key: 'C', text: '先了解狀況，再看看你能做什麼' },
+        { key: 'D', text: '幫他找出解決方向，然後鼓勵他去行動' },
+      ]},
+      { question: '你在一個聚會裡，你通常是？', options: [
+        { key: 'A', text: '照顧大家情緒的那個人' },
+        { key: 'B', text: '認真聽別人說話，默默吸收' },
+        { key: 'C', text: '配合現場氣氛，有時說話有時聆聽' },
+        { key: 'D', text: '帶動話題，讓氛圍熱起來' },
+      ]},
+      { question: '親密關係裡，你最常扮演的角色是？', options: [
+        { key: 'A', text: '給予者，照顧對方的需求，常忘了自己' },
+        { key: 'B', text: '接收者，需要對方給你很多安全感和陪伴' },
+        { key: 'C', text: '互相照顧，你需要對等的愛' },
+        { key: 'D', text: '引導者，帶著對方往前' },
+      ]},
+      { question: '人際關係裡，什麼最讓你疲憊？', options: [
+        { key: 'A', text: '一直付出卻沒有人問你還好不好' },
+        { key: 'B', text: '要主動聯繫、主動表現，感覺好累' },
+        { key: 'C', text: '不對等，一個人付出太多或太少' },
+        { key: 'D', text: '被動的人，讓你一個人帶著整個關係走' },
+      ]},
+      { question: '你最享受的關係是？', options: [
+        { key: 'A', text: '對方需要你，你能幫上忙的感覺' },
+        { key: 'B', text: '和對方在一起，你感到充實、被滋養' },
+        { key: 'C', text: '你們彼此需要彼此，沒有誰多誰少' },
+        { key: 'D', text: '你帶著對方成長，看到他變好的樣子' },
+      ]},
+      { question: '朋友說你最讓他們欣賞的地方是？', options: [
+        { key: 'A', text: '你的體貼，你總是想到別人' },
+        { key: 'B', text: '你的深度，你願意認真感受和思考' },
+        { key: 'C', text: '你的穩定，讓人覺得跟你在一起很有安全感' },
+        { key: 'D', text: '你的能量，你讓大家都變得更有活力' },
+      ]},
+    ],
+    results: [
+      { key: 'A', emoji: '🌊', title: '給予型', subtitle: '你像一條河，一直往外流',
+        description: '你的愛是真實的，你的給予是天性。但河流也需要源頭，你也需要被補充。做一件只為自己的手作，不為誰，不送給誰，就是為你自己。',
+        recommendation: '香氛蠟燭手作課', shareQuote: '給予的人，也需要一個人好好地被裝滿。' },
+      { key: 'B', emoji: '🌙', title: '吸收型', subtitle: '你像月亮，默默地接收',
+        description: '你不是依賴，你是深度感受者。你需要充足的能量才能好好運作。水晶的能量適合你，帶上一顆讓你感到安穩的石頭，讓它成為你的能量補給站。',
+        recommendation: '水晶手鍊 DIY 體驗', shareQuote: '我需要先被好好填滿，才能把光好好地反映給你。' },
+      { key: 'C', emoji: '⚖️', title: '平衡型', subtitle: '你的存在本身就是平衡力',
+        description: '你有很清楚的邊界感，你知道什麼是你能給的，什麼是你需要的。這種清醒是一種很成熟的力量。皮革手作的精準感，和你的性格很像。',
+        recommendation: '皮革手作體驗', shareQuote: '真正好的關係，不是誰付出比較多，是我們都在這裡。' },
+      { key: 'D', emoji: '🔥', title: '帶動型', subtitle: '你是關係裡的引擎',
+        description: '你不是強勢，你是充滿熱情。你帶著大家往前，你給的不只是陪伴，是方向、是勇氣。流體畫很適合你，讓色彩跟著你的能量流動。',
+        recommendation: '流體畫體驗課', shareQuote: '我燃燒的時候，他們都跟著溫暖了。' },
+    ],
+  },
+  {
+    id: 13, emoji: '🦊', title: '你的生活節奏是哪種動物？',
+    subtitle: '快的，慢的，靈活的，勇猛的，哪一種最像你現在走路的樣子？',
+    questions: [
+      { question: '你通常怎麼做決定？', options: [
+        { key: 'A', text: '憑感覺，當下覺得對就去做' },
+        { key: 'B', text: '想很久，從各個角度分析，確定了才動' },
+        { key: 'C', text: '快速評估，但保留彈性，看狀況再調整' },
+        { key: 'D', text: '很快，我知道我要什麼，就直接衝' },
+      ]},
+      { question: '你的待辦清單長什麼樣子？', options: [
+        { key: 'A', text: '沒有清單，你的計畫一直在變' },
+        { key: 'B', text: '非常詳細，每件事都寫得很清楚' },
+        { key: 'C', text: '有一個大方向，但細節保持彈性' },
+        { key: 'D', text: '很短，你只記最重要的' },
+      ]},
+      { question: '朋友說你什麼時候最讓他們意外？', options: [
+        { key: 'A', text: '你突然改變主意、或突然有新計畫的時候' },
+        { key: 'B', text: '你做出一個很深思熟慮的決定' },
+        { key: 'C', text: '你在棘手的情況下想出一個意想不到的辦法' },
+        { key: 'D', text: '你直接開口說出別人不敢說的話' },
+      ]},
+      { question: '你最享受哪種工作狀態？', options: [
+        { key: 'A', text: '多線並進，一直切換，保持新鮮感' },
+        { key: 'B', text: '慢慢深入一件事，把它做得非常好' },
+        { key: 'C', text: '隨時可以調整方向，不被固定框架綁住' },
+        { key: 'D', text: '主導、帶領，自己決定方向' },
+      ]},
+      { question: '你覺得人生最怕的是？', options: [
+        { key: 'A', text: '一成不變，沒有變化，太無聊了' },
+        { key: 'B', text: '被催促，被要求快' },
+        { key: 'C', text: '太死板，不能隨機應變' },
+        { key: 'D', text: '被別人牽著走，失去主導權' },
+      ]},
+      { question: '假日你最可能在做什麼？', options: [
+        { key: 'A', text: '突然決定去一個沒有計畫的地方' },
+        { key: 'B', text: '在家做一件需要時間和專注的事' },
+        { key: 'C', text: '根據當天心情決定，什麼都有可能' },
+        { key: 'D', text: '約齊朋友，帶頭去做一件大家都沒做過的事' },
+      ]},
+      { question: '最能描述你的一句話是？', options: [
+        { key: 'A', text: '「我的下一步，連我自己都不知道。」' },
+        { key: 'B', text: '「慢，是為了走得更深、更遠。」' },
+        { key: 'C', text: '「我可以是任何形狀，因為我夠靈活。」' },
+        { key: 'D', text: '「我決定的事，沒有什麼能讓我回頭。」' },
+      ]},
+    ],
+    results: [
+      { key: 'A', emoji: '🦋', title: '蝴蝶', subtitle: '變化快速',
+        description: '你的人生是一連串美麗的變形記。你不害怕改變，甚至有時候是你主動尋找改變。每一段旅程、每一個新嘗試，都是你翅膀上的一個新花紋。但蝴蝶也需要短暫停靠的花朵。',
+        recommendation: '流體畫體驗課', shareQuote: '我的每一次改變，都是一次更美麗的蛻變。' },
+      { key: 'B', emoji: '🐢', title: '烏龜', subtitle: '深思慢活',
+        description: '慢，是你最深的智慧。你不急，因為你知道真正重要的事不需要趕。你在別人跑過去的地方，看到了他們錯過的風景。多肉植栽是你的靈魂課程。',
+        recommendation: '多肉植栽體驗', shareQuote: '慢下來，不是因為我跟不上，而是因為我知道什麼值得停留。' },
+      { key: 'C', emoji: '🦊', title: '狐狸', subtitle: '靈活應變',
+        description: '你是那種在任何情況都能找到出路的人。你不執著於一種方式，你看情況、你調整、你轉彎。皮革手作需要靈活的判斷，每一刀都要依照材料的性格來決定，就像你。',
+        recommendation: '皮革手作體驗', shareQuote: '我不走直線，但我一定到得了目的地。' },
+      { key: 'D', emoji: '🦁', title: '獅子', subtitle: '主導衝鋒',
+        description: '你知道自己要什麼，然後你去拿。你的主導力來自你的清醒——你很清楚目標，很清楚方向。你天生是領導者，不是因為你最強，而是因為你最不怕。',
+        recommendation: '水晶手鍊 DIY 體驗', shareQuote: '我不是最快的，但我知道要去哪裡，這就夠了。' },
+    ],
+  },
+  {
+    id: 14, emoji: '🕯️', title: '你的香氛蠟燭是哪種類型？',
+    subtitle: '每一根蠟燭都有它的靈魂，你的那根，正在為什麼樣的時刻等著你？',
+    questions: [
+      { question: '你最喜歡點蠟燭的時機是？', options: [
+        { key: 'A', text: '一個人在家，什麼都不做，只是想靜靜待著' },
+        { key: 'B', text: '朋友來了，大家圍在一起吃飯聊天' },
+        { key: 'C', text: '約會前，或者想製造一個浪漫的氛圍' },
+        { key: 'D', text: '早上開始工作前，或晚上清理完家裡之後' },
+      ]},
+      { question: '你選蠟燭香味的標準是？', options: [
+        { key: 'A', text: '能讓我平靜、讓腦袋放空的氣味' },
+        { key: 'B', text: '好聞、讓人開心、聞到就想笑的那種' },
+        { key: 'C', text: '迷人、溫柔、讓人靠近你的氣味' },
+        { key: 'D', text: '清新、乾淨、讓空間感覺剛被整理過' },
+      ]},
+      { question: '你覺得蠟燭最重要的功能是？', options: [
+        { key: 'A', text: '提供一個讓自己沉靜下來的儀式' },
+        { key: 'B', text: '增添歡聚的溫度和記憶' },
+        { key: 'C', text: '創造一種讓人心動的空間氣氛' },
+        { key: 'D', text: '讓空間清新、讓心情重置' },
+      ]},
+      { question: '如果你的蠟燭是一首歌，它是？', options: [
+        { key: 'A', text: '輕柔的古典樂或冥想音樂' },
+        { key: 'B', text: '開心的爵士樂或派對歌曲' },
+        { key: 'C', text: '浪漫的法文香頌或慢板情歌' },
+        { key: 'D', text: '清晨的自然聲音，流水、鳥鳴' },
+      ]},
+      { question: '你最常在哪個空間點蠟燭？', options: [
+        { key: 'A', text: '浴室、臥室，最私密的角落' },
+        { key: 'B', text: '客廳、餐桌，大家聚在一起的地方' },
+        { key: 'C', text: '臥室，或任何和對方在一起的地方' },
+        { key: 'D', text: '書桌、工作區，或廁所' },
+      ]},
+      { question: '你送蠟燭給朋友，最希望它帶給他什麼？', options: [
+        { key: 'A', text: '一個可以好好放鬆、和自己相處的機會' },
+        { key: 'B', text: '打開就笑，聞到就想到你們在一起的美好' },
+        { key: 'C', text: '讓他感受到被你用心對待的溫度' },
+        { key: 'D', text: '讓他的家或辦公室更清爽、更有活力' },
+      ]},
+    ],
+    results: [
+      { key: 'A', emoji: '🕯', title: '獨處冥想型', subtitle: '為了「只有你」的時光而燃燒',
+        description: '它不需要觀眾，不需要分享，只為你一個人的安靜而存在。點燃它的那一刻，你在告訴世界：現在是我的時間。乳香、雪松、廣藿香——深沉的氣味讓你的思緒慢下來。',
+        recommendation: '香氛蠟燭手作課', shareQuote: '這根蠟燭的光，只照亮我一個人，那就夠了。' },
+      { key: 'B', emoji: '🥂', title: '歡聚慶典型', subtitle: '你的蠟燭是派對的靈魂',
+        description: '點燃它，不是為了儀式，是為了讓這個空間裡的每個人都感覺到：今晚很特別。佛手柑、葡萄柚、香草——明亮又溫暖的香氣，讓歡聚的記憶更深刻。',
+        recommendation: '香氛蠟燭手作課', shareQuote: '最好的蠟燭，不是燒完就沒了，而是讓記憶一直留著。' },
+      { key: 'C', emoji: '💌', title: '戀愛氛圍型', subtitle: '你的蠟燭是一封情書',
+        description: '它不用說話，只用氣味、光和溫度，告訴對方：你對我來說，是特別的。玫瑰、茉莉、檀香——讓愛情有了氣味，有了記憶。',
+        recommendation: '香氛蠟燭手作課', shareQuote: '最浪漫的事，是用一種氣味，讓你記住那個夜晚。' },
+      { key: 'D', emoji: '🌿', title: '日常淨化型', subtitle: '你的蠟燭是生活的重置鍵',
+        description: '不特別為了什麼，就是為了讓今天能好好結束，明天能好好開始。薄荷、尤加利、茶樹、綠茶——清爽的香氣像一次深呼吸，把昨天的一切清掉。',
+        recommendation: '香氛蠟燭手作課', shareQuote: '每天點燃它，是我給自己的一個小小重啟。' },
+    ],
+  },
+  {
+    id: 15, emoji: '🏠', title: '你的療癒空間長什麼樣？',
+    subtitle: '如果你可以有一個完全屬於自己的空間，那個空間，是什麼顏色，什麼氣味？',
+    questions: [
+      { question: '你最嚮往的度假方式是？', options: [
+        { key: 'A', text: '租一間溫馨的民宿，窩在裡面什麼都不做' },
+        { key: 'B', text: '去山上或海邊，讓自己完全沉浸在自然裡' },
+        { key: 'C', text: '找一個有神秘感的地方，像廟宇、古宅或森林深處' },
+        { key: 'D', text: '找一間精緻的茶館或咖啡廳，靜靜坐一個下午' },
+      ]},
+      { question: '你理想的療癒空間裡，一定有的東西是？', options: [
+        { key: 'A', text: '一張柔軟的沙發，幾個抱枕，和讓你完全放鬆的燈光' },
+        { key: 'B', text: '植物、木頭、石頭，還有透進來的自然光' },
+        { key: 'C', text: '蠟燭、水晶、薰香，還有某種神聖感' },
+        { key: 'D', text: '一個茶几、精緻的茶具，和讓你沉澱下來的音樂' },
+      ]},
+      { question: '你覺得療癒最重要的元素是？', options: [
+        { key: 'A', text: '安全感，讓你可以完全放鬆、不需要武裝' },
+        { key: 'B', text: '自然，讓你感覺回到最原始的自己' },
+        { key: 'C', text: '儀式感，讓這個當下變得神聖而不尋常' },
+        { key: 'D', text: '美感，讓你的感官都得到照顧' },
+      ]},
+      { question: '你最喜歡的室內香氣是？', options: [
+        { key: 'A', text: '家的氣味——木頭、棉被、麵包烤過的香' },
+        { key: 'B', text: '泥土、草、雨後森林的氣味' },
+        { key: 'C', text: '薰香、乳香、神秘的東方香氣' },
+        { key: 'D', text: '淡雅的茶香、花香，或輕盈的日式調香' },
+      ]},
+      { question: '你的療癒空間裡，背景音樂是？', options: [
+        { key: 'A', text: '輕柔的家居電台，或根本沒有，只有安靜' },
+        { key: 'B', text: '自然聲音——雨聲、蟲鳴、流水、風吹樹葉' },
+        { key: 'C', text: '頌缽、冥想音樂，或某種古老的神秘旋律' },
+        { key: 'D', text: '古典音樂、日式琴聲，或輕柔的爵士' },
+      ]},
+      { question: '如果這個療癒空間有一個主色調，它是？', options: [
+        { key: 'A', text: '奶白、米色、溫暖的黃——讓人感覺像被擁抱' },
+        { key: 'B', text: '深綠、棕色、石灰色——大地和森林的顏色' },
+        { key: 'C', text: '深紫、藏青、金——神秘而有深度' },
+        { key: 'D', text: '粉白、淡金、薰衣草紫——優雅而細膩' },
+      ]},
+      { question: '走進你的療癒空間，你第一件想做的事是？', options: [
+        { key: 'A', text: '脫鞋、換上最舒服的衣服，然後整個人倒在沙發上' },
+        { key: 'B', text: '打開窗、深呼吸一口自然的空氣' },
+        { key: 'C', text: '點燃蠟燭或薰香，讓空間充滿那種特別的氣息' },
+        { key: 'D', text: '坐下來，泡一杯茶，讓時間慢下來' },
+      ]},
+    ],
+    results: [
+      { key: 'A', emoji: '🏡', title: '溫暖家居型', subtitle: '你的療癒是那種把鞋脫掉鑽進毛毯裡的感覺',
+        description: '你不需要特別的地方，你只需要「家」的溫度——安全的、熟悉的、不需要表演的。手工皂是你的療癒語言，每天洗澡的時候讓它的香氣提醒你：現在是我的時間。',
+        recommendation: '手工皂體驗課', shareQuote: '最好的療癒，是回到一個讓你不需要假裝的地方。' },
+      { key: 'B', emoji: '🌲', title: '自然野境型', subtitle: '你的療癒需要泥土、風和看得見天空的地方',
+        description: '室內太小了，你的靈魂需要更大的呼吸空間。你在自然裡才是真正的自己。多肉植栽把一點點自然帶進你的日常，提醒你：你也是自然的一部分。',
+        recommendation: '多肉植栽體驗', shareQuote: '我的療癒在樹梢間的風裡，在泥土裡，在每一口乾淨的空氣裡。' },
+      { key: 'C', emoji: '✨', title: '神秘儀式型', subtitle: '你的療癒需要一點神聖感',
+        description: '不是迷信，是你需要一個「這個時刻不一樣」的感覺。水晶、蠟燭、薰香——每一樣都是你儀式的一部分。水晶手鍊是你的護身符，也是你和自己深層連結的錨點。',
+        recommendation: '水晶手鍊 DIY 體驗', shareQuote: '我選擇把每一個當下都活得神聖。' },
+      { key: 'D', emoji: '🌸', title: '優雅茶室型', subtitle: '你的療癒在一杯茶的時間裡',
+        description: '你喜歡細緻的美，喜歡每個細節都被好好對待——茶杯的弧度、香氣的層次。調香是你的療癒語言，有前調、中調、後調，有層次、有餘韻。',
+        recommendation: '精油調香體驗課', shareQuote: '一杯茶的時間，是我給自己最奢侈也最簡單的禮物。' },
+    ],
+  },
+];
+
+
+
+// ===== 心理測驗 UI Components =====
+function PsychTestListView({ onSelectTest }: { onSelectTest: (test: HealingTest) => void }) {
+  const completedTests = JSON.parse(localStorage.getItem('healing_test_results') || '{}');
+  const completedCount = Object.keys(completedTests).length;
+
+  return (
+    <div className="space-y-4">
+      {/* Progress header */}
+      <div className="rounded-2xl p-5 shadow-sm" style={{ background: 'linear-gradient(135deg, #E8E0F0 0%, #FFFEF9 100%)' }}>
+        <div className="flex items-center gap-3">
+          <span className="text-4xl">🧠</span>
+          <div className="flex-1">
+            <h3 className="text-lg font-bold" style={{ color: '#3D3530' }}>療癒心理測驗</h3>
+            <p className="text-xs mt-1" style={{ color: '#8C7B72' }}>15 個精心設計的測驗，幫助你更了解自己</p>
+          </div>
+          <div className="text-center">
+            <p className="text-2xl font-bold" style={{ color: '#C9A96E' }}>{completedCount}</p>
+            <p className="text-[10px]" style={{ color: '#B5AFA8' }}>/ 15 完成</p>
+          </div>
+        </div>
+        {completedCount > 0 && (
+          <div className="mt-3 rounded-xl overflow-hidden" style={{ backgroundColor: '#F5F0EB', height: 6 }}>
+            <motion.div
+              className="h-full rounded-xl"
+              style={{ backgroundColor: '#C9A96E', width: `${(completedCount / 15) * 100}%` }}
+              initial={{ width: 0 }}
+              animate={{ width: `${(completedCount / 15) * 100}%` }}
+              transition={{ duration: 0.8, ease: 'easeOut' }}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Test list */}
+      <div className="space-y-2.5">
+        {HEALING_TESTS.map((test, i) => {
+          const isCompleted = completedTests[test.id];
+          const resultInfo = isCompleted ? test.results.find(r => r.key === isCompleted) : null;
+          return (
+            <motion.button key={test.id}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.03 }}
+              whileTap={{ scale: 0.98 }}
+              onClick={() => onSelectTest(test)}
+              className="w-full rounded-2xl p-4 flex items-center gap-3 text-left"
+              style={{ backgroundColor: isCompleted ? '#FFFEF9' : '#FAF8F5', border: isCompleted ? '1.5px solid #C9A96E30' : '1px solid #F0EDE8' }}>
+              <span className="text-2xl">{test.emoji}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold truncate" style={{ color: '#3D3530' }}>{test.title}</p>
+                {isCompleted && resultInfo ? (
+                  <p className="text-xs mt-0.5 truncate" style={{ color: '#C9A96E' }}>{resultInfo.emoji} {resultInfo.title}</p>
+                ) : (
+                  <p className="text-xs mt-0.5 truncate" style={{ color: '#8C7B72' }}>{test.questions.length} 題</p>
+                )}
+              </div>
+              {isCompleted ? (
+                <span className="text-xs px-2.5 py-1 rounded-lg flex-shrink-0" style={{ backgroundColor: '#C9A96E15', color: '#C9A96E' }}>已完成</span>
+              ) : (
+                <span className="text-xs px-2.5 py-1 rounded-lg flex-shrink-0" style={{ backgroundColor: '#F5F0EB', color: '#8C7B72' }}>開始</span>
+              )}
+            </motion.button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function PsychTestTakingView({ test, onComplete, onBack }: { test: HealingTest; onComplete: (resultKey: string) => void; onBack: () => void }) {
+  const [currentQ, setCurrentQ] = useState(0);
+  const [answers, setAnswers] = useState<string[]>([]);
+  const [selectedOption, setSelectedOption] = useState<string | null>(null);
+
+  const handleSelect = (key: string) => {
+    setSelectedOption(key);
+    setTimeout(() => {
+      const newAnswers = [...answers, key];
+      setAnswers(newAnswers);
+      setSelectedOption(null);
+      if (currentQ < test.questions.length - 1) {
+        setCurrentQ(currentQ + 1);
+      } else {
+        // Calculate result
+        const counts: Record<string, number> = { A: 0, B: 0, C: 0, D: 0 };
+        newAnswers.forEach(a => { counts[a] = (counts[a] || 0) + 1; });
+        const maxKey = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
+        onComplete(maxKey);
+      }
+    }, 300);
+  };
+
+  const q = test.questions[currentQ];
+  const progress = ((currentQ) / test.questions.length) * 100;
+
+  return (
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <motion.button whileTap={{ scale: 0.9 }} onClick={onBack}
+          className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#F5F0EB' }}>
+          <span className="text-sm">←</span>
+        </motion.button>
+        <div className="flex-1">
+          <p className="text-sm font-bold" style={{ color: '#3D3530' }}>{test.emoji} {test.title}</p>
+          <p className="text-[10px]" style={{ color: '#B5AFA8' }}>第 {currentQ + 1} / {test.questions.length} 題</p>
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      <div className="rounded-xl overflow-hidden" style={{ backgroundColor: '#F5F0EB', height: 4 }}>
+        <motion.div className="h-full rounded-xl" style={{ backgroundColor: '#C9A96E' }}
+          animate={{ width: `${progress}%` }} transition={{ duration: 0.3 }} />
+      </div>
+
+      {/* Question */}
+      <AnimatePresence mode="wait">
+        <motion.div key={currentQ}
+          initial={{ opacity: 0, x: 30 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -30 }}
+          transition={{ duration: 0.25 }}
+          className="space-y-4">
+          <div className="rounded-2xl p-5" style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}>
+            <p className="text-base font-bold leading-relaxed" style={{ color: '#3D3530' }}>{q.question}</p>
+          </div>
+
+          <div className="space-y-2.5">
+            {q.options.map((opt, i) => (
+              <motion.button key={opt.key}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: i * 0.06 }}
+                whileTap={{ scale: 0.97 }}
+                onClick={() => handleSelect(opt.key)}
+                className="w-full rounded-2xl p-4 text-left flex items-start gap-3"
+                style={{
+                  backgroundColor: selectedOption === opt.key ? '#C9A96E10' : '#FAF8F5',
+                  border: selectedOption === opt.key ? '1.5px solid #C9A96E' : '1px solid #F0EDE8',
+                  transition: 'all 0.2s',
+                }}>
+                <span className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold mt-0.5"
+                  style={{
+                    backgroundColor: selectedOption === opt.key ? '#C9A96E' : '#F0EDE8',
+                    color: selectedOption === opt.key ? '#fff' : '#8C7B72',
+                  }}>{opt.key}</span>
+                <p className="text-sm leading-relaxed" style={{ color: '#3D3530' }}>{opt.text}</p>
+              </motion.button>
+            ))}
+          </div>
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function PsychTestResultView({ test, resultKey, onBack, onRetake }: { test: HealingTest; resultKey: string; onBack: () => void; onRetake: () => void }) {
+  const result = test.results.find(r => r.key === resultKey)!;
+
+  return (
+    <motion.div className="space-y-5" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
+      {/* Back button */}
+      <div className="flex items-center gap-3">
+        <motion.button whileTap={{ scale: 0.9 }} onClick={onBack}
+          className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#F5F0EB' }}>
+          <span className="text-sm">←</span>
+        </motion.button>
+        <p className="text-sm font-bold" style={{ color: '#3D3530' }}>{test.emoji} 測驗結果</p>
+      </div>
+
+      {/* Result card */}
+      <motion.div className="rounded-2xl p-6 shadow-sm text-center"
+        style={{ background: 'linear-gradient(135deg, #FFFEF9 0%, #F5F0EB 100%)' }}
+        initial={{ y: 20 }} animate={{ y: 0 }}>
+        <motion.span className="text-6xl block"
+          initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring', delay: 0.2 }}>
+          {result.emoji}
+        </motion.span>
+        <h3 className="text-xl font-bold mt-3" style={{ color: '#3D3530' }}>{result.title}</h3>
+        <p className="text-sm mt-1" style={{ color: '#C9A96E' }}>{result.subtitle}</p>
+      </motion.div>
+
+      {/* Description */}
+      <div className="rounded-2xl p-5" style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}>
+        <p className="text-sm leading-relaxed" style={{ color: '#5C534C' }}>{result.description}</p>
+      </div>
+
+      {/* Recommendation */}
+      <div className="rounded-2xl p-4" style={{ backgroundColor: '#C9A96E10', border: '1px solid #C9A96E20' }}>
+        <p className="text-xs font-bold mb-1" style={{ color: '#C9A96E' }}>推薦體驗</p>
+        <p className="text-sm" style={{ color: '#3D3530' }}>{result.recommendation}</p>
+      </div>
+
+      {/* Share quote */}
+      <div className="rounded-2xl p-4 text-center" style={{ backgroundColor: '#FAF8F5' }}>
+        <p className="text-xs mb-2" style={{ color: '#B5AFA8' }}>分享語</p>
+        <p className="text-sm italic leading-relaxed" style={{ color: '#8C7B72' }}>「{result.shareQuote}」</p>
+      </div>
+
+      {/* Actions */}
+      <div className="flex gap-3">
+        <motion.button whileTap={{ scale: 0.96 }} onClick={onRetake}
+          className="flex-1 rounded-2xl p-3.5 text-sm font-bold"
+          style={{ backgroundColor: '#F5F0EB', color: '#8C7B72' }}>
+          重新測驗
+        </motion.button>
+        <motion.button whileTap={{ scale: 0.96 }} onClick={onBack}
+          className="flex-1 rounded-2xl p-3.5 text-sm font-bold"
+          style={{ backgroundColor: '#C9A96E', color: '#fff' }}>
+          回到測驗列表
+        </motion.button>
+      </div>
+    </motion.div>
+  );
+}
+
+function PsychTestContainer() {
+  const [view, setView] = useState<'list' | 'taking' | 'result'>('list');
+  const [selectedTest, setSelectedTest] = useState<HealingTest | null>(null);
+  const [resultKey, setResultKey] = useState<string | null>(null);
+
+  const handleSelectTest = (test: HealingTest) => {
+    // Check if already completed
+    const completed = JSON.parse(localStorage.getItem('healing_test_results') || '{}');
+    if (completed[test.id]) {
+      setSelectedTest(test);
+      setResultKey(completed[test.id]);
+      setView('result');
+    } else {
+      setSelectedTest(test);
+      setView('taking');
+    }
+  };
+
+  const handleComplete = (key: string) => {
+    if (!selectedTest) return;
+    const completed = JSON.parse(localStorage.getItem('healing_test_results') || '{}');
+    completed[selectedTest.id] = key;
+    localStorage.setItem('healing_test_results', JSON.stringify(completed));
+    setResultKey(key);
+    setView('result');
+  };
+
+  const handleRetake = () => {
+    if (!selectedTest) return;
+    const completed = JSON.parse(localStorage.getItem('healing_test_results') || '{}');
+    delete completed[selectedTest.id];
+    localStorage.setItem('healing_test_results', JSON.stringify(completed));
+    setView('taking');
+  };
+
+  return (
+    <AnimatePresence mode="wait">
+      {view === 'list' && (
+        <motion.div key="list" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          <PsychTestListView onSelectTest={handleSelectTest} />
+        </motion.div>
+      )}
+      {view === 'taking' && selectedTest && (
+        <motion.div key="taking" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          <PsychTestTakingView test={selectedTest} onComplete={handleComplete} onBack={() => setView('list')} />
+        </motion.div>
+      )}
+      {view === 'result' && selectedTest && resultKey && (
+        <motion.div key="result" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          <PsychTestResultView test={selectedTest} resultKey={resultKey} onBack={() => setView('list')} onRetake={handleRetake} />
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}
+
+
+function ExplorePage({ records, userEmail, onNavigate }: { records: HealingRecord[]; userEmail: string | null; onNavigate: (p: PageType) => void }) {
+  const [activeTab, setActiveTab] = useState<'card' | 'tests' | 'personality'>('card');
+  const personalityProfile = loadPersonalityProfile();
+  const personalityInfo = personalityProfile ? HEALING_PERSONALITIES[personalityProfile.primary] : null;
+
+  return (
+    <motion.div className="space-y-5" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+      <div>
+        <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>🔮 探索</h2>
+        <p className="text-sm mt-1" style={{ color: '#8C7B72' }}>透過卡牌與測驗，更深入地認識自己</p>
+      </div>
+
+      {/* Tab 切換 */}
+      <div className="flex gap-2">
+        {[
+          { key: 'card' as const, label: '✦ 療癒卡牌', desc: '每日一抽' },
+          { key: 'tests' as const, label: '🧠 心理測驗', desc: '探索自己' },
+          { key: 'personality' as const, label: '🌿 療癒人格', desc: personalityInfo ? personalityInfo.label : '探索你的人格' },
+        ].map(tab => (
+          <motion.button key={tab.key} whileTap={{ scale: 0.96 }}
+            onClick={() => setActiveTab(tab.key)}
+            className="flex-1 rounded-2xl p-3 text-center"
+            style={{
+              backgroundColor: activeTab === tab.key ? '#FFFEF9' : '#FAF8F5',
+              border: activeTab === tab.key ? '1.5px solid #C9A96E40' : '1px solid #F0EDE8',
+            }}>
+            <p className="text-sm font-bold" style={{ color: activeTab === tab.key ? '#3D3530' : '#8C7B72' }}>{tab.label}</p>
+            <p className="text-[10px] mt-0.5" style={{ color: '#B5AFA8' }}>{tab.desc}</p>
+          </motion.button>
+        ))}
+      </div>
+
+      {/* 卡牌區 */}
+      {activeTab === 'card' && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          <CardPage onTaskComplete={() => {}} records={records} />
+        </motion.div>
+      )}
+
+      {/* 心理測驗區 */}
+      {activeTab === 'tests' && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+          <PsychTestContainer />
+        </motion.div>
+      )}
+
+      {/* 療癒人格區 */}
+      {activeTab === 'personality' && (
+        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
+          {personalityProfile ? (
+            <>
+              {/* 人格卡片 */}
+              <div className="rounded-2xl p-5 shadow-sm" style={{ background: personalityInfo?.gradient || 'linear-gradient(135deg, #FFFEF9 0%, #FAF8F5 100%)' }}>
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="text-4xl">{personalityInfo?.emoji}</span>
+                  <div>
+                    <p className="text-lg font-bold" style={{ color: '#3D3530' }}>{personalityInfo?.label}</p>
+                    <p className="text-xs" style={{ color: '#8C7B72' }}>{personalityInfo?.subtitle}</p>
+                  </div>
+                </div>
+                <p className="text-sm leading-relaxed" style={{ color: '#5C534C' }}>{personalityInfo?.description}</p>
+                {personalityInfo?.traits && (
+                  <div className="flex flex-wrap gap-1.5 mt-3">
+                    {personalityInfo.traits.map(trait => (
+                      <span key={trait} className="text-xs px-2 py-1 rounded-lg" style={{ backgroundColor: '#FFFEF960', color: '#8C7B72' }}>{trait}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              {/* 分數條 */}
+              <div className="rounded-2xl p-4 shadow-sm space-y-3" style={{ backgroundColor: '#FFFEF9' }}>
+                <p className="text-sm font-bold" style={{ color: '#3D3530' }}>人格分佈</p>
+                {(Object.keys(HEALING_PERSONALITIES) as HealingPersonalityType[]).map(type => {
+                  const info = HEALING_PERSONALITIES[type];
+                  const score = personalityProfile.scores[type] || 0;
+                  const maxScore = Math.max(...Object.values(personalityProfile.scores));
+                  const pct = maxScore > 0 ? (score / maxScore) * 100 : 0;
+                  return (
+                    <div key={type}>
+                      <div className="flex justify-between text-xs mb-1">
+                        <span style={{ color: '#3D3530' }}>{info.emoji} {info.label}</span>
+                        <span style={{ color: '#8C7B72' }}>{score}</span>
+                      </div>
+                      <div className="w-full h-2 rounded-full" style={{ backgroundColor: '#F0EDE8' }}>
+                        <motion.div initial={{ width: 0 }} animate={{ width: `${pct}%` }} transition={{ duration: 0.6 }}
+                          className="h-full rounded-full" style={{ backgroundColor: info.color }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <PersonalityRecommendations profile={personalityProfile} />
+            </>
+          ) : (
+            <PersonalityQuiz onComplete={() => window.location.reload()} />
+          )}
+        </motion.div>
+      )}
+    </motion.div>
+  );
+}
+
+// ===================== PAGE: 社群 (Community - Standalone) =====================
+function CommunityPage({ userEmail }: { userEmail: string | null }) {
+  const [communityView, setCommunityView] = useState<'board' | 'post'>('board');
+
+  if (communityView === 'post') {
+    return <PostWorkView userEmail={userEmail} goBack={() => setCommunityView('board')} />;
+  }
+
+  return <CommunityBoardStandalone userEmail={userEmail} onPost={() => setCommunityView('post')} />;
+}
+
+function CommunityBoardStandalone({ userEmail, onPost }: { userEmail: string | null; onPost: () => void }) {
+  const [works, setWorks] = useState<CommunityWork[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filterType, setFilterType] = useState<string>('all');
+  const [selectedWork, setSelectedWork] = useState<CommunityWork | null>(null);
+  const [commentText, setCommentText] = useState('');
+  const [comments, setComments] = useState<{ id: string; userId: string; userName: string; text: string; createdAt: string }[]>([]);
+
+  useEffect(() => {
+    const q = query(collection(db, 'community_works'), orderBy('createdAt', 'desc'));
+    const unsub = onSnapshot(q, (snap) => {
+      setWorks(snap.docs.map(d => ({ id: d.id, ...d.data() } as CommunityWork)));
+      setLoading(false);
+    });
+    return unsub;
+  }, []);
+
+  // Load comments when work is selected
+  useEffect(() => {
+    if (!selectedWork) return;
+    const q = query(collection(db, 'community_works', selectedWork.id, 'comments'), orderBy('createdAt', 'asc'));
+    const unsub = onSnapshot(q, (snap) => {
+      setComments(snap.docs.map(d => ({ id: d.id, ...d.data() } as any)));
+    });
+    return unsub;
+  }, [selectedWork?.id]);
+
+  const handleLike = async (workId: string) => {
+    if (!userEmail) return;
+    await updateDoc(doc(db, 'community_works', workId), { likeCount: increment(1) });
+    hapticLight();
+  };
+
+  const handleComment = async () => {
+    if (!userEmail || !selectedWork || !commentText.trim()) return;
+    await addDoc(collection(db, 'community_works', selectedWork.id, 'comments'), {
+      userId: userEmail,
+      userName: userEmail.split('@')[0],
+      text: commentText.trim(),
+      createdAt: new Date().toISOString(),
+    });
+    await updateDoc(doc(db, 'community_works', selectedWork.id), { commentCount: increment(1) });
+    setCommentText('');
+    hapticLight();
+  };
+
+  const handleDelete = async (workId: string) => {
+    if (!userEmail) return;
+    await deleteDoc(doc(db, 'community_works', workId));
+    setSelectedWork(null);
+    hapticLight();
+  };
+
+  const filtered = filterType === 'all' ? works : works.filter(w => w.workType === filterType);
+
+  const sampleWorks: CommunityWork[] = [
+    { id: 'sw-1', userId: 'demo', userName: '小花', userEmoji: '🌸', imageUrl: 'https://xiabenhow.com/wp-content/uploads/2023/01/798738.jpg', thumbUrl: 'https://xiabenhow.com/wp-content/uploads/2023/01/798738.jpg', caption: '今天做的多肉組盆，選了三種不同顏色的多肉搭配在一起，好療癒', workType: 'plant', tags: ['#第一次做', '#超滿意'], likeCount: 12, commentCount: 3, createdAt: '2026-03-25' },
+    { id: 'sw-2', userId: 'demo', userName: '阿翔', userEmoji: '🌿', imageUrl: 'https://xiabenhow.com/wp-content/uploads/2025/03/精油芳療滾珠瓶5.jpg', thumbUrl: 'https://xiabenhow.com/wp-content/uploads/2025/03/精油芳療滾珠瓶5.jpg', caption: '自己調的晚安香氣，薰衣草+雪松+佛手柑，聞了好放鬆', workType: 'fragrance', tags: ['#下班療癒', '#香氣迷人'], likeCount: 18, commentCount: 5, createdAt: '2026-03-24' },
+    { id: 'sw-3', userId: 'demo', userName: '小魚', userEmoji: '💎', imageUrl: 'https://xiabenhow.com/wp-content/uploads/2026/03/1043595_0.jpg', thumbUrl: 'https://xiabenhow.com/wp-content/uploads/2026/03/1043595_0.jpg', caption: '紫水晶+月光石的手鍊完成！好喜歡這個配色', workType: 'crystal', tags: ['#配色控', '#獨一無二'], likeCount: 24, commentCount: 7, featured: true, createdAt: '2026-03-23' },
+    { id: 'sw-4', userId: 'demo', userName: '小米', userEmoji: '🕯️', imageUrl: 'https://xiabenhow.com/wp-content/uploads/2025/03/705960_0.jpg', thumbUrl: 'https://xiabenhow.com/wp-content/uploads/2025/03/705960_0.jpg', caption: '第一次做大豆蠟蠟燭，選了最喜歡的粉色', workType: 'candle', tags: ['#第一次做', '#意外驚喜'], likeCount: 15, commentCount: 2, createdAt: '2026-03-22' },
+    { id: 'sw-5', userId: 'demo', userName: '阿芳', userEmoji: '🧼', imageUrl: 'https://xiabenhow.com/wp-content/uploads/2023/08/e6898be4bd9cdiye69d90e.jpg', thumbUrl: 'https://xiabenhow.com/wp-content/uploads/2023/08/e6898be4bd9cdiye69d90e.jpg', caption: '母親節禮物準備好了！玫瑰天竺葵手工皂', workType: 'soap', tags: ['#母親節禮物', '#送給朋友'], likeCount: 31, commentCount: 8, featured: true, createdAt: '2026-03-21' },
+    { id: 'sw-6', userId: 'demo', userName: '小雨', userEmoji: '💐', imageUrl: 'https://xiabenhow.com/wp-content/uploads/2023/10/1052600.jpg', thumbUrl: 'https://xiabenhow.com/wp-content/uploads/2023/10/1052600.jpg', caption: '韓式花束包裝學起來了！送給自己的生日花', workType: 'floral', tags: ['#生日禮物', '#超滿意'], likeCount: 22, commentCount: 4, createdAt: '2026-03-20' },
+    { id: 'sw-7', userId: 'demo', userName: '阿豪', userEmoji: '👜', imageUrl: 'https://xiabenhow.com/wp-content/uploads/2026/03/1033816_0.jpg', thumbUrl: 'https://xiabenhow.com/wp-content/uploads/2026/03/1033816_0.jpg', caption: '手縫皮革名片夾，第一次做縫線就很整齊！', workType: 'leather', tags: ['#第一次做', '#超滿意'], likeCount: 19, commentCount: 3, createdAt: '2026-03-19' },
+    { id: 'sw-8', userId: 'demo', userName: '小安', userEmoji: '🫐', imageUrl: 'https://xiabenhow.com/wp-content/uploads/2022/01/764868_0.jpg', thumbUrl: 'https://xiabenhow.com/wp-content/uploads/2022/01/764868_0.jpg', caption: '藍染手帕，每個折法出來的圖案都不一樣', workType: 'indigo', tags: ['#獨一無二', '#週末手作'], likeCount: 27, commentCount: 6, createdAt: '2026-03-18' },
+  ];
+
+  const displayWorks = works.length > 0 ? filtered : (filterType === 'all' ? sampleWorks : sampleWorks.filter(w => w.workType === filterType));
+
+  const typeFilters = [
+    { key: 'all', label: '全部', emoji: '✨' },
+    { key: 'plant', label: '植栽', emoji: '🌱' },
+    { key: 'fragrance', label: '調香', emoji: '🫧' },
+    { key: 'crystal', label: '水晶', emoji: '💎' },
+    { key: 'candle', label: '蠟燭', emoji: '🕯️' },
+    { key: 'leather', label: '皮革', emoji: '👜' },
+    { key: 'soap', label: '手工皂', emoji: '🧼' },
+    { key: 'floral', label: '花藝', emoji: '💐' },
+    { key: 'resin', label: '樹脂', emoji: '✨' },
+    { key: 'indigo', label: '藍染', emoji: '🫐' },
+  ];
+
+  // Work detail modal
+  if (selectedWork) {
+    return (
+      <motion.div className="space-y-4" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
+        <motion.button whileTap={{ scale: 0.95 }} onClick={() => setSelectedWork(null)} className="flex items-center gap-1 text-sm" style={{ color: '#C9A96E' }}>← 返回社群</motion.button>
+        <div className="rounded-2xl overflow-hidden shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
+          {selectedWork.imageUrl && <img src={selectedWork.imageUrl} alt="" className="w-full h-64 object-cover" />}
+          <div className="p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">{selectedWork.userEmoji}</span>
+              <span className="text-sm font-medium" style={{ color: '#3D3530' }}>{selectedWork.userName}</span>
+              <span className="text-xs" style={{ color: '#B5AFA8' }}>{selectedWork.createdAt?.slice(0, 10)}</span>
+            </div>
+            <p className="text-sm leading-relaxed" style={{ color: '#3D3530' }}>{selectedWork.caption}</p>
+            {selectedWork.tags && selectedWork.tags.length > 0 && (
+              <div className="flex flex-wrap gap-1">
+                {selectedWork.tags.map(tag => (
+                  <span key={tag} className="text-xs px-2 py-0.5 rounded-lg" style={{ backgroundColor: '#C9A96E15', color: '#C9A96E' }}>{tag}</span>
+                ))}
+              </div>
+            )}
+            <div className="flex items-center gap-4 pt-2" style={{ borderTop: '1px solid #F0EDE8' }}>
+              <motion.button whileTap={{ scale: 0.9 }} onClick={() => handleLike(selectedWork.id)} className="flex items-center gap-1 text-sm" style={{ color: '#C9A96E' }}>
+                ❤️ {selectedWork.likeCount}
+              </motion.button>
+              <span className="text-sm" style={{ color: '#8C7B72' }}>💬 {selectedWork.commentCount}</span>
+              {userEmail && (selectedWork.userId === userEmail || userEmail === 'xiabenhow@gmail.com') && (
+                <motion.button whileTap={{ scale: 0.9 }} onClick={() => handleDelete(selectedWork.id)} className="ml-auto text-xs" style={{ color: '#C9A96E88' }}>🗑️ 刪除</motion.button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Comments */}
+        <div className="space-y-2">
+          <p className="text-sm font-bold" style={{ color: '#3D3530' }}>💬 留言</p>
+          {comments.length === 0 && <p className="text-xs" style={{ color: '#B5AFA8' }}>還沒有留言，來當第一個吧！</p>}
+          {comments.map(c => (
+            <div key={c.id} className="rounded-xl px-3 py-2" style={{ backgroundColor: '#F5F0EB' }}>
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium" style={{ color: '#3D3530' }}>{c.userName}</span>
+                <span className="text-[10px]" style={{ color: '#B5AFA8' }}>{c.createdAt?.slice(0, 10)}</span>
+                {userEmail && (c.userId === userEmail || userEmail === 'xiabenhow@gmail.com') && (
+                  <motion.button whileTap={{ scale: 0.9 }} onClick={async () => {
+                    await deleteDoc(doc(db, 'community_works', selectedWork.id, 'comments', c.id));
+                    await updateDoc(doc(db, 'community_works', selectedWork.id), { commentCount: increment(-1) });
+                  }} className="ml-auto text-[10px]" style={{ color: '#C9A96E88' }}>刪除</motion.button>
+                )}
+              </div>
+              <p className="text-xs mt-1" style={{ color: '#3D3530' }}>{c.text}</p>
+            </div>
+          ))}
+          {userEmail && (
+            <div className="flex gap-2">
+              <input value={commentText} onChange={e => setCommentText(e.target.value)} placeholder="說點什麼..."
+                className="flex-1 rounded-xl px-3 py-2 text-xs outline-none" style={{ backgroundColor: '#F5F0EB', color: '#3D3530' }} />
+              <motion.button whileTap={{ scale: 0.9 }} onClick={handleComment}
+                className="px-3 py-2 rounded-xl text-xs font-bold text-white" style={{ backgroundColor: '#C9A96E' }}>送出</motion.button>
+            </div>
+          )}
+        </div>
+      </motion.div>
+    );
+  }
+
+  return (
+    <motion.div className="space-y-5" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+      {/* Header */}
+      <div>
+        <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>🎨 社群</h2>
+        <p className="text-sm mt-1" style={{ color: '#8C7B72' }}>看看大家帶回家的作品，分享你的療癒時光</p>
+      </div>
+
+      {/* 分類篩選 */}
+      <div className="flex gap-2 overflow-x-auto pb-1 no-scrollbar">
+        {typeFilters.map(f => (
+          <button key={f.key} onClick={() => setFilterType(f.key)}
+            className="px-3 py-1.5 rounded-xl text-xs font-medium flex-shrink-0 flex items-center gap-1"
+            style={{ backgroundColor: filterType === f.key ? '#3D353015' : '#F5F0EB', color: filterType === f.key ? '#3D3530' : '#8C7B72' }}>
+            {f.emoji} {f.label}
+          </button>
+        ))}
+      </div>
+
+      {/* 發表作品按鈕 */}
+      {userEmail && (
+        <motion.button whileTap={{ scale: 0.97 }} onClick={onPost}
+          className="w-full rounded-2xl py-3 text-sm font-bold text-white shadow-sm flex items-center justify-center gap-2"
+          style={{ backgroundColor: '#C9A96E' }}>
+          📸 分享我的作品
+        </motion.button>
+      )}
+
+      {/* 本週精選 */}
+      {displayWorks.some(w => w.featured) && (
+        <div>
+          <p className="text-sm font-bold mb-2" style={{ color: '#3D3530' }}>⭐ 本週精選</p>
+          <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+            {displayWorks.filter(w => w.featured).map(work => (
+              <motion.div key={work.id} whileTap={{ scale: 0.97 }} onClick={() => setSelectedWork(work)}
+                className="flex-shrink-0 w-44 rounded-2xl overflow-hidden shadow-sm cursor-pointer"
+                style={{ backgroundColor: '#FFFEF9' }}>
+                {work.imageUrl && <img src={work.thumbUrl || work.imageUrl} alt="" className="w-full h-28 object-cover" loading="lazy" />}
+                <div className="p-2">
+                  <p className="text-xs line-clamp-2" style={{ color: '#3D3530' }}>{work.caption}</p>
+                  <div className="flex items-center gap-1 mt-1">
+                    <span className="text-xs">{work.userEmoji}</span>
+                    <span className="text-[10px]" style={{ color: '#B5AFA8' }}>{work.userName}</span>
+                    <span className="ml-auto text-[10px]" style={{ color: '#C9A96E' }}>❤️ {work.likeCount}</span>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 作品牆 - 小紅書風格雙欄 */}
+      {loading ? (
+        <div className="flex justify-center py-8">
+          <div className="w-6 h-6 border-2 rounded-full animate-spin" style={{ borderColor: '#C9A96E', borderTopColor: 'transparent' }} />
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3">
+          {displayWorks.map((work, i) => (
+            <motion.div key={work.id}
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.04 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => setSelectedWork(work)}
+              className="rounded-2xl overflow-hidden shadow-sm cursor-pointer"
+              style={{ backgroundColor: '#FFFEF9' }}>
+              {work.imageUrl ? (
+                <img src={work.thumbUrl || work.imageUrl} alt="" className="w-full h-36 object-cover" loading="lazy" />
+              ) : (
+                <div className="w-full h-36 flex items-center justify-center text-5xl"
+                  style={{ background: `linear-gradient(135deg, ${TOPICS.find(t => t.key === work.workType)?.color || '#E8D5B7'}25 0%, #FFFEF9 100%)` }}>
+                  {TOPICS.find(t => t.key === work.workType)?.emoji || '✨'}
+                </div>
+              )}
+              <div className="p-3">
+                <p className="text-xs leading-snug line-clamp-3" style={{ color: '#3D3530' }}>{work.caption}</p>
+                {work.tags && work.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {work.tags.map(tag => (
+                      <span key={tag} className="text-xs px-1.5 py-0.5 rounded-lg" style={{ backgroundColor: '#C9A96E15', color: '#C9A96E' }}>{tag}</span>
+                    ))}
+                  </div>
+                )}
+                {work.featured && (
+                  <span className="text-xs px-1.5 py-0.5 rounded-lg mt-1 inline-block" style={{ backgroundColor: '#C9A96E25', color: '#C9A96E' }}>⭐ 本週精選</span>
+                )}
+                <div className="flex items-center justify-between mt-2">
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs">{work.userEmoji}</span>
+                    <p className="text-xs" style={{ color: '#B5AFA8' }}>{work.userName}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <motion.button whileTap={{ scale: 0.9 }} onClick={(e) => { e.stopPropagation(); handleLike(work.id); }}
+                      className="flex items-center gap-0.5 text-xs" style={{ color: '#C9A96E' }}>
+                      ❤️ {work.likeCount}
+                    </motion.button>
+                    <span className="text-xs" style={{ color: '#8C7B72' }}>💬 {work.commentCount}</span>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      )}
+
+      {!userEmail && (
+        <div className="rounded-2xl px-4 py-3.5 text-center" style={{ backgroundColor: '#C9A96E12' }}>
+          <p className="text-xs" style={{ color: '#8C7B72' }}>登入後可以分享你的作品 ✨</p>
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
 function BottomNav({ active, onChange }: { active: PageType; onChange: (p: PageType) => void }) {
   const cellStyle: React.CSSProperties = {
     display: 'flex',
@@ -12194,8 +14251,8 @@ function BottomNav({ active, onChange }: { active: PageType; onChange: (p: PageT
 // ===================== MAIN COMPONENT =====================
 
 export default function HealingApp() {
-  const [page, _setPage] = useState<PageType>('home');
-  const pageHistoryRef = useRef<PageType[]>(['home']);
+  const [page, _setPage] = useState<PageType>('healer');
+  const pageHistoryRef = useRef<PageType[]>(['healer']);
 
   // Wrapped setPage that maintains history
   const setPage = useCallback((newPage: PageType) => {
@@ -12249,7 +14306,7 @@ export default function HealingApp() {
   // Browser back button → navigate within app instead of leaving
   useEffect(() => {
     // Push initial state
-    window.history.replaceState({ page: 'home' }, '', '');
+    window.history.replaceState({ page: 'healer' }, '', '');
 
     const handlePopState = () => {
       const history = pageHistoryRef.current;
@@ -12259,7 +14316,7 @@ export default function HealingApp() {
         _setPage(prevPage);
       } else {
         // At root — push state again to prevent leaving app
-        window.history.pushState({ page: 'home' }, '', '');
+        window.history.pushState({ page: 'healer' }, '', '');
       }
     };
 
@@ -12472,9 +14529,12 @@ export default function HealingApp() {
               />
             )}
             {page === 'card' && <CardPage onTaskComplete={completeTask} records={records} />}
-            {page === 'healer' && <HealerPage records={records} userEmail={user?.email || null} />}
+            {page === 'healer' && <HealerPage records={records} userEmail={user?.email || null} onNavigate={(p) => setPage(p)} onTaskComplete={completeTask} />}
             {page === 'shop' && <ShopPage />}
-            {page === 'library' && <HealingLibraryPage userEmail={user?.email || null} />}
+            {page === 'library' && <HealingLibraryPage userEmail={user?.email || null} onNavigate={(p) => setPage(p)} />}
+            {page === 'community' && <CommunityPage userEmail={user?.email || null} />}
+            {page === 'explore' && <ExplorePage records={records} userEmail={user?.email || null} onNavigate={(p) => setPage(p)} />}
+            {page === 'journal' && <JournalPage user={user} />}
             {page === 'calendar' && <FragranceCalendarPage />}
             {page === 'member' && <MemberPage records={records} onNavigate={(p) => setPage(p)} />}
             {page === 'custom' && <CustomOilPage user={user} records={records} />}
@@ -12487,7 +14547,6 @@ export default function HealingApp() {
           </motion.div>
         </AnimatePresence>
       </div>
-      {/* TopNav 已移到頂部 */}
 
       {/* Morning Flow Modal */}
       <AnimatePresence>
