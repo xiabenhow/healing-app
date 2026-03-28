@@ -11,7 +11,7 @@
     "codebase": "default"
   },
   "hosting": {
-    "site": "healing-6b425",
+    "site": "fragrance-calendar-2027",
     "public": "dist",
     "ignore": [
       "firebase.json",
