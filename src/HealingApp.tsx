@@ -145,6 +145,7 @@ function loadWishlist(): WishlistItem[] {
 }
 function saveWishlist(items: WishlistItem[]) {
   localStorage.setItem('healing_wishlist', JSON.stringify(items));
+  saveWishlistToFirestore(items);
 }
 function isInWishlist(productId: number): boolean {
   return loadWishlist().some(w => w.productId === productId);
@@ -800,6 +801,44 @@ const loadSavedCards = (): string[] => {
 
 const saveSavedCards = (cards: string[]): void => {
   localStorage.setItem('healing_cards_v2', JSON.stringify(cards));
+  // Also sync to Firestore if user is logged in
+  try {
+    const u = auth.currentUser;
+    if (u) setDoc(doc(db, 'user_data', u.uid), { savedCards: cards }, { merge: true }).catch(() => {});
+  } catch {}
+};
+
+// Load saved cards from Firestore (call on auth)
+const loadSavedCardsFromFirestore = async (uid: string): Promise<string[]> => {
+  try {
+    const snap = await getDoc(doc(db, 'user_data', uid));
+    if (snap.exists() && snap.data().savedCards) {
+      const cards = snap.data().savedCards as string[];
+      localStorage.setItem('healing_cards_v2', JSON.stringify(cards));
+      return cards;
+    }
+  } catch {}
+  return loadSavedCards();
+};
+
+// Save wishlist to Firestore
+const saveWishlistToFirestore = (items: WishlistItem[]): void => {
+  try {
+    const u = auth.currentUser;
+    if (u) setDoc(doc(db, 'user_data', u.uid), { wishlist: JSON.parse(JSON.stringify(items)) }, { merge: true }).catch(() => {});
+  } catch {}
+};
+
+const loadWishlistFromFirestore = async (uid: string): Promise<WishlistItem[]> => {
+  try {
+    const snap = await getDoc(doc(db, 'user_data', uid));
+    if (snap.exists() && snap.data().wishlist) {
+      const items = snap.data().wishlist as WishlistItem[];
+      localStorage.setItem('healing_wishlist', JSON.stringify(items));
+      return items;
+    }
+  } catch {}
+  return loadWishlist();
 };
 
 const getEmotionInfo = (key: EmotionKey) => {
@@ -6362,6 +6401,11 @@ function CardPage({ onTaskComplete, records }: { onTaskComplete: (key: TaskKey) 
   const hasDrawnToday = () => !!localStorage.getItem(todayKey);
   const saveTodayDraw = (card: HealingCard) => {
     localStorage.setItem(todayKey, JSON.stringify({ cardId: card.id, timestamp: Date.now() }));
+    // Sync to Firestore
+    try {
+      const u = auth.currentUser;
+      if (u) setDoc(doc(db, 'user_data', u.uid), { [`cardDraw_${getToday()}`]: card.id }, { merge: true }).catch(() => {});
+    } catch {}
   };
 
   const [drawnCard, setDrawnCard] = useState<HealingCard | null>(() => getTodayDraw());
@@ -6892,51 +6936,120 @@ function MyWorksWallPage({ userEmail, onNavigate, onAskTeacher }: { userEmail: s
 function CollectionCenterPage({ userEmail, onNavigate }: { userEmail: string | null; onNavigate: (p: PageType) => void }) {
   const [tab, setTab] = useState<'article' | 'card' | 'work' | 'community' | 'product'>('article');
   const [collections, setCollections] = useState<CollectionItem[]>([]);
+  const [savedCards] = useState<string[]>(loadSavedCards);
+  const [wishlistItems] = useState<WishlistItem[]>(loadWishlist);
+  const [likedCommunity, setLikedCommunity] = useState<any[]>([]);
+  const [myWorks, setMyWorks] = useState<MyWorkWall[]>([]);
+  const [showAddWork, setShowAddWork] = useState(false);
+  const [addWorkPhotos, setAddWorkPhotos] = useState<string[]>([]);
+  const [addWorkCourse, setAddWorkCourse] = useState('');
+  const [addWorkCourseType, setAddWorkCourseType] = useState('');
+  const [addWorkNotes, setAddWorkNotes] = useState('');
+  const [addWorkTags, setAddWorkTags] = useState<string[]>([]);
+  const [courseSearchText, setCourseSearchText] = useState('');
+  const [showCourseDropdown, setShowCourseDropdown] = useState(false);
+  const workPhotoInputRef = useRef<HTMLInputElement>(null);
+  const workCameraInputRef = useRef<HTMLInputElement>(null);
+
+  // Load user works from Firestore (same source as MyWorksWallPage)
+  useEffect(() => {
+    if (!userEmail) return;
+    try {
+      const q = query(collection(db, 'user_works'), where('userId', '==', userEmail), orderBy('completedAt', 'desc'));
+      const unsub = onSnapshot(q, (snap) => {
+        setMyWorks(snap.docs.map(d => ({ id: d.id, ...d.data() } as unknown as MyWorkWall)));
+      });
+      return unsub;
+    } catch { /* index may not exist yet */ }
+  }, [userEmail]);
 
   useEffect(() => {
     if (!userEmail) return;
     const q = query(collection(db, 'user_collections'), where('userId', '==', userEmail), orderBy('savedAt', 'desc'));
     const unsub = onSnapshot(q, (snap) => {
-      const items = snap.docs.map(d => ({ id: d.id, ...d.data() } as unknown as CollectionItem));
-      setCollections(items);
+      setCollections(snap.docs.map(d => ({ id: d.id, ...d.data() } as unknown as CollectionItem)));
     });
     return unsub;
   }, [userEmail]);
 
-  // Demo data
+  // Load liked community items from Firestore
+  useEffect(() => {
+    if (!userEmail) return;
+    try {
+      const q = query(collection(db, 'user_likes'), where('userId', '==', userEmail), orderBy('likedAt', 'desc'));
+      const unsub = onSnapshot(q, (snap) => {
+        setLikedCommunity(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      });
+      return unsub;
+    } catch { /* collection may not exist yet */ }
+  }, [userEmail]);
+
+  // Course options from TOPICS for course selection dropdown
+  const courseOptions = TOPICS.map(t => ({ key: t.key, label: t.label, emoji: t.emoji }));
+  const filteredCourseOptions = courseSearchText
+    ? courseOptions.filter(c => c.label.includes(courseSearchText) || c.key.includes(courseSearchText.toLowerCase()))
+    : courseOptions;
+
+  const handleAddWorkPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    Array.from(files).forEach(file => {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        if (ev.target?.result) setAddWorkPhotos(prev => [...prev, ev.target!.result as string]);
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = '';
+  };
+
+  const handleSubmitWork = async () => {
+    if (!userEmail || (!addWorkPhotos.length && !addWorkCourse)) return;
+    try {
+      // Upload photos to Firestore storage if available, else store as data URL
+      const photoUrls: string[] = [];
+      for (const photo of addWorkPhotos) {
+        try {
+          const result = await uploadImage(`user_works/${userEmail}/work_${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`, photo);
+          photoUrls.push(result.url);
+        } catch {
+          photoUrls.push(photo); // fallback to data URL
+        }
+      }
+      await addDoc(collection(db, 'user_works'), {
+        userId: userEmail,
+        courseType: addWorkCourseType || 'fragrance',
+        courseName: addWorkCourse || '手作體驗',
+        photos: photoUrls,
+        completedAt: new Date().toISOString().split('T')[0],
+        tags: addWorkTags,
+        hasCareReminder: false,
+        notes: addWorkNotes,
+      });
+      setShowAddWork(false);
+      setAddWorkPhotos([]);
+      setAddWorkCourse('');
+      setAddWorkCourseType('');
+      setAddWorkNotes('');
+      setAddWorkTags([]);
+      setCourseSearchText('');
+    } catch (err) {
+      console.error('Failed to add work:', err);
+    }
+  };
+
   const demoCollections: CollectionItem[] = [
     { id: 'c1', type: 'article', title: '新手必看：多肉植物照顧全攻略', topic: 'plant', savedAt: '2026-03-25' },
     { id: 'c2', type: 'article', title: '水晶消磁方法大全', topic: 'crystal', savedAt: '2026-03-24' },
-    { id: 'c3', type: 'card', title: '今天的療癒卡：放下', savedAt: '2026-03-23' },
     { id: 'c4', type: 'article', title: '手工皂入門：冷製皂基礎教學', topic: 'soap', savedAt: '2026-03-22' },
-    { id: 'c5', type: 'card', title: '能量卡：勇氣', savedAt: '2026-03-21' },
-    { id: 'c6', type: 'work', title: '我的第一瓶調香作品', topic: 'fragrance', savedAt: '2026-03-20' },
     { id: 'c7', type: 'article', title: '蠟燭燃燒的正確方式', topic: 'candle', savedAt: '2026-03-19' },
   ];
 
-  const demoCommunity = [
-    { id: 'cm1', type: 'community' as const, title: '分享我的多肉小花園', topic: 'plant', savedAt: '2026-03-26', author: '小花', emoji: '🌱' },
-    { id: 'cm2', type: 'community' as const, title: '第一次做蠟燭超療癒', topic: 'candle', savedAt: '2026-03-25', author: '阿明', emoji: '🕯️' },
-    { id: 'cm3', type: 'community' as const, title: '水晶手鍊搭配分享', topic: 'crystal', savedAt: '2026-03-24', author: '小珍', emoji: '💎' },
-  ];
-
-  const demoProducts = [
-    { id: 'p1', type: 'product' as const, title: '天然薰衣草精油 10ml', savedAt: '2026-03-26', price: 'NT$580', emoji: '🫧' },
-    { id: 'p2', type: 'product' as const, title: '手工水晶手鍊 — 月光石', savedAt: '2026-03-25', price: 'NT$1,280', emoji: '💎' },
-    { id: 'p3', type: 'product' as const, title: '療癒香氛蠟燭禮盒', savedAt: '2026-03-24', price: 'NT$960', emoji: '🕯️' },
-  ];
-
   const items = collections.length > 0 ? collections : demoCollections;
-  const getFiltered = () => {
-    if (tab === 'community') return demoCommunity;
-    if (tab === 'product') return demoProducts;
-    return items.filter(i => i.type === tab);
-  };
-  const filtered = getFiltered();
 
   const tabs: { key: typeof tab; label: string; emoji: string }[] = [
     { key: 'article', label: '文章', emoji: '📄' },
-    { key: 'card', label: '卡片', emoji: '🃏' },
+    { key: 'card', label: '卡冊', emoji: '✦' },
     { key: 'work', label: '作品', emoji: '✨' },
     { key: 'community', label: '社群', emoji: '🎨' },
     { key: 'product', label: '商品', emoji: '🎁' },
@@ -6946,7 +7059,6 @@ function CollectionCenterPage({ userEmail, onNavigate }: { userEmail: string | n
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
       <p className="text-lg font-bold" style={{ color: '#3D3530' }}>💝 我的收藏</p>
 
-      {/* Tabs - scrollable */}
       <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
         {tabs.map(t => (
           <button key={t.key} onClick={() => setTab(t.key)} className="px-3 py-2 rounded-2xl text-xs font-medium whitespace-nowrap" style={{ backgroundColor: tab === t.key ? '#8FA886' : '#FAF8F5', color: tab === t.key ? 'white' : '#8C7B72' }}>
@@ -6955,35 +7067,297 @@ function CollectionCenterPage({ userEmail, onNavigate }: { userEmail: string | n
         ))}
       </div>
 
-      {/* Items */}
-      <div className="space-y-2">
-        {filtered.length === 0 ? (
-          <div className="text-center py-8">
-            <p className="text-3xl mb-2">📌</p>
-            <p className="text-sm" style={{ color: '#8C7B72' }}>還沒有收藏，去探索吧</p>
-          </div>
-        ) : filtered.map((item: any) => {
-          const ti = item.topic ? TOPICS.find(t => t.key === item.topic) : null;
-          return (
-            <motion.div key={item.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-3 p-3.5 rounded-2xl shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: ti?.color || '#F0EDE8' }}>
-                <span className="text-lg">{item.emoji || ti?.emoji || (item.type === 'card' ? '🃏' : '✨')}</span>
-              </div>
+      {/* === 卡冊 Tab === */}
+      {tab === 'card' && (
+        <div>
+          <p className="text-sm mb-3" style={{ color: '#8C7B72' }}>已收藏 {savedCards.length} 張療癒卡</p>
+          {savedCards.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-3xl mb-2">✦</p>
+              <p className="text-sm" style={{ color: '#8C7B72' }}>還沒有收藏的卡牌</p>
+              <p className="text-xs mt-1" style={{ color: '#B5AFA8' }}>去療癒師頁面抽卡後點「收藏」</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-3">
+              {savedCards.map(cardId => {
+                const card = HEALING_CARDS.find(c => c.id === cardId);
+                if (!card) return null;
+                const cfg = CARD_COLOR_CONFIG[card.color];
+                return (
+                  <motion.div key={cardId} whileTap={{ scale: 0.95 }} className="rounded-2xl overflow-hidden shadow-sm cursor-pointer" style={{ border: `2px solid ${cfg?.hex || '#8FA886'}`, aspectRatio: '3/4' }}
+                    onClick={() => onNavigate('healer')}>
+                    {card.image ? (
+                      <img src={card.image} alt={card.title} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center p-2" style={{ background: cfg?.gradient || cfg?.bgLight || '#FAF8F5' }}>
+                        <span className="text-2xl mb-1">{cfg?.label?.charAt(0) || '✦'}</span>
+                        <p className="text-[10px] text-center font-medium" style={{ color: cfg?.hex }}>{card.title}</p>
+                      </div>
+                    )}
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* === 商品 Tab (from wishlist) === */}
+      {tab === 'product' && (
+        <div className="space-y-2">
+          {wishlistItems.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-3xl mb-2">🎁</p>
+              <p className="text-sm" style={{ color: '#8C7B72' }}>還沒有收藏的商品</p>
+              <p className="text-xs mt-1" style={{ color: '#B5AFA8' }}>去療癒禮物頁面點愛心收藏</p>
+            </div>
+          ) : wishlistItems.map(item => (
+            <motion.div key={item.productId} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} whileTap={{ scale: 0.98 }}
+              onClick={() => onNavigate('shop')}
+              className="flex items-center gap-3 p-3 rounded-2xl shadow-sm cursor-pointer" style={{ backgroundColor: '#FFFEF9' }}>
+              {item.image ? (
+                <img src={item.image} alt={item.name} className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
+              ) : (
+                <div className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#F0EDE8' }}>
+                  <span className="text-xl">🎁</span>
+                </div>
+              )}
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate" style={{ color: '#3D3530' }}>{item.title}</p>
+                <p className="text-sm font-medium truncate" style={{ color: '#3D3530' }}>{item.name}</p>
                 <div className="flex items-center gap-2 mt-0.5">
-                  {item.author && <span className="text-[10px]" style={{ color: '#8FA886' }}>@{item.author}</span>}
-                  {item.price && <span className="text-[10px] font-bold" style={{ color: '#C9A96E' }}>{item.price}</span>}
-                  <span className="text-[10px]" style={{ color: '#8C7B72' }}>{item.savedAt}</span>
+                  <span className="text-xs font-bold" style={{ color: '#C9A96E' }}>NT${item.price}</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ backgroundColor: '#FAF8F5', color: '#8C7B72' }}>{item.tag}</span>
                 </div>
               </div>
-              {tab === 'product' && (
-                <span className="text-[10px] px-2 py-1 rounded-full" style={{ backgroundColor: '#FAF8F5', color: '#C9A96E' }}>想要</span>
-              )}
+              <span className="text-sm" style={{ color: '#C9A96E' }}>›</span>
             </motion.div>
-          );
-        })}
-      </div>
+          ))}
+        </div>
+      )}
+
+      {/* === 社群 Tab === */}
+      {tab === 'community' && (
+        <div className="space-y-2">
+          {likedCommunity.length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-3xl mb-2">🎨</p>
+              <p className="text-sm" style={{ color: '#8C7B72' }}>還沒有喜歡的社群貼文</p>
+              <p className="text-xs mt-1" style={{ color: '#B5AFA8' }}>去社群頁面按喜歡</p>
+            </div>
+          ) : likedCommunity.map((item: any) => (
+            <motion.div key={item.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} whileTap={{ scale: 0.98 }}
+              onClick={() => onNavigate('community')}
+              className="flex items-center gap-3 p-3.5 rounded-2xl shadow-sm cursor-pointer" style={{ backgroundColor: '#FFFEF9' }}>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#F0EDE8' }}>
+                <span className="text-lg">{item.emoji || '🎨'}</span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate" style={{ color: '#3D3530' }}>{item.title || item.caption || '社群貼文'}</p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  {item.author && <span className="text-[10px]" style={{ color: '#8FA886' }}>@{item.author}</span>}
+                  <span className="text-[10px]" style={{ color: '#8C7B72' }}>{item.likedAt || ''}</span>
+                </div>
+              </div>
+            </motion.div>
+          ))}
+        </div>
+      )}
+
+      {/* === 文章 Tab === */}
+      {tab === 'article' && (
+        <div className="space-y-2">
+          {items.filter(i => i.type === 'article').length === 0 ? (
+            <div className="text-center py-8">
+              <p className="text-3xl mb-2">📄</p>
+              <p className="text-sm" style={{ color: '#8C7B72' }}>還沒有收藏的文章</p>
+            </div>
+          ) : items.filter(i => i.type === 'article').map(item => {
+            const ti = item.topic ? TOPICS.find(t => t.key === item.topic) : null;
+            return (
+              <motion.div key={item.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} className="flex items-center gap-3 p-3.5 rounded-2xl shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: ti?.color || '#F0EDE8' }}>
+                  <span className="text-lg">{ti?.emoji || '📄'}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate" style={{ color: '#3D3530' }}>{item.title}</p>
+                  <span className="text-[10px]" style={{ color: '#8C7B72' }}>{item.savedAt}</span>
+                </div>
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* === 作品 Tab (synced with 我的作品牆, from user_works) === */}
+      {tab === 'work' && (
+        <div className="space-y-3">
+          {/* Hidden file inputs */}
+          <input type="file" ref={workPhotoInputRef} accept="image/*" multiple onChange={handleAddWorkPhoto} style={{ display: 'none' }} />
+          <input type="file" ref={workCameraInputRef} accept="image/*" capture="environment" onChange={handleAddWorkPhoto} style={{ display: 'none' }} />
+
+          {/* + Add button */}
+          <div className="flex justify-between items-center">
+            <p className="text-sm" style={{ color: '#8C7B72' }}>共 {myWorks.length} 件作品</p>
+            <motion.button whileTap={{ scale: 0.9 }} onClick={() => setShowAddWork(true)}
+              className="w-9 h-9 rounded-full flex items-center justify-center shadow-sm"
+              style={{ backgroundColor: '#8FA886', color: 'white' }}>
+              <span className="text-lg font-light">+</span>
+            </motion.button>
+          </div>
+
+          {/* Add work modal */}
+          <AnimatePresence>
+            {showAddWork && (
+              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 20 }}
+                className="rounded-3xl p-5 shadow-md space-y-4" style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}>
+                <div className="flex justify-between items-center">
+                  <p className="text-sm font-bold" style={{ color: '#3D3530' }}>新增作品</p>
+                  <button onClick={() => { setShowAddWork(false); setAddWorkPhotos([]); setAddWorkCourse(''); setAddWorkCourseType(''); setAddWorkNotes(''); setCourseSearchText(''); }} className="text-xs" style={{ color: '#8C7B72' }}>取消</button>
+                </div>
+
+                {/* Photo section */}
+                <div>
+                  <p className="text-xs mb-2" style={{ color: '#8C7B72' }}>拍照 / 上傳作品照片</p>
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {addWorkPhotos.map((photo, idx) => (
+                      <div key={idx} className="relative flex-shrink-0">
+                        <img src={photo} alt="" className="w-20 h-20 rounded-xl object-cover" />
+                        <button onClick={() => setAddWorkPhotos(prev => prev.filter((_, i) => i !== idx))}
+                          className="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px]"
+                          style={{ backgroundColor: '#3D3530', color: 'white' }}>×</button>
+                      </div>
+                    ))}
+                    <div className="flex gap-2">
+                      <button onClick={() => workCameraInputRef.current?.click()}
+                        className="w-20 h-20 rounded-xl flex flex-col items-center justify-center" style={{ backgroundColor: '#FAF8F5', border: '1px dashed #F0EDE8' }}>
+                        <span className="text-xl">📷</span>
+                        <span className="text-[10px]" style={{ color: '#8C7B72' }}>拍照</span>
+                      </button>
+                      <button onClick={() => workPhotoInputRef.current?.click()}
+                        className="w-20 h-20 rounded-xl flex flex-col items-center justify-center" style={{ backgroundColor: '#FAF8F5', border: '1px dashed #F0EDE8' }}>
+                        <span className="text-xl">🖼️</span>
+                        <span className="text-[10px]" style={{ color: '#8C7B72' }}>相簿</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Course selection */}
+                <div className="relative">
+                  <p className="text-xs mb-2" style={{ color: '#8C7B72' }}>選擇課程類型</p>
+                  <input
+                    type="text"
+                    value={courseSearchText || addWorkCourse}
+                    onChange={(e) => { setCourseSearchText(e.target.value); setShowCourseDropdown(true); setAddWorkCourse(''); setAddWorkCourseType(''); }}
+                    onFocus={() => setShowCourseDropdown(true)}
+                    placeholder="輸入關鍵字搜尋課程..."
+                    className="w-full px-3 py-2.5 rounded-xl text-sm outline-none"
+                    style={{ backgroundColor: '#FAF8F5', border: '1px solid #F0EDE8', color: '#3D3530' }}
+                  />
+                  {showCourseDropdown && (
+                    <div className="absolute z-10 left-0 right-0 mt-1 rounded-xl shadow-lg overflow-hidden max-h-48 overflow-y-auto" style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}>
+                      {filteredCourseOptions.map(opt => (
+                        <button key={opt.key} onClick={() => {
+                          setAddWorkCourse(opt.label);
+                          setAddWorkCourseType(opt.key);
+                          setCourseSearchText('');
+                          setShowCourseDropdown(false);
+                        }} className="w-full text-left px-3 py-2.5 text-sm flex items-center gap-2 hover:bg-opacity-50"
+                          style={{ color: '#3D3530' }}>
+                          <span>{opt.emoji}</span>
+                          <span>{opt.label}</span>
+                        </button>
+                      ))}
+                      {filteredCourseOptions.length === 0 && (
+                        <p className="px-3 py-2.5 text-xs" style={{ color: '#8C7B72' }}>找不到相關課程</p>
+                      )}
+                    </div>
+                  )}
+                  {addWorkCourse && (
+                    <div className="mt-1.5 flex items-center gap-1.5">
+                      <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: '#8FA886', color: 'white' }}>
+                        {courseOptions.find(c => c.key === addWorkCourseType)?.emoji} {addWorkCourse}
+                      </span>
+                      <button onClick={() => { setAddWorkCourse(''); setAddWorkCourseType(''); }} className="text-[10px]" style={{ color: '#8C7B72' }}>×</button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Notes */}
+                <div>
+                  <p className="text-xs mb-2" style={{ color: '#8C7B72' }}>備註（選填）</p>
+                  <textarea
+                    value={addWorkNotes}
+                    onChange={(e) => setAddWorkNotes(e.target.value)}
+                    placeholder="寫下你的心得..."
+                    rows={2}
+                    className="w-full px-3 py-2.5 rounded-xl text-sm outline-none resize-none"
+                    style={{ backgroundColor: '#FAF8F5', border: '1px solid #F0EDE8', color: '#3D3530' }}
+                  />
+                </div>
+
+                {/* Tags */}
+                <div>
+                  <p className="text-xs mb-2" style={{ color: '#8C7B72' }}>標籤（選填）</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {['#超滿意', '#第一次做', '#送給朋友', '#週末手作', '#親子手作', '#香氣迷人', '#獨一無二'].map(tag => (
+                      <button key={tag} onClick={() => setAddWorkTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag])}
+                        className="px-2.5 py-1 rounded-full text-[11px]"
+                        style={{ backgroundColor: addWorkTags.includes(tag) ? '#8FA886' : '#FAF8F5', color: addWorkTags.includes(tag) ? 'white' : '#8C7B72' }}>
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Submit */}
+                <motion.button whileTap={{ scale: 0.97 }} onClick={handleSubmitWork}
+                  className="w-full py-3 rounded-2xl text-sm font-medium"
+                  style={{ backgroundColor: (addWorkPhotos.length > 0 || addWorkCourse) ? '#8FA886' : '#F0EDE8', color: (addWorkPhotos.length > 0 || addWorkCourse) ? 'white' : '#8C7B72' }}>
+                  儲存作品
+                </motion.button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Works list */}
+          {myWorks.length === 0 && !showAddWork ? (
+            <div className="text-center py-8">
+              <p className="text-3xl mb-2">✨</p>
+              <p className="text-sm" style={{ color: '#8C7B72' }}>還沒有作品記錄</p>
+              <p className="text-xs mt-1" style={{ color: '#B5AFA8' }}>點擊 + 新增你的第一件作品</p>
+            </div>
+          ) : myWorks.map(work => {
+            const ti = TOPICS.find(t => t.key === work.courseType);
+            return (
+              <motion.div key={work.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} whileTap={{ scale: 0.98 }}
+                onClick={() => onNavigate('my-works')}
+                className="flex items-center gap-3 p-3.5 rounded-2xl shadow-sm cursor-pointer" style={{ backgroundColor: '#FFFEF9' }}>
+                {work.photos?.[0] && work.photos[0] !== '' ? (
+                  <img src={work.photos[0]} alt="" className="w-14 h-14 rounded-xl object-cover flex-shrink-0" />
+                ) : (
+                  <div className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: ti?.color || '#F0EDE8' }}>
+                    <span className="text-2xl">{ti?.emoji || '🎨'}</span>
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate" style={{ color: '#3D3530' }}>{work.courseName}</p>
+                  <p className="text-xs mt-0.5" style={{ color: '#8C7B72' }}>{work.completedAt}</p>
+                  {work.notes && <p className="text-xs mt-0.5 truncate" style={{ color: '#5C534C' }}>{work.notes}</p>}
+                  {work.tags?.length > 0 && (
+                    <div className="flex gap-1 mt-1">
+                      {work.tags.slice(0, 2).map(tag => (
+                        <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: ti?.color || '#F0EDE8', color: '#3D3530' }}>{tag}</span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <span className="text-sm" style={{ color: '#C9A96E' }}>›</span>
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
     </motion.div>
   );
 }
@@ -7172,6 +7546,77 @@ function ExclusiveContentPage({ userEmail }: { userEmail: string | null }) {
           </div>
         );
       })}
+    </motion.div>
+  );
+}
+
+// ===================== CARD COLLECTION ENTRY (Collapsed by default) =====================
+
+function CardCollectionEntry({ onTaskComplete, records }: { onTaskComplete: (key: TaskKey) => void; records: HealingRecord[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const savedCards = loadSavedCards();
+  const totalCards = HEALING_CARDS.length;
+
+  if (!expanded) {
+    return (
+      <motion.button
+        whileTap={{ scale: 0.97 }}
+        onClick={() => setExpanded(true)}
+        className="w-full rounded-3xl p-5 shadow-sm text-left"
+        style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #C9A96E20, #8FA88620)' }}>
+              <span className="text-2xl">✦</span>
+            </div>
+            <div>
+              <p className="text-sm font-bold" style={{ color: '#3D3530' }}>我的療癒卡冊</p>
+              <p className="text-xs mt-0.5" style={{ color: '#8C7B72' }}>已收藏 {savedCards.length} 張 · 共 {totalCards} 張</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* 迷你預覽：最近3張收藏 */}
+            <div className="flex -space-x-2">
+              {savedCards.slice(-3).map((cardId, i) => {
+                const card = HEALING_CARDS.find(c => c.id === cardId);
+                const cfg = card ? CARD_COLOR_CONFIG[card.color] : null;
+                return (
+                  <div key={cardId} className="w-7 h-7 rounded-lg flex items-center justify-center text-xs border-2 border-white shadow-sm"
+                    style={{ backgroundColor: cfg?.bgLight || '#FAF8F5', zIndex: i }}>
+                    {cfg?.label?.charAt(0) || '✦'}
+                  </div>
+                );
+              })}
+            </div>
+            <span className="text-sm" style={{ color: '#C9A96E' }}>›</span>
+          </div>
+        </div>
+        {/* 進度條 */}
+        <div className="mt-3">
+          <div className="w-full h-1.5 rounded-full" style={{ backgroundColor: '#F0EDE8' }}>
+            <div className="h-full rounded-full transition-all" style={{ backgroundColor: '#C9A96E', width: `${Math.min(100, (savedCards.length / totalCards) * 100)}%` }} />
+          </div>
+          <p className="text-[10px] mt-1 text-right" style={{ color: '#B5AFA8' }}>收集進度 {Math.round((savedCards.length / totalCards) * 100)}%</p>
+        </div>
+      </motion.button>
+    );
+  }
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+      {/* 收起按鈕 */}
+      <motion.button
+        whileTap={{ scale: 0.97 }}
+        onClick={() => setExpanded(false)}
+        className="w-full rounded-2xl p-3 text-sm font-medium flex items-center justify-center gap-2"
+        style={{ backgroundColor: '#FAF8F5', color: '#8C7B72' }}
+      >
+        <span>✦ 收起卡牌冊</span>
+        <motion.span animate={{ rotate: 180 }} transition={{ duration: 0.3 }}>▼</motion.span>
+      </motion.button>
+      {/* 完整卡牌頁 */}
+      <CardPage onTaskComplete={onTaskComplete} records={records} />
     </motion.div>
   );
 }
@@ -7392,10 +7837,11 @@ function HealerPage({ records, userEmail, onNavigate, onTaskComplete }: { record
           ))}
         </div>
 
-        {/* 卡牌區 */}
+        {/* 卡牌區 — 卡牌冊入口（收起/展開） */}
         {activeExploreTab === 'card' && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-            <CardPage onTaskComplete={onTaskComplete || (() => {})} records={records} />
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+            {/* 卡牌冊入口卡片 */}
+            <CardCollectionEntry onTaskComplete={onTaskComplete || (() => {})} records={records} />
           </motion.div>
         )}
 
@@ -7460,118 +7906,7 @@ function HealerPage({ records, userEmail, onNavigate, onTaskComplete }: { record
         )}
       </motion.div>
 
-      {/* Smart Personalized Reminders */}
-      <motion.div variants={staggerItem} className="space-y-2">
-        <p className="text-sm font-bold" style={{ color: '#3D3530' }}>🔔 今日療癒提醒</p>
-        {(() => {
-          // Show personalized reminders based on demo course types
-          const reminders: { emoji: string; text: string; color: string }[] = [];
-          const demoTypes = ['crystal', 'fragrance', 'plant'];
-          demoTypes.forEach(type => {
-            const msgs = SMART_REMINDERS[type];
-            if (msgs) {
-              const ti = TOPICS.find(t => t.key === type);
-              const dayIndex = new Date().getDay() % msgs.length;
-              reminders.push({ emoji: ti?.emoji || '✨', text: msgs[dayIndex], color: ti?.color || '#F0EDE8' });
-            }
-          });
-          return reminders.slice(0, 3).map((r, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.1 }}
-              className="rounded-2xl p-3.5"
-              style={{ backgroundColor: r.color + '30' }}
-            >
-              <p className="text-sm" style={{ color: '#3D3530' }}>{r.text}</p>
-            </motion.div>
-          ));
-        })()}
-      </motion.div>
-
-      {/* Personalized Recommendations */}
-      <motion.div variants={staggerItem} className="space-y-2">
-        <p className="text-sm font-bold" style={{ color: '#3D3530' }}>✨ 為你推薦</p>
-        {[
-          { reason: '因為你上過調香課', title: '居家擴香的五個技巧', emoji: '🫧', color: '#E8D5B7' },
-          { reason: '因為你最近常看植物內容', title: '這週推你植物照顧卡', emoji: '🌱', color: '#C5D9B2' },
-          { reason: '因為你喜歡水晶手鍊', title: '今天適合的能量方向：專注力', emoji: '💎', color: '#D4C5E2' },
-        ].map((rec, i) => (
-          <motion.div
-            key={i}
-            initial={{ opacity: 0, y: 5 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 + i * 0.1 }}
-            className="rounded-2xl p-4 shadow-sm"
-            style={{ backgroundColor: '#FFFEF9' }}
-          >
-            <p className="text-[10px] mb-1" style={{ color: '#C9A96E' }}>{rec.reason}</p>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ backgroundColor: rec.color }}>
-                <span className="text-base">{rec.emoji}</span>
-              </div>
-              <p className="text-sm font-medium" style={{ color: '#3D3530' }}>{rec.title}</p>
-            </div>
-          </motion.div>
-        ))}
-      </motion.div>
-
-      {/* Next Step You Might Like */}
-      <motion.div variants={staggerItem} className="rounded-3xl p-5 shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
-        <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>🚀 你下一步可能會喜歡</p>
-        <div className="space-y-2">
-          {(() => {
-            const demoTypes = ['fragrance', 'crystal', 'plant'];
-            const recs: { emoji: string; title: string; desc: string; link: string }[] = [];
-            demoTypes.forEach(type => {
-              const typeRecs = NEXT_STEP_RECOMMENDATIONS[type];
-              if (typeRecs) recs.push(typeRecs[0]);
-            });
-            return recs.slice(0, 3).map((rec, i) => (
-              <a key={i} href={rec.link} target="_blank" rel="noopener noreferrer" className="block p-3 rounded-2xl" style={{ backgroundColor: '#FAF8F5' }}>
-                <p className="text-sm font-medium" style={{ color: '#3D3530' }}>{rec.emoji} {rec.title}</p>
-                <p className="text-xs mt-0.5" style={{ color: '#8C7B72' }}>{rec.desc}</p>
-              </a>
-            ));
-          })()}
-        </div>
-      </motion.div>
-
-      {/* Personality-Based Recommendations */}
-      {personalityProfile ? (
-        <motion.div variants={staggerItem}>
-          <PersonalityRecommendations profile={personalityProfile} />
-        </motion.div>
-      ) : (
-        <motion.div
-          variants={staggerItem}
-          className="rounded-3xl p-5 shadow-sm"
-          style={{ background: 'linear-gradient(135deg, #FAF8F5, #FFF8E7)' }}
-        >
-          <p className="text-xs mb-2" style={{ color: '#8C7B72' }}>根據你最近的情緒狀態，推薦你這個體驗</p>
-          <p className="text-base font-bold mb-1" style={{ color: '#3D3530' }}>{courseRecommendation.title}</p>
-          <p className="text-sm mb-1" style={{ color: '#8C7B72' }}>{courseRecommendation.desc}</p>
-          <p className="text-xs mb-3" style={{ color: '#8C7B72' }}>📍 下班隨手作 · 漢口街2段121號</p>
-          <a
-            href="https://xiabenhow.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block w-full rounded-2xl py-3 text-white font-medium text-sm text-center"
-            style={{ backgroundColor: '#C9A96E' }}
-          >
-            立即預約
-          </a>
-        </motion.div>
-      )}
-
-      {/* CTA */}
-      <motion.div variants={staggerItem} className="rounded-3xl p-5 shadow-sm text-center" style={{ background: 'linear-gradient(135deg, #FAF8F5, #FFF8E7)' }}>
-        <p className="text-xs mb-1" style={{ color: '#8C7B72' }}>📍 下班隨手作 · 漢口街2段121號</p>
-        <a href="https://xiabenhow.com" target="_blank" rel="noopener noreferrer" className="inline-block mt-2 px-8 py-3 rounded-2xl text-white font-medium text-sm" style={{ backgroundColor: '#C9A96E' }}>
-          探索所有課程與商品
-        </a>
-      </motion.div>
+      {/* (推薦區塊已移除) */}
     </motion.div>
   );
 }
@@ -7652,6 +7987,7 @@ interface JournalEntry {
   id?: string;
   text: string;
   symbols: string[];  // selected emoji/symbols
+  photos?: string[];  // base64 photo data URLs
   timestamp: number;
   date: string; // YYYY-MM-DD
 }
@@ -7661,47 +7997,125 @@ function JournalPage({ user }: { user: User | null }) {
   const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('day');
   const [currentDate, setCurrentDate] = useState(getToday());
   const [inputText, setInputText] = useState('');
-  const [selectedSymbols, setSelectedSymbols] = useState<string[]>([]);
+  const [photos, setPhotos] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [saving, setSaving] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
-  const symbolPalette = ['😊', '😢', '😤', '😴', '🥰', '😌', '🤔', '💪', '☀️', '🌙', '⭐', '🌈', '🍃', '🔥', '💧', '🎵'];
+  // PIN Lock states
+  const [journalLocked, setJournalLocked] = useState(() => !!localStorage.getItem('journal_pin'));
+  const [pinVerified, setPinVerified] = useState(false);
+  const [showPinSetup, setShowPinSetup] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  const [pinConfirm, setPinConfirm] = useState('');
+  const [pinStep, setPinStep] = useState<'enter' | 'set' | 'confirm' | 'forgot'>('enter');
+  const [pinError, setPinError] = useState('');
+  const [pinFailCount, setPinFailCount] = useState(0);
+  const [securityAnswer, setSecurityAnswer] = useState('');
+  const [securitySetup, setSecuritySetup] = useState('');
 
-  // Load entries from Firestore or localStorage
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+
+  const symbolPalette = ['😊', '😢', '😤', '😴', '🥰', '😌', '🤔', '💪', '☀️', '🌙', '⭐', '🌈', '🍃', '🔥', '💧', '🎵', '❤️', '💔', '🙏', '✨', '🌸', '🦋', '🎶', '🌻'];
+
+  // Check if PIN exists
+  const hasPin = () => !!localStorage.getItem('journal_pin');
+  const getStoredPin = () => {
+    try { return atob(localStorage.getItem('journal_pin') || ''); } catch { return ''; }
+  };
+  const getSecurityAnswer = () => {
+    try { return atob(localStorage.getItem('journal_security_answer') || ''); } catch { return ''; }
+  };
+
+  // If locked and not verified, show lock screen
+  const isLocked = journalLocked && !pinVerified;
+
+  // Load entries: always load localStorage first, then try Firestore merge
   useEffect(() => {
-    const loadEntries = async () => {
-      if (user) {
+    // Always load localStorage immediately
+    const stored = localStorage.getItem('journal_entries');
+    const localEntries: JournalEntry[] = stored ? JSON.parse(stored) : [];
+    if (localEntries.length > 0) setEntries(localEntries);
+
+    // Then try Firestore for logged-in users
+    if (user) {
+      (async () => {
         try {
           const colRef = collection(db, 'journal_entries');
           const q = query(colRef, where('userId', '==', user.uid), orderBy('timestamp', 'desc'));
           const snapshot = await getDocs(q);
-          const loaded = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data(),
-          })) as JournalEntry[];
-          setEntries(loaded);
-        } catch (error) {
-          console.error('Failed to load journal entries:', error);
-          // Fallback to localStorage
-          const stored = localStorage.getItem('journal_entries');
-          if (stored) setEntries(JSON.parse(stored));
+          const firestoreEntries = snapshot.docs.map(d => ({ id: d.id, ...d.data() })) as JournalEntry[];
+          if (firestoreEntries.length > 0) {
+            // Merge: use Firestore as source of truth, add any local-only entries
+            const fsTimestamps = new Set(firestoreEntries.map(e => e.timestamp));
+            const localOnly = localEntries.filter(e => !fsTimestamps.has(e.timestamp));
+            const merged = [...firestoreEntries, ...localOnly].sort((a, b) => b.timestamp - a.timestamp);
+            setEntries(merged);
+            localStorage.setItem('journal_entries', JSON.stringify(merged));
+          } else if (localEntries.length > 0) {
+            // Firestore empty but local has data — push local to Firestore
+            for (const entry of localEntries) {
+              try { await addDoc(colRef, { userId: user.uid, ...entry, createdAt: Timestamp.now() }); } catch {}
+            }
+          }
+        } catch (err) {
+          console.error('Firestore journal load failed, using localStorage:', err);
         }
-      } else {
-        const stored = localStorage.getItem('journal_entries');
-        if (stored) setEntries(JSON.parse(stored));
-      }
-    };
-    loadEntries();
+      })();
+    }
   }, [user]);
 
+  // Insert emoji at cursor position in textarea
+  const insertEmojiAtCursor = (emoji: string) => {
+    const textarea = textareaRef.current;
+    if (!textarea) {
+      setInputText(prev => prev + emoji);
+      return;
+    }
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const newText = inputText.slice(0, start) + emoji + inputText.slice(end);
+    setInputText(newText);
+    // Restore cursor position after emoji
+    requestAnimationFrame(() => {
+      textarea.focus();
+      const newPos = start + emoji.length;
+      textarea.setSelectionRange(newPos, newPos);
+    });
+  };
+
+  // Photo handling
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    Array.from(files).forEach(file => {
+      if (file.size > 5 * 1024 * 1024) return; // Max 5MB
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          setPhotos(prev => [...prev, reader.result as string]);
+        }
+      };
+      reader.readAsDataURL(file);
+    });
+    e.target.value = ''; // Reset input
+  };
+
+  const removePhoto = (index: number) => {
+    setPhotos(prev => prev.filter((_, i) => i !== index));
+  };
+
   const saveEntry = async () => {
-    if (!inputText.trim()) return;
+    if (!inputText.trim() && photos.length === 0) return;
     setSaving(true);
 
     const newEntry: JournalEntry = {
       text: inputText.trim(),
-      symbols: selectedSymbols,
+      symbols: [],
+      photos: photos.length > 0 ? photos : undefined,
       timestamp: Date.now(),
       date: currentDate,
     };
@@ -7722,21 +8136,14 @@ function JournalPage({ user }: { user: User | null }) {
 
     const updated = [newEntry, ...entries];
     setEntries(updated);
-    if (!user) {
-      localStorage.setItem('journal_entries', JSON.stringify(updated));
-    }
+    // Always save to localStorage as backup (even when logged in)
+    localStorage.setItem('journal_entries', JSON.stringify(updated));
 
     setInputText('');
-    setSelectedSymbols([]);
+    setPhotos([]);
     setSaving(false);
     setShowSuccess(true);
     setTimeout(() => setShowSuccess(false), 2000);
-  };
-
-  const toggleSymbol = (symbol: string) => {
-    setSelectedSymbols(prev =>
-      prev.includes(symbol) ? prev.filter(s => s !== symbol) : [...prev, symbol]
-    );
   };
 
   const filteredEntries = entries.filter(e =>
@@ -7745,23 +8152,6 @@ function JournalPage({ user }: { user: User | null }) {
 
   const getEntriesForDate = (dateStr: string) =>
     filteredEntries.filter(e => e.date === dateStr);
-
-  const getEntriesForWeek = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const weekEntries: JournalEntry[] = [];
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(date);
-      d.setDate(d.getDate() + i);
-      const dateKey = formatDate(d);
-      weekEntries.push(...getEntriesForDate(dateKey));
-    }
-    return weekEntries;
-  };
-
-  const getEntriesForMonth = (dateStr: string) => {
-    const [year, month] = dateStr.split('-');
-    return filteredEntries.filter(e => e.date.startsWith(`${year}-${month}`));
-  };
 
   const navigateDate = (direction: number) => {
     const d = new Date(currentDate);
@@ -7780,11 +8170,426 @@ function JournalPage({ user }: { user: User | null }) {
     return new Date(parseInt(year), parseInt(month), 0).getDate();
   };
 
+  // Get recent days for vertical feed
+  const getRecentDayEntries = () => {
+    const days: { date: string; entries: JournalEntry[] }[] = [];
+    const d = new Date(currentDate);
+    for (let i = 0; i < 30; i++) {
+      const dateStr = formatDate(d);
+      const dayEntries = getEntriesForDate(dateStr);
+      if (dayEntries.length > 0) {
+        days.push({ date: dateStr, entries: dayEntries });
+      }
+      d.setDate(d.getDate() - 1);
+    }
+    return days;
+  };
+
+  // PIN verification
+  const verifyPin = () => {
+    const stored = getStoredPin();
+    if (pinInput === stored) {
+      setPinVerified(true);
+      setPinInput('');
+      setPinError('');
+      setPinFailCount(0);
+    } else {
+      const newCount = pinFailCount + 1;
+      setPinFailCount(newCount);
+      setPinError(newCount >= 5 ? '密碼錯誤次數過多，請使用忘記密碼' : `密碼錯誤 (${newCount}/5)`);
+      setPinInput('');
+    }
+  };
+
+  // Set new PIN
+  const setNewPin = () => {
+    if (pinInput.length < 4) {
+      setPinError('密碼至少需要4位數');
+      return;
+    }
+    if (pinStep === 'set') {
+      setPinConfirm(pinInput);
+      setPinInput('');
+      setPinStep('confirm');
+      setPinError('');
+    } else if (pinStep === 'confirm') {
+      if (pinInput === pinConfirm) {
+        localStorage.setItem('journal_pin', btoa(pinInput));
+        if (securitySetup.trim()) {
+          localStorage.setItem('journal_security_answer', btoa(securitySetup.trim().toLowerCase()));
+        }
+        setJournalLocked(true);
+        setPinVerified(true);
+        setShowPinSetup(false);
+        setPinInput('');
+        setPinConfirm('');
+        setPinError('');
+        setSecuritySetup('');
+      } else {
+        setPinError('兩次輸入不一致，請重新設定');
+        setPinStep('set');
+        setPinInput('');
+        setPinConfirm('');
+      }
+    }
+  };
+
+  // Forgot password
+  const handleForgotPassword = () => {
+    const stored = getSecurityAnswer();
+    if (!stored) {
+      // No security answer set — allow reset after warning
+      localStorage.removeItem('journal_pin');
+      localStorage.removeItem('journal_security_answer');
+      setJournalLocked(false);
+      setPinVerified(false);
+      setPinStep('enter');
+      setPinInput('');
+      setPinError('');
+      setPinFailCount(0);
+      return;
+    }
+    if (securityAnswer.trim().toLowerCase() === stored) {
+      localStorage.removeItem('journal_pin');
+      localStorage.removeItem('journal_security_answer');
+      setJournalLocked(false);
+      setPinVerified(false);
+      setPinStep('enter');
+      setPinInput('');
+      setPinError('');
+      setPinFailCount(0);
+      setSecurityAnswer('');
+    } else {
+      setPinError('安全問題答案不正確');
+    }
+  };
+
+  // Remove PIN
+  const removePin = () => {
+    localStorage.removeItem('journal_pin');
+    localStorage.removeItem('journal_security_answer');
+    setJournalLocked(false);
+    setPinVerified(false);
+  };
+
+  // Entry card renderer (used in both day feed and search)
+  const renderEntryCard = (entry: JournalEntry, i: number, showDate?: boolean) => {
+    const time = new Date(entry.timestamp);
+    return (
+      <motion.div
+        key={`${entry.date}-${i}`}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: i * 0.05 }}
+        className="rounded-3xl overflow-hidden shadow-sm"
+        style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}
+      >
+        {/* Photos (Instagram-style) */}
+        {entry.photos && entry.photos.length > 0 && (
+          <div className="w-full">
+            {entry.photos.length === 1 ? (
+              <img src={entry.photos[0]} alt="" className="w-full object-cover" style={{ maxHeight: 400 }} />
+            ) : (
+              <div className="flex overflow-x-auto snap-x snap-mandatory" style={{ scrollbarWidth: 'none' }}>
+                {entry.photos.map((photo, pi) => (
+                  <img key={pi} src={photo} alt="" className="w-full flex-shrink-0 snap-center object-cover" style={{ maxHeight: 400 }} />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        <div className="p-4">
+          <div className="flex items-center justify-between mb-2">
+            {showDate && <span className="text-xs font-medium" style={{ color: '#8C7B72' }}>{entry.date}</span>}
+            <span className="text-xs" style={{ color: '#B5AFA8' }}>
+              {time.getHours().toString().padStart(2, '0')}:{time.getMinutes().toString().padStart(2, '0')}
+            </span>
+          </div>
+          {entry.symbols && entry.symbols.length > 0 && (
+            <div className="flex gap-1 mb-2">
+              {entry.symbols.map((s, si) => <span key={si} className="text-lg">{s}</span>)}
+            </div>
+          )}
+          <p className="text-sm leading-relaxed" style={{ color: '#3D3530' }}>{entry.text}</p>
+        </div>
+      </motion.div>
+    );
+  };
+
+  // ============ PIN Lock Screen ============
+  if (isLocked) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center px-6" style={{ backgroundColor: '#FFFEF9' }}>
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          className="w-full max-w-xs text-center space-y-5"
+        >
+          <div className="text-5xl mb-2">🔒</div>
+          <h2 className="text-lg font-bold" style={{ color: '#3D3530' }}>日記已鎖定</h2>
+
+          {pinStep === 'enter' && (
+            <>
+              <p className="text-sm" style={{ color: '#8C7B72' }}>請輸入密碼來解鎖</p>
+              <input
+                type="password"
+                inputMode="numeric"
+                maxLength={8}
+                value={pinInput}
+                onChange={(e) => setPinInput(e.target.value.replace(/\D/g, ''))}
+                onKeyDown={(e) => e.key === 'Enter' && verifyPin()}
+                placeholder="輸入密碼"
+                className="w-full text-center text-2xl tracking-[0.5em] py-3 rounded-2xl outline-none"
+                style={{ backgroundColor: '#FAF8F5', color: '#3D3530', border: '1px solid #F0EDE8', letterSpacing: '0.5em' }}
+                autoFocus
+              />
+              {pinError && <p className="text-xs" style={{ color: '#E57373' }}>{pinError}</p>}
+              <motion.button
+                whileTap={{ scale: 0.96 }}
+                onClick={verifyPin}
+                className="w-full py-3 rounded-2xl font-medium text-sm text-white"
+                style={{ backgroundColor: '#8FA886' }}
+              >
+                解鎖
+              </motion.button>
+              <button
+                onClick={() => { setPinStep('forgot'); setPinError(''); }}
+                className="text-xs underline"
+                style={{ color: '#C9A96E' }}
+              >
+                忘記密碼？
+              </button>
+            </>
+          )}
+
+          {pinStep === 'forgot' && (
+            <>
+              <p className="text-sm" style={{ color: '#8C7B72' }}>
+                {getSecurityAnswer() ? '請輸入你設定的安全問題答案：「你最喜歡的香味？」' : '確定要重置密碼嗎？這將移除日記鎖定。'}
+              </p>
+              {getSecurityAnswer() ? (
+                <>
+                  <input
+                    type="text"
+                    value={securityAnswer}
+                    onChange={(e) => setSecurityAnswer(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleForgotPassword()}
+                    placeholder="輸入答案"
+                    className="w-full text-center py-3 rounded-2xl outline-none text-sm"
+                    style={{ backgroundColor: '#FAF8F5', color: '#3D3530', border: '1px solid #F0EDE8' }}
+                    autoFocus
+                  />
+                  {pinError && <p className="text-xs" style={{ color: '#E57373' }}>{pinError}</p>}
+                  <motion.button
+                    whileTap={{ scale: 0.96 }}
+                    onClick={handleForgotPassword}
+                    className="w-full py-3 rounded-2xl font-medium text-sm text-white"
+                    style={{ backgroundColor: '#C9A96E' }}
+                  >
+                    驗證答案
+                  </motion.button>
+                </>
+              ) : (
+                <motion.button
+                  whileTap={{ scale: 0.96 }}
+                  onClick={handleForgotPassword}
+                  className="w-full py-3 rounded-2xl font-medium text-sm text-white"
+                  style={{ backgroundColor: '#E57373' }}
+                >
+                  確認重置密碼
+                </motion.button>
+              )}
+              <button
+                onClick={() => { setPinStep('enter'); setPinError(''); }}
+                className="text-xs underline"
+                style={{ color: '#8C7B72' }}
+              >
+                返回輸入密碼
+              </button>
+            </>
+          )}
+        </motion.div>
+      </div>
+    );
+  }
+
+  // ============ PIN Setup Modal ============
+  const pinSetupModal = showPinSetup && (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center px-6"
+      style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}
+      onClick={() => setShowPinSetup(false)}
+    >
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        className="w-full max-w-sm rounded-3xl p-6 space-y-4"
+        style={{ backgroundColor: '#FFFEF9' }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="text-base font-bold text-center" style={{ color: '#3D3530' }}>
+          {hasPin() ? '🔒 密碼設定' : '🔓 設定日記密碼'}
+        </h3>
+
+        {hasPin() ? (
+          <>
+            <p className="text-sm text-center" style={{ color: '#8C7B72' }}>日記目前已設定密碼保護</p>
+            <motion.button
+              whileTap={{ scale: 0.96 }}
+              onClick={() => { removePin(); setShowPinSetup(false); }}
+              className="w-full py-2.5 rounded-2xl font-medium text-sm"
+              style={{ backgroundColor: '#E5737320', color: '#E57373', border: '1px solid #E5737340' }}
+            >
+              移除密碼
+            </motion.button>
+            <motion.button
+              whileTap={{ scale: 0.96 }}
+              onClick={() => { setPinStep('set'); setPinInput(''); setPinConfirm(''); setPinError(''); }}
+              className="w-full py-2.5 rounded-2xl font-medium text-sm"
+              style={{ backgroundColor: '#FAF8F5', color: '#8C7B72', border: '1px solid #F0EDE8' }}
+            >
+              重新設定密碼
+            </motion.button>
+            {pinStep === 'set' && (
+              <div className="space-y-3 pt-2">
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={8}
+                  value={pinInput}
+                  onChange={(e) => setPinInput(e.target.value.replace(/\D/g, ''))}
+                  onKeyDown={(e) => e.key === 'Enter' && setNewPin()}
+                  placeholder="輸入新密碼（4-8位數字）"
+                  className="w-full text-center text-xl tracking-[0.3em] py-3 rounded-2xl outline-none"
+                  style={{ backgroundColor: '#FAF8F5', color: '#3D3530', border: '1px solid #F0EDE8' }}
+                  autoFocus
+                />
+                {pinError && <p className="text-xs text-center" style={{ color: '#E57373' }}>{pinError}</p>}
+                <motion.button whileTap={{ scale: 0.96 }} onClick={setNewPin} className="w-full py-2.5 rounded-2xl font-medium text-sm text-white" style={{ backgroundColor: '#8FA886' }}>
+                  下一步
+                </motion.button>
+              </div>
+            )}
+            {pinStep === 'confirm' && (
+              <div className="space-y-3 pt-2">
+                <p className="text-xs text-center" style={{ color: '#8C7B72' }}>請再次輸入密碼確認</p>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={8}
+                  value={pinInput}
+                  onChange={(e) => setPinInput(e.target.value.replace(/\D/g, ''))}
+                  onKeyDown={(e) => e.key === 'Enter' && setNewPin()}
+                  placeholder="再次輸入密碼"
+                  className="w-full text-center text-xl tracking-[0.3em] py-3 rounded-2xl outline-none"
+                  style={{ backgroundColor: '#FAF8F5', color: '#3D3530', border: '1px solid #F0EDE8' }}
+                  autoFocus
+                />
+                {pinError && <p className="text-xs text-center" style={{ color: '#E57373' }}>{pinError}</p>}
+                <motion.button whileTap={{ scale: 0.96 }} onClick={setNewPin} className="w-full py-2.5 rounded-2xl font-medium text-sm text-white" style={{ backgroundColor: '#8FA886' }}>
+                  確認設定
+                </motion.button>
+              </div>
+            )}
+          </>
+        ) : (
+          <>
+            {pinStep !== 'confirm' ? (
+              <div className="space-y-3">
+                <p className="text-sm text-center" style={{ color: '#8C7B72' }}>設定4-8位數字密碼保護你的日記</p>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={8}
+                  value={pinInput}
+                  onChange={(e) => setPinInput(e.target.value.replace(/\D/g, ''))}
+                  onKeyDown={(e) => e.key === 'Enter' && setNewPin()}
+                  placeholder="輸入密碼（4-8位數字）"
+                  className="w-full text-center text-xl tracking-[0.3em] py-3 rounded-2xl outline-none"
+                  style={{ backgroundColor: '#FAF8F5', color: '#3D3530', border: '1px solid #F0EDE8' }}
+                  autoFocus
+                />
+                <div>
+                  <p className="text-xs mb-1" style={{ color: '#8C7B72' }}>安全問題：你最喜歡的香味？（忘記密碼用）</p>
+                  <input
+                    type="text"
+                    value={securitySetup}
+                    onChange={(e) => setSecuritySetup(e.target.value)}
+                    placeholder="輸入答案（選填）"
+                    className="w-full py-2.5 px-3 rounded-2xl outline-none text-sm"
+                    style={{ backgroundColor: '#FAF8F5', color: '#3D3530', border: '1px solid #F0EDE8' }}
+                  />
+                </div>
+                {pinError && <p className="text-xs text-center" style={{ color: '#E57373' }}>{pinError}</p>}
+                <motion.button whileTap={{ scale: 0.96 }} onClick={() => { setPinStep('set'); setNewPin(); }} className="w-full py-2.5 rounded-2xl font-medium text-sm text-white" style={{ backgroundColor: '#8FA886' }}>
+                  下一步
+                </motion.button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm text-center" style={{ color: '#8C7B72' }}>請再次輸入密碼確認</p>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={8}
+                  value={pinInput}
+                  onChange={(e) => setPinInput(e.target.value.replace(/\D/g, ''))}
+                  onKeyDown={(e) => e.key === 'Enter' && setNewPin()}
+                  placeholder="再次輸入密碼"
+                  className="w-full text-center text-xl tracking-[0.3em] py-3 rounded-2xl outline-none"
+                  style={{ backgroundColor: '#FAF8F5', color: '#3D3530', border: '1px solid #F0EDE8' }}
+                  autoFocus
+                />
+                {pinError && <p className="text-xs text-center" style={{ color: '#E57373' }}>{pinError}</p>}
+                <motion.button whileTap={{ scale: 0.96 }} onClick={setNewPin} className="w-full py-2.5 rounded-2xl font-medium text-sm text-white" style={{ backgroundColor: '#8FA886' }}>
+                  確認設定
+                </motion.button>
+              </div>
+            )}
+          </>
+        )}
+
+        <button
+          onClick={() => { setShowPinSetup(false); setPinStep('enter'); setPinInput(''); setPinError(''); }}
+          className="w-full text-center text-xs py-2"
+          style={{ color: '#8C7B72' }}
+        >
+          取消
+        </button>
+      </motion.div>
+    </motion.div>
+  );
+
   return (
     <div className="w-full h-full flex flex-col overflow-hidden" style={{ backgroundColor: '#FFFEF9' }}>
+      {/* Hidden file inputs */}
+      <input ref={photoInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoSelect} />
+      <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={handlePhotoSelect} />
+
       {/* Header */}
       <div className="flex-shrink-0 px-4 pt-4 pb-3" style={{ borderBottom: '1px solid #F0EDE8' }}>
-        <h1 className="text-lg font-bold mb-3" style={{ color: '#3D3530' }}>📔 日記</h1>
+        <div className="flex items-center justify-between mb-3">
+          <h1 className="text-lg font-bold" style={{ color: '#3D3530' }}>📔 日記</h1>
+          <div className="flex items-center gap-2">
+            {/* Lock button */}
+            <motion.button
+              whileTap={{ scale: 0.9 }}
+              onClick={() => {
+                setPinStep(hasPin() ? 'enter' : 'set');
+                setPinInput('');
+                setPinError('');
+                setShowPinSetup(true);
+              }}
+              className="w-8 h-8 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: hasPin() ? '#8FA88620' : '#FAF8F5', border: '1px solid #F0EDE8' }}
+            >
+              <span className="text-sm">{hasPin() ? '🔒' : '🔓'}</span>
+            </motion.button>
+          </div>
+        </div>
 
         {/* Search Bar */}
         <div className="flex items-center gap-2 mb-3 px-3 py-2 rounded-2xl" style={{ backgroundColor: '#FAF8F5', border: '1px solid #F0EDE8' }}>
@@ -7831,11 +8636,12 @@ function JournalPage({ user }: { user: User | null }) {
           >
             <p className="text-xs font-medium mb-2" style={{ color: '#8C7B72' }}>今天想說些什麼...</p>
             <textarea
+              ref={textareaRef}
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               placeholder="寫下你的想法、感受或日常點滴..."
               rows={3}
-              className="w-full mb-3 p-3 rounded-2xl resize-none outline-none text-sm"
+              className="w-full mb-2 p-3 rounded-2xl resize-none outline-none text-sm"
               style={{
                 backgroundColor: '#FFFEF9',
                 color: '#3D3530',
@@ -7843,36 +8649,91 @@ function JournalPage({ user }: { user: User | null }) {
               }}
             />
 
-            {/* Symbol Picker */}
-            <div className="mb-3">
-              <p className="text-xs font-medium mb-2" style={{ color: '#8C7B72' }}>選擇心情符號</p>
-              <div className="flex flex-wrap gap-2">
-                {symbolPalette.map(symbol => (
-                  <motion.button
-                    key={symbol}
-                    whileTap={{ scale: 0.85 }}
-                    onClick={() => toggleSymbol(symbol)}
-                    className="text-lg p-2 rounded-lg transition-all"
-                    style={{
-                      backgroundColor: selectedSymbols.includes(symbol) ? '#8FA88620' : 'transparent',
-                      border: selectedSymbols.includes(symbol) ? '1.5px solid #8FA886' : '1px solid #F0EDE8',
-                    }}
-                  >
-                    {symbol}
-                  </motion.button>
+            {/* Toolbar: emoji + photo */}
+            <div className="flex items-center gap-2 mb-3">
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                className="px-3 py-1.5 text-xs rounded-full flex items-center gap-1"
+                style={{
+                  backgroundColor: showEmojiPicker ? '#8FA88620' : '#FFFEF9',
+                  border: showEmojiPicker ? '1.5px solid #8FA886' : '1px solid #F0EDE8',
+                  color: '#8C7B72',
+                }}
+              >
+                <span className="text-base">😊</span> 表情
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={() => photoInputRef.current?.click()}
+                className="px-3 py-1.5 text-xs rounded-full flex items-center gap-1"
+                style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8', color: '#8C7B72' }}
+              >
+                <span className="text-base">🖼️</span> 相簿
+              </motion.button>
+              <motion.button
+                whileTap={{ scale: 0.9 }}
+                onClick={() => cameraInputRef.current?.click()}
+                className="px-3 py-1.5 text-xs rounded-full flex items-center gap-1"
+                style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8', color: '#8C7B72' }}
+              >
+                <span className="text-base">📷</span> 拍照
+              </motion.button>
+            </div>
+
+            {/* Emoji Picker (inline insert at cursor) */}
+            <AnimatePresence>
+              {showEmojiPicker && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mb-3 overflow-hidden"
+                >
+                  <div className="flex flex-wrap gap-1.5 p-2 rounded-2xl" style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}>
+                    {symbolPalette.map(symbol => (
+                      <motion.button
+                        key={symbol}
+                        whileTap={{ scale: 0.85 }}
+                        onClick={() => insertEmojiAtCursor(symbol)}
+                        className="text-xl w-9 h-9 rounded-lg flex items-center justify-center transition-all active:bg-green-100"
+                        style={{ backgroundColor: 'transparent' }}
+                      >
+                        {symbol}
+                      </motion.button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Photo preview */}
+            {photos.length > 0 && (
+              <div className="flex gap-2 mb-3 overflow-x-auto pb-1">
+                {photos.map((photo, i) => (
+                  <div key={i} className="relative flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden" style={{ border: '1px solid #F0EDE8' }}>
+                    <img src={photo} alt="" className="w-full h-full object-cover" />
+                    <button
+                      onClick={() => removePhoto(i)}
+                      className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full text-white text-xs flex items-center justify-center"
+                      style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
+                    >
+                      ✕
+                    </button>
+                  </div>
                 ))}
               </div>
-            </div>
+            )}
 
             {/* Save Button */}
             <motion.button
               whileTap={{ scale: 0.96 }}
               onClick={saveEntry}
-              disabled={!inputText.trim() || saving}
+              disabled={(!inputText.trim() && photos.length === 0) || saving}
               className="w-full py-2.5 rounded-2xl font-medium text-sm transition-all"
               style={{
-                backgroundColor: inputText.trim() ? '#8FA886' : '#E8E3DC',
-                color: inputText.trim() ? 'white' : '#B5AFA8',
+                backgroundColor: (inputText.trim() || photos.length > 0) ? '#8FA886' : '#E8E3DC',
+                color: (inputText.trim() || photos.length > 0) ? 'white' : '#B5AFA8',
               }}
             >
               {saving ? '保存中...' : showSuccess ? '✓ 已記錄' : '保存記錄'}
@@ -7880,54 +8741,60 @@ function JournalPage({ user }: { user: User | null }) {
           </motion.div>
         )}
 
-        {/* View Sections */}
-        {viewMode === 'day' && (
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <motion.button whileTap={{ scale: 0.9 }} onClick={() => navigateDate(-1)} className="text-xl">←</motion.button>
-              <p className="font-medium" style={{ color: '#3D3530' }}>{currentDate}</p>
-              <motion.button whileTap={{ scale: 0.9 }} onClick={() => navigateDate(1)} className="text-xl">→</motion.button>
+        {/* ===== DAY VIEW: Vertical scroll like Instagram ===== */}
+        {viewMode === 'day' && !searchQuery && (
+          <div className="space-y-6">
+            {/* Date navigation */}
+            <div className="flex items-center justify-between">
+              <motion.button whileTap={{ scale: 0.9 }} onClick={() => navigateDate(-1)} className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FAF8F5' }}>
+                <span style={{ color: '#8C7B72' }}>←</span>
+              </motion.button>
+              <p className="font-medium text-sm" style={{ color: '#3D3530' }}>{currentDate}</p>
+              <motion.button whileTap={{ scale: 0.9 }} onClick={() => navigateDate(1)} className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FAF8F5' }}>
+                <span style={{ color: '#8C7B72' }}>→</span>
+              </motion.button>
             </div>
 
-            <div className="space-y-3">
-              {getEntriesForDate(currentDate).length === 0 ? (
-                <p className="text-center text-sm" style={{ color: '#B5AFA8' }}>今天還沒有記錄呢</p>
-              ) : (
-                getEntriesForDate(currentDate).map((entry, i) => {
-                  const time = new Date(entry.timestamp);
-                  return (
-                    <motion.div
-                      key={i}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="p-3 rounded-2xl"
-                      style={{ backgroundColor: '#FAF8F5', border: '1px solid #F0EDE8' }}
-                    >
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-xs" style={{ color: '#B5AFA8' }}>
-                          {time.getHours().toString().padStart(2, '0')}:{time.getMinutes().toString().padStart(2, '0')}
-                        </span>
-                      </div>
-                      {entry.symbols.length > 0 && (
-                        <div className="flex gap-1 mb-2">
-                          {entry.symbols.map(s => <span key={s} className="text-lg">{s}</span>)}
-                        </div>
-                      )}
-                      <p className="text-sm" style={{ color: '#3D3530' }}>{entry.text}</p>
-                    </motion.div>
-                  );
-                })
-              )}
-            </div>
+            {/* Vertical feed - all entries for this date and earlier */}
+            {(() => {
+              const recentDays = getRecentDayEntries();
+              if (recentDays.length === 0) {
+                return (
+                  <div className="text-center py-12">
+                    <p className="text-3xl mb-3">📝</p>
+                    <p className="text-sm" style={{ color: '#B5AFA8' }}>還沒有記錄，開始寫下你的故事吧</p>
+                  </div>
+                );
+              }
+              return recentDays.map(day => (
+                <div key={day.date} className="space-y-3">
+                  {/* Day header */}
+                  <div className="flex items-center gap-3">
+                    <div className="h-px flex-1" style={{ backgroundColor: '#F0EDE8' }} />
+                    <span className="text-xs font-medium px-3 py-1 rounded-full" style={{ backgroundColor: '#FAF8F5', color: '#8C7B72' }}>
+                      {day.date === getToday() ? '今天' : day.date}
+                    </span>
+                    <div className="h-px flex-1" style={{ backgroundColor: '#F0EDE8' }} />
+                  </div>
+                  {/* Entries for this day */}
+                  {day.entries.map((entry, i) => renderEntryCard(entry, i))}
+                </div>
+              ));
+            })()}
           </div>
         )}
 
-        {viewMode === 'week' && (
+        {/* ===== WEEK VIEW ===== */}
+        {viewMode === 'week' && !searchQuery && (
           <div>
             <div className="flex items-center justify-between mb-4">
-              <motion.button whileTap={{ scale: 0.9 }} onClick={() => navigateDate(-1)} className="text-xl">←</motion.button>
-              <p className="font-medium" style={{ color: '#3D3530' }}>周視圖</p>
-              <motion.button whileTap={{ scale: 0.9 }} onClick={() => navigateDate(1)} className="text-xl">→</motion.button>
+              <motion.button whileTap={{ scale: 0.9 }} onClick={() => navigateDate(-1)} className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FAF8F5' }}>
+                <span style={{ color: '#8C7B72' }}>←</span>
+              </motion.button>
+              <p className="font-medium text-sm" style={{ color: '#3D3530' }}>周視圖</p>
+              <motion.button whileTap={{ scale: 0.9 }} onClick={() => navigateDate(1)} className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FAF8F5' }}>
+                <span style={{ color: '#8C7B72' }}>→</span>
+              </motion.button>
             </div>
 
             <div className="grid grid-cols-7 gap-1">
@@ -7937,44 +8804,60 @@ function JournalPage({ user }: { user: User | null }) {
                 const dateKey = formatDate(d);
                 const dayEntries = getEntriesForDate(dateKey);
                 return (
-                  <div key={i} className="p-2 rounded-lg text-center" style={{ backgroundColor: '#FAF8F5' }}>
+                  <motion.div
+                    key={i}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => { setCurrentDate(dateKey); setViewMode('day'); }}
+                    className="p-2 rounded-lg text-center cursor-pointer"
+                    style={{ backgroundColor: dayEntries.length > 0 ? '#8FA88615' : '#FAF8F5' }}
+                  >
                     <p className="text-xs font-medium mb-1" style={{ color: '#8C7B72' }}>
                       {d.getDate()}
                     </p>
-                    {dayEntries.length > 0 && (
+                    {dayEntries.length > 0 ? (
                       <>
                         <p className="text-xs line-clamp-2" style={{ color: '#3D3530' }}>
                           {dayEntries[0].text.substring(0, 15)}...
                         </p>
-                        <p className="text-xs mt-1" style={{ color: '#C9A96E' }}>
+                        <p className="text-[10px] mt-1" style={{ color: '#C9A96E' }}>
                           {dayEntries.length} 筆
                         </p>
                       </>
+                    ) : (
+                      <p className="text-[10px]" style={{ color: '#D4CCCB' }}>—</p>
                     )}
-                  </div>
+                  </motion.div>
                 );
               })}
             </div>
           </div>
         )}
 
-        {viewMode === 'month' && (
+        {/* ===== MONTH VIEW ===== */}
+        {viewMode === 'month' && !searchQuery && (
           <div>
             <div className="flex items-center justify-between mb-4">
-              <motion.button whileTap={{ scale: 0.9 }} onClick={() => navigateDate(-1)} className="text-xl">←</motion.button>
-              <p className="font-medium" style={{ color: '#3D3530' }}>{currentDate.slice(0, 7)}</p>
-              <motion.button whileTap={{ scale: 0.9 }} onClick={() => navigateDate(1)} className="text-xl">→</motion.button>
+              <motion.button whileTap={{ scale: 0.9 }} onClick={() => navigateDate(-1)} className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FAF8F5' }}>
+                <span style={{ color: '#8C7B72' }}>←</span>
+              </motion.button>
+              <p className="font-medium text-sm" style={{ color: '#3D3530' }}>{currentDate.slice(0, 7)}</p>
+              <motion.button whileTap={{ scale: 0.9 }} onClick={() => navigateDate(1)} className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FAF8F5' }}>
+                <span style={{ color: '#8C7B72' }}>→</span>
+              </motion.button>
             </div>
 
             <div className="grid grid-cols-7 gap-1">
               {Array.from({ length: getDaysInMonth(currentDate) }).map((_, i) => {
                 const [year, month] = currentDate.split('-');
                 const dateKey = `${year}-${month}-${(i + 1).toString().padStart(2, '0')}`;
-                const hasEntry = getEntriesForDate(dateKey).length > 0;
+                const dayEntries = getEntriesForDate(dateKey);
+                const hasEntry = dayEntries.length > 0;
                 return (
-                  <div
+                  <motion.div
                     key={i}
-                    className="p-2 rounded-lg text-center aspect-square flex items-center justify-center text-sm"
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => { setCurrentDate(dateKey); setViewMode('day'); }}
+                    className="p-2 rounded-lg text-center aspect-square flex items-center justify-center text-sm cursor-pointer"
                     style={{
                       backgroundColor: hasEntry ? '#8FA88620' : '#FAF8F5',
                       border: hasEntry ? '1.5px solid #8FA886' : '1px solid #F0EDE8',
@@ -7985,7 +8868,7 @@ function JournalPage({ user }: { user: User | null }) {
                       <p className="font-medium">{i + 1}</p>
                       {hasEntry && <p className="text-xs" style={{ color: '#8FA886' }}>●</p>}
                     </div>
-                  </div>
+                  </motion.div>
                 );
               })}
             </div>
@@ -8001,35 +8884,14 @@ function JournalPage({ user }: { user: User | null }) {
             {filteredEntries.length === 0 ? (
               <p className="text-center text-sm" style={{ color: '#B5AFA8' }}>沒有符合的記錄</p>
             ) : (
-              filteredEntries.map((entry, i) => {
-                const time = new Date(entry.timestamp);
-                return (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="p-3 rounded-2xl"
-                    style={{ backgroundColor: '#FAF8F5', border: '1px solid #F0EDE8' }}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-medium" style={{ color: '#8C7B72' }}>{entry.date}</span>
-                      <span className="text-xs" style={{ color: '#B5AFA8' }}>
-                        {time.getHours().toString().padStart(2, '0')}:{time.getMinutes().toString().padStart(2, '0')}
-                      </span>
-                    </div>
-                    {entry.symbols.length > 0 && (
-                      <div className="flex gap-1 mb-2">
-                        {entry.symbols.map(s => <span key={s} className="text-lg">{s}</span>)}
-                      </div>
-                    )}
-                    <p className="text-sm" style={{ color: '#3D3530' }}>{entry.text}</p>
-                  </motion.div>
-                );
-              })
+              filteredEntries.map((entry, i) => renderEntryCard(entry, i, true))
             )}
           </div>
         )}
       </div>
+
+      {/* PIN Setup Modal */}
+      <AnimatePresence>{pinSetupModal}</AnimatePresence>
     </div>
   );
 }
@@ -11053,6 +11915,7 @@ function KnowledgeArticlesGridView({ userEmail, goBack }: {
   const handleLike = async (articleId: string) => {
     if (!userEmail) return;
     await updateDoc(doc(db, 'knowledge_articles', articleId), { likeCount: increment(1) });
+    try { await addDoc(collection(db, 'user_likes'), { userId: userEmail, itemId: articleId, itemType: 'article', likedAt: new Date().toISOString() }); } catch {}
     hapticLight();
   };
 
@@ -11284,6 +12147,8 @@ function CommunityWorksBoardView({ userEmail, goBack, setView }: {
   const handleLike = async (workId: string) => {
     if (!userEmail) return;
     await updateDoc(doc(db, 'community_works', workId), { likeCount: increment(1) });
+    const work = works.find(w => w.id === workId);
+    try { await addDoc(collection(db, 'user_likes'), { userId: userEmail, itemId: workId, itemType: 'community', title: work?.caption || '', author: work?.userName || '', emoji: work?.userEmoji || '🎨', likedAt: new Date().toISOString() }); } catch {}
     hapticLight();
   };
 
@@ -13958,6 +14823,8 @@ function CommunityBoardStandalone({ userEmail, onPost }: { userEmail: string | n
   const handleLike = async (workId: string) => {
     if (!userEmail) return;
     await updateDoc(doc(db, 'community_works', workId), { likeCount: increment(1) });
+    const work = displayWorks.find(w => w.id === workId);
+    try { await addDoc(collection(db, 'user_likes'), { userId: userEmail, itemId: workId, itemType: 'community', title: work?.caption || '', author: work?.userName || '', emoji: work?.userEmoji || '🎨', likedAt: new Date().toISOString() }); } catch {}
     hapticLight();
   };
 
@@ -14222,9 +15089,9 @@ function BottomNav({ active, onChange }: { active: PageType; onChange: (p: PageT
                 onClick={() => onChange(item.key)}
                 style={cellStyle}
               >
-                <span className={item.key === 'healer' ? 'text-lg' : 'text-base'} style={{
-                  color: active === item.key ? '#8FA886' : '#3D3530',
-                  ...((['shop', 'healer'].includes(item.key)) ? { filter: active === item.key ? 'grayscale(100%) brightness(0.7) sepia(1) hue-rotate(70deg) saturate(3)' : 'grayscale(100%) contrast(0.6)' } : {}),
+                <span className="text-base" style={{
+                  filter: active === item.key ? 'none' : 'grayscale(100%) opacity(0.5)',
+                  transition: 'filter 0.2s',
                 }}>{item.icon}</span>
                 <span
                   className="text-[10px] font-medium"
@@ -14334,6 +15201,9 @@ export default function HealingApp() {
         if (firestoreRecords.length > 0) {
           setRecords(firestoreRecords);
         }
+        // Sync saved cards & wishlist from Firestore
+        loadSavedCardsFromFirestore(currentUser.uid).catch(() => {});
+        loadWishlistFromFirestore(currentUser.uid).catch(() => {});
       }
     });
     return unsubscribe;
@@ -14530,11 +15400,11 @@ export default function HealingApp() {
             )}
             {page === 'card' && <CardPage onTaskComplete={completeTask} records={records} />}
             {page === 'healer' && <HealerPage records={records} userEmail={user?.email || null} onNavigate={(p) => setPage(p)} onTaskComplete={() => completeTask('checkin')} />}
+            {page === 'journal' && <JournalPage user={user} />}
             {page === 'shop' && <ShopPage />}
             {page === 'library' && <HealingLibraryPage userEmail={user?.email || null} onNavigate={(p) => setPage(p)} />}
             {page === 'community' && <CommunityPage userEmail={user?.email || null} />}
             {page === 'explore' && <ExplorePage records={records} userEmail={user?.email || null} onNavigate={(p) => setPage(p)} />}
-            {page === 'journal' && <JournalPage user={user} />}
             {page === 'calendar' && <FragranceCalendarPage />}
             {page === 'member' && <MemberPage records={records} onNavigate={(p) => setPage(p)} />}
             {page === 'custom' && <CustomOilPage user={user} records={records} />}
@@ -14547,6 +15417,7 @@ export default function HealingApp() {
           </motion.div>
         </AnimatePresence>
       </div>
+      {/* TopNav 已移到頂部 */}
 
       {/* Morning Flow Modal */}
       <AnimatePresence>
