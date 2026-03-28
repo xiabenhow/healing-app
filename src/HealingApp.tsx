@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { signInWithPopup, signInWithRedirect, signOut, onAuthStateChanged } from 'firebase/auth';
+import { signInWithPopup, signInWithRedirect, signOut, onAuthStateChanged, getRedirectResult } from 'firebase/auth';
 import type { User } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, getDocs, query, orderBy, Timestamp, addDoc, where, updateDoc, deleteDoc, increment, onSnapshot, limit as fsLimit } from 'firebase/firestore';
 import { auth, googleProvider, db } from './lib/firebase';
@@ -5332,18 +5332,19 @@ function MemberPage({ records, onNavigate }: { records: HealingRecord[]; onNavig
   const handleGoogleLogin = async () => {
     try {
       if (isNative()) {
-        // Native apps must use redirect-based auth
         await signInWithRedirect(auth, googleProvider);
       } else {
         await signInWithPopup(auth, googleProvider);
       }
     } catch (error: any) {
       console.error('Google 登入失敗:', error);
-      // Fallback to redirect
-      try {
-        await signInWithRedirect(auth, googleProvider);
-      } catch (redirectError) {
-        console.error('Redirect 登入也失敗:', redirectError);
+      // Only fallback to redirect for specific errors, not user-cancelled
+      if (error?.code !== 'auth/popup-closed-by-user' && error?.code !== 'auth/cancelled-popup-request') {
+        try {
+          await signInWithRedirect(auth, googleProvider);
+        } catch (redirectError) {
+          console.error('Redirect 登入也失敗:', redirectError);
+        }
       }
     }
   };
@@ -8146,6 +8147,22 @@ function JournalPage({ user }: { user: User | null }) {
     setTimeout(() => setShowSuccess(false), 2000);
   };
 
+  const handleDeleteEntry = async (entry: JournalEntry) => {
+    if (!confirm('確定要刪除這篇日記嗎？')) return;
+    // Remove from Firestore if has id and user is logged in
+    if (entry.id && user) {
+      try {
+        await deleteDoc(doc(db, 'journal_entries', entry.id));
+      } catch (err) {
+        console.error('Failed to delete from Firestore:', err);
+      }
+    }
+    // Remove from local state and localStorage
+    const updated = entries.filter(e => e.timestamp !== entry.timestamp || e.text !== entry.text);
+    setEntries(updated);
+    localStorage.setItem('journal_entries', JSON.stringify(updated));
+  };
+
   const filteredEntries = entries.filter(e =>
     searchQuery ? e.text.toLowerCase().includes(searchQuery.toLowerCase()) : true
   );
@@ -8300,10 +8317,15 @@ function JournalPage({ user }: { user: User | null }) {
         )}
         <div className="p-4">
           <div className="flex items-center justify-between mb-2">
-            {showDate && <span className="text-xs font-medium" style={{ color: '#8C7B72' }}>{entry.date}</span>}
-            <span className="text-xs" style={{ color: '#B5AFA8' }}>
-              {time.getHours().toString().padStart(2, '0')}:{time.getMinutes().toString().padStart(2, '0')}
-            </span>
+            <div className="flex items-center gap-2">
+              {showDate && <span className="text-xs font-medium" style={{ color: '#8C7B72' }}>{entry.date}</span>}
+              <span className="text-xs" style={{ color: '#B5AFA8' }}>
+                {time.getHours().toString().padStart(2, '0')}:{time.getMinutes().toString().padStart(2, '0')}
+              </span>
+            </div>
+            <button onClick={() => handleDeleteEntry(entry)} className="text-xs px-2 py-1 rounded-full" style={{ color: '#B5AFA8' }}>
+              刪除
+            </button>
           </div>
           {entry.symbols && entry.symbols.length > 0 && (
             <div className="flex gap-1 mb-2">
@@ -15189,6 +15211,18 @@ export default function HealingApp() {
 
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // Handle redirect result (for signInWithRedirect flow)
+  useEffect(() => {
+    getRedirectResult(auth).then((result) => {
+      if (result?.user) {
+        setUser(result.user);
+        console.log('Redirect login success:', result.user.email);
+      }
+    }).catch((err) => {
+      console.error('getRedirectResult error:', err);
+    });
   }, []);
 
   // Listen for auth changes and load Firestore records if logged in
