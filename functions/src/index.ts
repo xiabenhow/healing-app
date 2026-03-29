@@ -27,6 +27,9 @@ app.use(express.urlencoded({ limit: "10mb", extended: true }));
 const corsOptions = {
   origin: [
     "https://healing-6b425.web.app",
+    "https://app.xiabenhow.com",
+    "https://fragrance-calendar-2027.web.app",
+    "https://fragrance-calendar-2027.firebaseapp.com",
     "https://healing-6b425.firebaseapp.com",
     "http://localhost:3000",
     "http://localhost:5173",
