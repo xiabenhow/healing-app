@@ -6652,7 +6652,7 @@ function CardPage({ onTaskComplete, records }: { onTaskComplete: (key: TaskKey) 
                     backgroundColor: savedCards.includes(drawnCard.id) ? '#C9A96E' : (colorConfig?.hex || '#8FA886'),
                   }}
                 >
-                  {savedCards.includes(drawnCard.id) ? '已收藏 ✓' : '💾 收藏'}
+                  {savedCards.includes(drawnCard.id) ? '收藏進卡冊 ✓' : '📖 收藏進卡冊'}
                 </motion.button>
               </div>
               <motion.button
@@ -7546,50 +7546,60 @@ function ExclusiveContentPage({ userEmail }: { userEmail: string | null }) {
 
 function CardCollectionEntry({ onTaskComplete, records }: { onTaskComplete: (key: TaskKey) => void; records: HealingRecord[] }) {
   const [expanded, setExpanded] = useState(false);
+  const [albumPage, setAlbumPage] = useState(0);
   const savedCards = loadSavedCards();
   const totalCards = HEALING_CARDS.length;
+  const CARDS_PER_PAGE = 15;
+
+  // 取得收藏卡片的完整資料，依日期排序
+  const savedCardData = savedCards.map(cardId => {
+    const card = HEALING_CARDS.find(c => c.id === cardId);
+    // 嘗試從 localStorage 取得抽卡日期
+    let date = '';
+    for (let i = 0; i < 365; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dateStr = d.toISOString().split('T')[0];
+      try {
+        const stored = localStorage.getItem('card_drawn_' + dateStr);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed.cardId === cardId) { date = dateStr; break; }
+        }
+      } catch { /* skip */ }
+    }
+    return card ? { ...card, date } : null;
+  }).filter(Boolean) as (typeof HEALING_CARDS[0] & { date: string })[];
+
+  const totalAlbumPages = Math.max(1, Math.ceil(savedCardData.length / CARDS_PER_PAGE));
+  const pageCards = savedCardData.slice(albumPage * CARDS_PER_PAGE, (albumPage + 1) * CARDS_PER_PAGE);
 
   if (!expanded) {
     return (
       <motion.button
         whileTap={{ scale: 0.97 }}
         onClick={() => setExpanded(true)}
-        className="w-full rounded-3xl p-5 shadow-sm text-left"
-        style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}
+        className="w-full rounded-3xl overflow-hidden shadow-sm text-left"
+        style={{ border: '1px solid #E8E3DC' }}
       >
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, #C9A96E20, #8FA88620)' }}>
-              <span className="text-2xl">✦</span>
-            </div>
-            <div>
-              <p className="text-sm font-bold" style={{ color: '#3D3530' }}>我的療癒卡冊</p>
-              <p className="text-xs mt-0.5" style={{ color: '#8C7B72' }}>已收藏 {savedCards.length} 張 · 共 {totalCards} 張</p>
-            </div>
+        {/* 卡冊封面 */}
+        <div className="p-6 text-center" style={{ background: 'linear-gradient(145deg, #F5EDE4 0%, #E8DECE 50%, #D4C4B0 100%)' }}>
+          <div className="w-20 h-24 mx-auto rounded-lg shadow-md flex items-center justify-center mb-3"
+            style={{ background: 'linear-gradient(135deg, #C9A96E20, #8FA88615)', border: '2px solid #C9A96E40' }}>
+            <span className="text-3xl">📖</span>
           </div>
-          <div className="flex items-center gap-2">
-            {/* 迷你預覽：最近3張收藏 */}
-            <div className="flex -space-x-2">
-              {savedCards.slice(-3).map((cardId, i) => {
-                const card = HEALING_CARDS.find(c => c.id === cardId);
-                const cfg = card ? CARD_COLOR_CONFIG[card.color] : null;
-                return (
-                  <div key={cardId} className="w-7 h-7 rounded-lg flex items-center justify-center text-xs border-2 border-white shadow-sm"
-                    style={{ backgroundColor: cfg?.bgLight || '#FAF8F5', zIndex: i }}>
-                    {cfg?.label?.charAt(0) || '✦'}
-                  </div>
-                );
-              })}
-            </div>
-            <span className="text-sm" style={{ color: '#C9A96E' }}>›</span>
-          </div>
+          <p className="text-base font-bold" style={{ color: '#3D3530' }}>我的療癒卡冊</p>
+          <p className="text-xs mt-1" style={{ color: '#8C7B72' }}>已收藏 {savedCards.length} 張 · 共 {totalCards} 張</p>
         </div>
         {/* 進度條 */}
-        <div className="mt-3">
+        <div className="px-5 py-3" style={{ backgroundColor: '#FFFEF9' }}>
           <div className="w-full h-1.5 rounded-full" style={{ backgroundColor: '#F0EDE8' }}>
-            <div className="h-full rounded-full transition-all" style={{ backgroundColor: '#C9A96E', width: `${Math.min(100, (savedCards.length / totalCards) * 100)}%` }} />
+            <div className="h-full rounded-full transition-all" style={{ backgroundColor: '#C9A96E', width: String(Math.min(100, (savedCards.length / totalCards) * 100)) + '%' }} />
           </div>
-          <p className="text-[10px] mt-1 text-right" style={{ color: '#B5AFA8' }}>收集進度 {Math.round((savedCards.length / totalCards) * 100)}%</p>
+          <div className="flex justify-between mt-1">
+            <p className="text-[10px]" style={{ color: '#B5AFA8' }}>收集進度</p>
+            <p className="text-[10px] font-medium" style={{ color: '#C9A96E' }}>{Math.round((savedCards.length / totalCards) * 100)}%</p>
+          </div>
         </div>
       </motion.button>
     );
@@ -7597,17 +7607,97 @@ function CardCollectionEntry({ onTaskComplete, records }: { onTaskComplete: (key
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
-      {/* 收起按鈕 */}
-      <motion.button
-        whileTap={{ scale: 0.97 }}
-        onClick={() => setExpanded(false)}
-        className="w-full rounded-2xl p-3 text-sm font-medium flex items-center justify-center gap-2"
-        style={{ backgroundColor: '#FAF8F5', color: '#8C7B72' }}
-      >
-        <span>✦ 收起卡牌冊</span>
-        <motion.span animate={{ rotate: 180 }} transition={{ duration: 0.3 }}>▼</motion.span>
-      </motion.button>
-      {/* 完整卡牌頁 */}
+      {/* 卡冊本體 */}
+      <div className="rounded-3xl overflow-hidden shadow-md" style={{ border: '2px solid #D4C4B0' }}>
+        {/* 卡冊頂部 */}
+        <div className="px-5 py-4 flex items-center justify-between" style={{ background: 'linear-gradient(135deg, #F5EDE4, #E8DECE)' }}>
+          <div className="flex items-center gap-2">
+            <span className="text-xl">📖</span>
+            <div>
+              <p className="text-sm font-bold" style={{ color: '#3D3530' }}>我的療癒卡冊</p>
+              <p className="text-[10px]" style={{ color: '#8C7B72' }}>{savedCards.length} / {totalCards} 張</p>
+            </div>
+          </div>
+          <motion.button whileTap={{ scale: 0.9 }} onClick={() => setExpanded(false)}
+            className="w-8 h-8 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FFFEF960' }}>
+            <span className="text-xs" style={{ color: '#8C7B72' }}>✕</span>
+          </motion.button>
+        </div>
+
+        {/* 卡片網格 */}
+        <div className="p-4" style={{ backgroundColor: '#FFFEF9', minHeight: '300px' }}>
+          {savedCardData.length === 0 ? (
+            <div className="text-center py-12">
+              <span className="text-4xl block mb-3">✦</span>
+              <p className="text-sm" style={{ color: '#8C7B72' }}>卡冊裡還沒有卡片</p>
+              <p className="text-xs mt-1" style={{ color: '#B5AFA8' }}>每天抽一張卡牌，點「收藏進卡冊」就會出現在這裡</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-2">
+              {/* 填滿 15 格：有卡片的顯示卡片，沒有的顯示空位 */}
+              {Array.from({ length: CARDS_PER_PAGE }).map((_, i) => {
+                const card = pageCards[i];
+                if (card) {
+                  const cfg = CARD_COLOR_CONFIG[card.color];
+                  return (
+                    <motion.div key={card.id} whileTap={{ scale: 0.95 }}
+                      className="rounded-xl overflow-hidden shadow-sm" style={{ border: '1.5px solid ' + (cfg?.hex || '#8FA886') + '40', aspectRatio: '3/4' }}>
+                      {card.image ? (
+                        <div className="w-full h-full relative">
+                          <img src={card.image} alt={card.title} className="w-full h-full object-cover" />
+                          {card.date && (
+                            <div className="absolute bottom-0 left-0 right-0 px-1 py-0.5 text-center" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}>
+                              <p className="text-[8px] text-white">{card.date.slice(5)}</p>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center p-1.5" style={{ background: cfg?.gradient || cfg?.bgLight || '#FAF8F5' }}>
+                          <span className="text-lg mb-0.5">{cfg?.label?.charAt(0) || '✦'}</span>
+                          <p className="text-[8px] text-center font-medium leading-tight" style={{ color: cfg?.hex }}>{card.title}</p>
+                          {card.date && <p className="text-[7px] mt-0.5" style={{ color: '#B5AFA8' }}>{card.date.slice(5)}</p>}
+                        </div>
+                      )}
+                    </motion.div>
+                  );
+                } else {
+                  return (
+                    <div key={'empty-' + i} className="rounded-xl flex items-center justify-center"
+                      style={{ aspectRatio: '3/4', backgroundColor: '#FAF8F5', border: '1.5px dashed #E8E3DC' }}>
+                      <span className="text-lg" style={{ color: '#E8E3DC' }}>✦</span>
+                    </div>
+                  );
+                }
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* 翻頁 */}
+        {totalAlbumPages > 1 && (
+          <div className="flex items-center justify-center gap-4 py-3" style={{ backgroundColor: '#FAF8F5', borderTop: '1px solid #F0EDE8' }}>
+            <motion.button whileTap={{ scale: 0.9 }}
+              onClick={() => setAlbumPage(p => Math.max(0, p - 1))}
+              disabled={albumPage === 0}
+              className="w-8 h-8 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: albumPage === 0 ? '#F0EDE8' : '#C9A96E20', color: albumPage === 0 ? '#B5AFA8' : '#C9A96E' }}>
+              ‹
+            </motion.button>
+            <p className="text-xs font-medium" style={{ color: '#8C7B72' }}>
+              {albumPage + 1} / {totalAlbumPages}
+            </p>
+            <motion.button whileTap={{ scale: 0.9 }}
+              onClick={() => setAlbumPage(p => Math.min(totalAlbumPages - 1, p + 1))}
+              disabled={albumPage === totalAlbumPages - 1}
+              className="w-8 h-8 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: albumPage === totalAlbumPages - 1 ? '#F0EDE8' : '#C9A96E20', color: albumPage === totalAlbumPages - 1 ? '#B5AFA8' : '#C9A96E' }}>
+              ›
+            </motion.button>
+          </div>
+        )}
+      </div>
+
+      {/* 繼續抽卡按鈕 */}
       <CardPage onTaskComplete={onTaskComplete} records={records} />
     </motion.div>
   );
@@ -7949,25 +8039,41 @@ function HealerPage({ records, userEmail, onNavigate, onTaskComplete, onCheckIn 
           <p className="text-sm mt-1" style={{ color: '#8C7B72' }}>透過卡牌與測驗，更深入地認識自己</p>
         </div>
 
-        {/* Tab Buttons */}
-        <div className="flex gap-2">
+        {/* Tab Buttons — 大格 */}
+        <div className="grid grid-cols-2 gap-3">
           {[
-            { key: 'card' as const, label: '✦ 療癒卡牌', desc: '每日一抽' },
-            { key: 'tests' as const, label: '🧠 心理測驗', desc: '探索自己' },
-            { key: 'personality' as const, label: '🌿 療癒人格', desc: personalityInfo ? personalityInfo.label : '探索你的人格' },
+            { key: 'card' as const, label: '✦ 療癒卡牌', desc: '每日一抽，收集專屬卡片', emoji: '🃏', highlight: true },
+            { key: 'tests' as const, label: '🌱 心理測驗', desc: '探索內在，了解自己', emoji: '🔮', highlight: false },
           ].map(tab => (
             <motion.button key={tab.key} whileTap={{ scale: 0.96 }}
               onClick={() => setActiveExploreTab(tab.key)}
-              className="flex-1 rounded-2xl p-3 text-center"
+              className="rounded-3xl p-5 text-center"
               style={{
                 backgroundColor: activeExploreTab === tab.key ? '#FFFEF9' : '#FAF8F5',
-                border: activeExploreTab === tab.key ? '1.5px solid #C9A96E40' : '1px solid #F0EDE8',
+                border: activeExploreTab === tab.key ? '2px solid #C9A96E60' : '1.5px solid #F0EDE8',
+                minHeight: '120px',
               }}>
+              <span className="text-3xl block mb-2">{tab.emoji}</span>
               <p className="text-sm font-bold" style={{ color: activeExploreTab === tab.key ? '#3D3530' : '#8C7B72' }}>{tab.label}</p>
-              <p className="text-[10px] mt-0.5" style={{ color: '#B5AFA8' }}>{tab.desc}</p>
+              <p className="text-xs mt-1" style={{ color: '#B5AFA8' }}>{tab.desc}</p>
             </motion.button>
           ))}
         </div>
+        {/* 測驗分析 — 小格 */}
+        <motion.button whileTap={{ scale: 0.96 }}
+          onClick={() => setActiveExploreTab('personality')}
+          className="w-full rounded-2xl p-4 flex items-center gap-3"
+          style={{
+            backgroundColor: activeExploreTab === 'personality' ? '#FFFEF9' : '#FAF8F5',
+            border: activeExploreTab === 'personality' ? '2px solid #C9A96E60' : '1.5px solid #F0EDE8',
+          }}>
+          <span className="text-2xl">📋</span>
+          <div className="text-left">
+            <p className="text-sm font-bold" style={{ color: activeExploreTab === 'personality' ? '#3D3530' : '#8C7B72' }}>測驗分析</p>
+            <p className="text-xs" style={{ color: '#B5AFA8' }}>{personalityInfo ? personalityInfo.label : '查看你的測驗結果與分析'}</p>
+          </div>
+          <span className="ml-auto text-sm" style={{ color: '#C9A96E' }}>›</span>
+        </motion.button>
 
         {/* 卡牌區 */}
         {activeExploreTab === 'card' && (
@@ -8029,7 +8135,25 @@ function HealerPage({ records, userEmail, onNavigate, onTaskComplete, onCheckIn 
                 <PersonalityRecommendations profile={personalityProfile} />
               </>
             ) : (
-              <PersonalityQuiz onComplete={() => window.location.reload()} />
+              <div className="space-y-4">
+                {/* 引導做測驗 */}
+                <div className="rounded-3xl p-6 text-center" style={{ background: 'linear-gradient(135deg, #FAF8F5 0%, #F5F0EB 100%)' }}>
+                  <span className="text-4xl block mb-3">🔮</span>
+                  <p className="text-base font-bold mb-2" style={{ color: '#3D3530' }}>還沒有測驗結果</p>
+                  <p className="text-sm leading-relaxed mb-4" style={{ color: '#8C7B72' }}>
+                    完成心理測驗後，我會分析你的療癒人格類型，給你更精準的建議。測驗越多，分析越準確。
+                  </p>
+                  <motion.button
+                    whileTap={{ scale: 0.96 }}
+                    onClick={() => setActiveExploreTab('tests')}
+                    className="px-6 py-3 rounded-2xl text-sm font-medium text-white"
+                    style={{ backgroundColor: '#C9A96E' }}
+                  >
+                    🌱 開始第一個心理測驗
+                  </motion.button>
+                </div>
+                <PersonalityQuiz onComplete={() => window.location.reload()} />
+              </div>
             )}
           </motion.div>
         )}
@@ -14843,8 +14967,8 @@ function ExplorePage({ records, userEmail, onNavigate }: { records: HealingRecor
       <div className="flex gap-2">
         {[
           { key: 'card' as const, label: '✦ 療癒卡牌', desc: '每日一抽' },
-          { key: 'tests' as const, label: '🧠 心理測驗', desc: '探索自己' },
-          { key: 'personality' as const, label: '🌿 療癒人格', desc: personalityInfo ? personalityInfo.label : '探索你的人格' },
+          { key: 'tests' as const, label: '🌱 心理測驗', desc: '探索自己' },
+          { key: 'personality' as const, label: '📋 測驗分析', desc: personalityInfo ? personalityInfo.label : '查看你的分析' },
         ].map(tab => (
           <motion.button key={tab.key} whileTap={{ scale: 0.96 }}
             onClick={() => setActiveTab(tab.key)}
