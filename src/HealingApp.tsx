@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
+import { signInWithPopup, signInWithRedirect, signOut, onAuthStateChanged } from 'firebase/auth';
 import type { User } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, getDocs, query, orderBy, Timestamp, addDoc, where, updateDoc, deleteDoc, increment, onSnapshot, limit as fsLimit } from 'firebase/firestore';
 import { auth, googleProvider, db } from './lib/firebase';
@@ -5148,9 +5148,20 @@ function MemberPage({ records, onNavigate }: { records: HealingRecord[]; onNavig
 
   const handleGoogleLogin = async () => {
     try {
-      await signInWithPopup(auth, googleProvider);
+      if (isNative()) {
+        // Native apps must use redirect-based auth
+        await signInWithRedirect(auth, googleProvider);
+      } else {
+        await signInWithPopup(auth, googleProvider);
+      }
     } catch (error: any) {
       console.error('Google 登入失敗:', error);
+      // Fallback to redirect
+      try {
+        await signInWithRedirect(auth, googleProvider);
+      } catch (redirectError) {
+        console.error('Redirect 登入也失敗:', redirectError);
+      }
     }
   };
 
