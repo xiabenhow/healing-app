@@ -5482,7 +5482,7 @@ function MemberPage({ records, onNavigate }: { records: HealingRecord[]; onNavig
           </motion.button>
           <motion.button whileTap={{ scale: 0.96 }} onClick={() => onNavigate('exclusive-content')} className="rounded-2xl p-3.5 text-left" style={{ backgroundColor: '#FAF8F5' }}>
             <p className="text-xl mb-1">🔓</p>
-            <p className="text-xs font-medium" style={{ color: '#3D3530' }}>專屬內容</p>
+            <p className="text-xs font-medium" style={{ color: '#3D3530' }}>課後照顧</p>
             <p className="text-[10px] mt-0.5" style={{ color: '#8C7B72' }}>課後解鎖的照顧知識</p>
           </motion.button>
         </div>
@@ -7499,7 +7499,7 @@ function ExclusiveContentPage({ userEmail }: { userEmail: string | null }) {
 
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-      <p className="text-lg font-bold" style={{ color: '#3D3530' }}>🔓 課後專屬內容</p>
+      <p className="text-lg font-bold" style={{ color: '#3D3530' }}>🌿 課後照顧</p>
       <p className="text-xs" style={{ color: '#8C7B72' }}>上過的課程會解鎖專屬照顧內容與進階知識</p>
 
       {TOPICS.map(topic => {
@@ -7615,16 +7615,23 @@ function CardCollectionEntry({ onTaskComplete, records }: { onTaskComplete: (key
 
 // ===================== PAGE: HEALER (REDESIGNED) =====================
 
-function HealerPage({ records, userEmail, onNavigate, onTaskComplete }: { records: HealingRecord[]; userEmail?: string | null; onNavigate?: (p: PageType) => void; onTaskComplete?: () => void }) {
+function HealerPage({ records, userEmail, onNavigate, onTaskComplete, onCheckIn }: { records: HealingRecord[]; userEmail?: string | null; onNavigate?: (p: PageType) => void; onTaskComplete?: () => void; onCheckIn?: (emotion: EmotionKey) => void }) {
   const [activeExploreTab, setActiveExploreTab] = useState<'card' | 'tests' | 'personality'>('card');
   const personalityProfile = loadPersonalityProfile();
   const personalityInfo = personalityProfile ? HEALING_PERSONALITIES[personalityProfile.primary] : null;
+
+  // 內嵌心情記錄
+  const [inlineMoodNote, setInlineMoodNote] = useState('');
+  const [inlineMoodEmotion, setInlineMoodEmotion] = useState<EmotionKey | null>(null);
+  const [inlineMoodSaving, setInlineMoodSaving] = useState(false);
+  const [inlineMoodSuccess, setInlineMoodSuccess] = useState(false);
 
   const totalDays = new Set(records.map(r => r.date)).size;
   const level = getLevel(totalDays);
   const mostFrequent = getMostFrequentEmotion(records);
   const mostFrequentInfo = mostFrequent ? getEmotionInfo(mostFrequent) : null;
   const stabilityStars = getStabilityStars(records);
+  const isNewUser = totalDays === 0;
 
   const progressPercent = level.next === Infinity
     ? 100
@@ -7649,10 +7656,12 @@ function HealerPage({ records, userEmail, onNavigate, onTaskComplete }: { record
 
   const chatBubbles = useMemo(() => {
     const bubbles: string[] = [];
-    if (!mostFrequent) {
-      bubbles.push('歡迎你來到這裡。開始記錄你的情緒，我會慢慢了解你。');
-      bubbles.push('每天花一點時間感受自己，這就是療癒的開始。');
-      bubbles.push('準備好了嗎？去首頁完成你的第一次打卡吧。');
+    if (isNewUser) {
+      // 全新用戶 — 引導語，不顯示任何假統計
+      bubbles.push('嗨，我是 AURA，你的療癒師。很高興見到你。');
+      bubbles.push('在這裡，你可以每天花 30 秒記錄心情。我會慢慢認識你，給你專屬的香氛和療癒建議。');
+    } else if (!mostFrequent) {
+      bubbles.push('歡迎回來。繼續記錄你的心情，讓我更了解你。');
     } else {
       if (mostFrequent === 'anxious' || mostFrequent === 'tired') {
         bubbles.push('我注意到你最近壓力偏高，記得每晚睡前擴香洋甘菊，讓身體先放鬆。');
@@ -7663,29 +7672,37 @@ function HealerPage({ records, userEmail, onNavigate, onTaskComplete }: { record
       } else {
         bubbles.push('你最近充滿活力！好好利用這股能量，去做一件一直想做的事。');
       }
-      bubbles.push('今天有沒有完成你的微任務？呼吸練習只要30秒，但效果很大。');
       const recentRecord = records[records.length - 1];
       if (recentRecord) {
         const emo = getEmotionInfo(recentRecord.emotion);
-        bubbles.push(`你上次記錄感到${emo.label}，希望今天的你更好一些。`);
+        const recordDate = new Date(recentRecord.date);
+        const today = new Date();
+        const diffDays = Math.floor((today.getTime() - recordDate.getTime()) / (1000 * 60 * 60 * 24));
+        if (diffDays === 0) {
+          bubbles.push(`今天你記錄了 ${emo.emoji} ${emo.label}，謝謝你願意感受自己。`);
+        } else if (diffDays === 1) {
+          bubbles.push(`昨天你感到 ${emo.emoji} ${emo.label}，今天的你還好嗎？`);
+        } else {
+          bubbles.push(`距離上次記錄已經 ${diffDays} 天了，今天花一點時間感受自己吧。`);
+        }
       }
     }
     return bubbles;
-  }, [records, mostFrequent]);
+  }, [records, mostFrequent, isNewUser]);
 
-  const courseRecommendation = useMemo(() => {
-    if (mostFrequent === 'anxious' || mostFrequent === 'tired') {
-      return { title: '睡眠香氛調配工作坊 🌙', desc: '學習用香氣改善睡眠品質' };
-    }
-    if (mostFrequent === 'low') {
-      return { title: '花語心靈蠟燭課程 🕯️', desc: '用手作療癒心靈' };
-    }
-    if (mostFrequent === 'energized') {
-      return { title: '調香師入門體驗 ⚗️', desc: '探索屬於你的專屬香氣' };
-    }
-    return { title: '芳療生活入門課程 🌿', desc: '認識精油，開啟療癒旅程' };
-  }, [mostFrequent]);
+  const handleInlineMoodSave = () => {
+    if (!inlineMoodEmotion) return;
+    setInlineMoodSaving(true);
+    if (onCheckIn) onCheckIn(inlineMoodEmotion);
+    setInlineMoodSaving(false);
+    setInlineMoodSuccess(true);
+    setInlineMoodEmotion(null);
+    setInlineMoodNote('');
+    setTimeout(() => setInlineMoodSuccess(false), 2500);
+  };
 
+  const inlineEmoInfo = inlineMoodEmotion ? getEmotionInfo(inlineMoodEmotion) : null;
+  const inlineRecommendation = inlineMoodEmotion ? getOilRecommendation(inlineMoodEmotion) : null;
 
   return (
     <motion.div
@@ -7707,49 +7724,109 @@ function HealerPage({ records, userEmail, onNavigate, onTaskComplete }: { record
         <p className="text-sm" style={{ color: '#8C7B72' }}>你的體驗專家，溫柔地陪伴你</p>
       </motion.div>
 
-      {/* Analysis Card */}
+      {/* 新用戶引導 — 說明為什麼要記錄心情 */}
+      {isNewUser && (
+        <motion.div
+          variants={staggerItem}
+          className="rounded-3xl p-5 shadow-sm"
+          style={{ background: 'linear-gradient(135deg, #FAF8F5 0%, #F5F0EB 100%)' }}
+        >
+          <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>為什麼要記錄心情？</p>
+          <div className="space-y-2">
+            {[
+              { icon: '🧭', text: '了解自己的情緒節奏，找到你的身心規律' },
+              { icon: '🌿', text: '累積 7 天後，我會給你專屬的精油和療癒建議' },
+              { icon: '📊', text: '看見情緒變化的趨勢，覺察是療癒的第一步' },
+              { icon: '🎁', text: '每次記錄都能累積能量點數，兌換課程優惠' },
+            ].map((item, i) => (
+              <div key={i} className="flex items-start gap-2">
+                <span className="text-sm flex-shrink-0">{item.icon}</span>
+                <p className="text-sm leading-relaxed" style={{ color: '#5C534C' }}>{item.text}</p>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
+      {/* 內嵌心情快速記錄 */}
       <motion.div
         variants={staggerItem}
         className="rounded-3xl p-5 shadow-sm"
         style={{ backgroundColor: '#FFFEF9' }}
       >
-        {totalDays < 3 ? (
-          <div className="text-center">
-            <p className="text-sm leading-relaxed" style={{ color: '#3D3530' }}>
-              開始記錄你的情緒旅程吧 🌱
-            </p>
-            <p className="text-sm mt-2 leading-relaxed" style={{ color: '#8C7B72' }}>
-              打卡越多，我越能了解你，給你更精準的陪伴。
-            </p>
-            <p className="text-sm mt-2" style={{ color: '#8FA886' }}>
-              目前已記錄 {totalDays} 天，再打卡 {3 - totalDays} 天解鎖個人化建議。
-            </p>
-          </div>
+        <div className="flex items-center gap-2 mb-3">
+          <span className="text-lg">🎨</span>
+          <p className="text-sm font-bold" style={{ color: '#3D3530' }}>
+            {isNewUser ? '記錄你的第一個心情' : '現在的心情是...'}
+          </p>
+        </div>
+
+        {inlineMoodSuccess ? (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="text-center py-6"
+          >
+            <span className="text-4xl block mb-2">✨</span>
+            <p className="text-sm font-medium" style={{ color: '#8FA886' }}>已記錄！謝謝你願意感受自己</p>
+            {inlineRecommendation && (
+              <p className="text-xs mt-2" style={{ color: '#8C7B72' }}>推薦香氛：{inlineRecommendation.oils.join(' + ')}</p>
+            )}
+          </motion.div>
         ) : (
-          <div className="space-y-3">
-            {mostFrequentInfo && (
-              <p className="text-sm" style={{ color: '#3D3530' }}>
-                你這週最常感到 <span className="font-bold">{mostFrequentInfo.emoji} {mostFrequentInfo.label}</span>
-              </p>
-            )}
-            <p className="text-sm" style={{ color: '#3D3530' }}>
-              情緒穩定指數：<span style={{ color: '#C9A96E' }}>{renderStars(stabilityStars)}</span> {stabilityStars}/5
-            </p>
-            {mostFrequent && (
-              <>
-                <p className="text-sm" style={{ color: '#8C7B72' }}>
-                  療癒建議：{(() => { const hd = getHealingData(mostFrequent, 'L1'); return hd ? hd.warmMessages[0] : '繼續照顧自己吧'; })()}
+          <>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {MAIN_EMOTIONS.slice(0, 6).map((emo) => (
+                <motion.button
+                  key={emo.key}
+                  whileTap={{ scale: 0.92 }}
+                  onClick={() => setInlineMoodEmotion(emo.key)}
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium transition-all"
+                  style={{
+                    backgroundColor: inlineMoodEmotion === emo.key ? emo.color + '30' : '#FAF8F5',
+                    color: inlineMoodEmotion === emo.key ? emo.color : '#8C7B72',
+                    border: inlineMoodEmotion === emo.key ? `1.5px solid ${emo.color}` : '1.5px solid transparent',
+                  }}
+                >
+                  <span>{emo.emoji}</span>
+                  <span>{emo.label}</span>
+                </motion.button>
+              ))}
+            </div>
+
+            {/* 選完情緒後的精油推薦 */}
+            {inlineMoodEmotion && inlineRecommendation && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                className="mb-3 rounded-2xl p-3"
+                style={{ backgroundColor: (inlineEmoInfo?.color || '#C9A96E') + '12' }}
+              >
+                <p className="text-xs font-medium" style={{ color: inlineEmoInfo?.color || '#C9A96E' }}>
+                  🌿 為你推薦的香氛
                 </p>
-                <p className="text-sm font-medium" style={{ color: '#8FA886' }}>
-                  推薦精油：{(() => { const hd = getHealingData(mostFrequent, 'L1'); return hd ? hd.blend.oils.join(' + ') : '薰衣草 + 乳香'; })()}
-                </p>
-              </>
+                <p className="text-sm" style={{ color: '#3D3530' }}>{inlineRecommendation.oils.join(' + ')}</p>
+                <p className="text-xs mt-1" style={{ color: '#8C7B72' }}>{inlineRecommendation.description}</p>
+              </motion.div>
             )}
-          </div>
+
+            <motion.button
+              whileTap={{ scale: 0.96 }}
+              onClick={handleInlineMoodSave}
+              disabled={!inlineMoodEmotion || inlineMoodSaving}
+              className="w-full rounded-2xl py-2.5 text-sm font-medium transition-all"
+              style={{
+                backgroundColor: inlineMoodEmotion ? '#C9A96E' : '#E8E3DC',
+                color: inlineMoodEmotion ? 'white' : '#B5AFA8',
+              }}
+            >
+              {inlineMoodSaving ? '記錄中...' : '記錄心情'}
+            </motion.button>
+          </>
         )}
       </motion.div>
 
-      {/* Chat Bubbles */}
+      {/* 療癒師的話 */}
       <motion.div variants={staggerItem} className="space-y-3">
         <p className="text-sm font-bold" style={{ color: '#3D3530' }}>💬 療癒師的話</p>
         {chatBubbles.map((msg, i) => (
@@ -7766,6 +7843,50 @@ function HealerPage({ records, userEmail, onNavigate, onTaskComplete }: { record
         ))}
       </motion.div>
 
+      {/* Analysis Card — 只有真實紀錄才顯示 */}
+      {totalDays > 0 && (
+        <motion.div
+          variants={staggerItem}
+          className="rounded-3xl p-5 shadow-sm"
+          style={{ backgroundColor: '#FFFEF9' }}
+        >
+          {totalDays < 3 ? (
+            <div className="text-center">
+              <p className="text-sm leading-relaxed" style={{ color: '#3D3530' }}>
+                你已經開始了 🌱
+              </p>
+              <p className="text-sm mt-2 leading-relaxed" style={{ color: '#8C7B72' }}>
+                繼續記錄，我會越來越了解你。
+              </p>
+              <p className="text-sm mt-2" style={{ color: '#8FA886' }}>
+                已記錄 {totalDays} 天，再 {3 - totalDays} 天解鎖個人化建議
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {mostFrequentInfo && (
+                <p className="text-sm" style={{ color: '#3D3530' }}>
+                  你這週最常感到 <span className="font-bold">{mostFrequentInfo.emoji} {mostFrequentInfo.label}</span>
+                </p>
+              )}
+              <p className="text-sm" style={{ color: '#3D3530' }}>
+                情緒穩定指數：<span style={{ color: '#C9A96E' }}>{renderStars(stabilityStars)}</span> {stabilityStars}/5
+              </p>
+              {mostFrequent && (
+                <>
+                  <p className="text-sm" style={{ color: '#8C7B72' }}>
+                    療癒建議：{(() => { const hd = getHealingData(mostFrequent, 'L1'); return hd ? hd.warmMessages[0] : '繼續照顧自己吧'; })()}
+                  </p>
+                  <p className="text-sm font-medium" style={{ color: '#8FA886' }}>
+                    推薦精油：{(() => { const hd = getHealingData(mostFrequent, 'L1'); return hd ? hd.blend.oils.join(' + ') : '薰衣草 + 乳香'; })()}
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+        </motion.div>
+      )}
+
       {/* Growth System */}
       <motion.div
         variants={staggerItem}
@@ -7773,33 +7894,52 @@ function HealerPage({ records, userEmail, onNavigate, onTaskComplete }: { record
         style={{ backgroundColor: '#FFFEF9' }}
       >
         <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>🌱 成長旅程</p>
-        <div className="flex items-center gap-2 mb-3">
-          <span className="text-2xl">{level.emoji}</span>
-          <div>
-            <p className="text-sm font-medium" style={{ color: '#3D3530' }}>
-              {level.name} Lv.{level.level}
-            </p>
-            <p className="text-xs" style={{ color: '#8C7B72' }}>
-              已記錄 {totalDays} 天
-              {level.next !== Infinity && ` · 距離下一等級還差 ${level.next - totalDays} 天`}
-            </p>
+        {isNewUser ? (
+          <div className="text-center py-2">
+            <span className="text-3xl block mb-2">🌱</span>
+            <p className="text-sm font-medium" style={{ color: '#3D3530' }}>療癒旅人 Lv.1</p>
+            <p className="text-xs mt-1" style={{ color: '#8C7B72' }}>記錄第一個心情，開啟你的療癒旅程</p>
+            <div className="w-full h-2 rounded-full overflow-hidden mt-3" style={{ backgroundColor: '#FAF8F5' }}>
+              <div className="h-full rounded-full" style={{ backgroundColor: '#E8E3DC', width: '0%' }} />
+            </div>
+            <div className="flex justify-between mt-2 text-xs" style={{ color: '#B5AFA8' }}>
+              <span>🌱 療癒旅人</span>
+              <span>🌿 觀察者</span>
+              <span>🌸 療癒者</span>
+              <span>✨ 穩定之心</span>
+            </div>
           </div>
-        </div>
-        <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: '#FAF8F5' }}>
-          <motion.div
-            className="h-full rounded-full"
-            style={{ backgroundColor: '#8FA886' }}
-            initial={{ width: 0 }}
-            animate={{ width: `${progressPercent}%` }}
-            transition={{ duration: 1, ease: 'easeOut' }}
-          />
-        </div>
-        <div className="flex justify-between mt-2 text-xs" style={{ color: '#8C7B72' }}>
-          <span>🌱 療癒旅人</span>
-          <span>🌿 觀察者</span>
-          <span>🌸 療癒者</span>
-          <span>✨ 穩定之心</span>
-        </div>
+        ) : (
+          <>
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-2xl">{level.emoji}</span>
+              <div>
+                <p className="text-sm font-medium" style={{ color: '#3D3530' }}>
+                  {level.name} Lv.{level.level}
+                </p>
+                <p className="text-xs" style={{ color: '#8C7B72' }}>
+                  已記錄 {totalDays} 天
+                  {level.next !== Infinity && ` · 距離下一等級還差 ${level.next - totalDays} 天`}
+                </p>
+              </div>
+            </div>
+            <div className="w-full h-2 rounded-full overflow-hidden" style={{ backgroundColor: '#FAF8F5' }}>
+              <motion.div
+                className="h-full rounded-full"
+                style={{ backgroundColor: '#8FA886' }}
+                initial={{ width: 0 }}
+                animate={{ width: `${progressPercent}%` }}
+                transition={{ duration: 1, ease: 'easeOut' }}
+              />
+            </div>
+            <div className="flex justify-between mt-2 text-xs" style={{ color: '#8C7B72' }}>
+              <span>🌱 療癒旅人</span>
+              <span>🌿 觀察者</span>
+              <span>🌸 療癒者</span>
+              <span>✨ 穩定之心</span>
+            </div>
+          </>
+        )}
       </motion.div>
 
       {/* Explore Tabs Section */}
@@ -7829,10 +7969,9 @@ function HealerPage({ records, userEmail, onNavigate, onTaskComplete }: { record
           ))}
         </div>
 
-        {/* 卡牌區 — 卡牌冊入口（收起/展開） */}
+        {/* 卡牌區 */}
         {activeExploreTab === 'card' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
-            {/* 卡牌冊入口卡片 */}
             <CardCollectionEntry onTaskComplete={onTaskComplete || (() => {})} records={records} />
           </motion.div>
         )}
@@ -7849,7 +7988,6 @@ function HealerPage({ records, userEmail, onNavigate, onTaskComplete }: { record
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-4">
             {personalityProfile ? (
               <>
-                {/* 人格卡片 */}
                 <div className="rounded-2xl p-5 shadow-sm" style={{ background: personalityInfo?.gradient || 'linear-gradient(135deg, #FFFEF9 0%, #FAF8F5 100%)' }}>
                   <div className="flex items-center gap-3 mb-3">
                     <span className="text-4xl">{personalityInfo?.emoji}</span>
@@ -7867,7 +8005,6 @@ function HealerPage({ records, userEmail, onNavigate, onTaskComplete }: { record
                     </div>
                   )}
                 </div>
-                {/* 分數條 */}
                 <div className="rounded-2xl p-4 shadow-sm space-y-3" style={{ backgroundColor: '#FFFEF9' }}>
                   <p className="text-sm font-bold" style={{ color: '#3D3530' }}>人格分佈</p>
                   {(Object.keys(HEALING_PERSONALITIES) as HealingPersonalityType[]).map(type => {
@@ -7897,8 +8034,6 @@ function HealerPage({ records, userEmail, onNavigate, onTaskComplete }: { record
           </motion.div>
         )}
       </motion.div>
-
-      {/* (推薦區塊已移除) */}
     </motion.div>
   );
 }
@@ -7910,7 +8045,7 @@ const NAV_ITEMS: { key: PageType; icon: string; label: string }[] = [
   { key: 'healer', icon: '🌹', label: '療癒師' },
   { key: 'journal', icon: '📓', label: '日記' },
   { key: 'community', icon: '🎨', label: '社群' },
-  { key: 'library', icon: '✧', label: '專屬內容' },
+  { key: 'library', icon: '✧', label: '課後照顧' },
   // Row 2
   { key: 'sound', icon: '♪', label: '聆聽' },
   { key: 'collections', icon: '💝', label: '收藏' },
@@ -10755,7 +10890,7 @@ function HealingLibraryPage({ userEmail, onNavigate }: { userEmail: string | nul
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs tracking-widest" style={{ color: '#C9A96E' }}>PERSONAL CONTENT</p>
-              <h2 className="text-xl font-bold mt-1" style={{ color: '#3D3530' }}>專屬內容</h2>
+              <h2 className="text-xl font-bold mt-1" style={{ color: '#3D3530' }}>課後照顧</h2>
             </div>
             {userEmail && <PointsBadge userEmail={userEmail} />}
           </div>
@@ -10833,7 +10968,7 @@ function HealingLibraryPage({ userEmail, onNavigate }: { userEmail: string | nul
         {/* Section 1: 專屬課程選擇 */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <p className="text-sm font-bold" style={{ color: '#3D3530' }}>專屬內容</p>
+            <p className="text-sm font-bold" style={{ color: '#3D3530' }}>課後照顧</p>
             <motion.button
               whileTap={{ scale: 0.95 }}
               onClick={() => setShowAddCourseModal(true)}
@@ -15161,13 +15296,8 @@ export default function HealingApp() {
 
   const [user, setUser] = useState<User | null>(null);
   const [records, setRecords] = useState<HealingRecord[]>(() => {
-    const existing = loadRecords();
-    if (existing.length === 0) {
-      const demo = seedDemoData();
-      saveRecords(demo);
-      return demo;
-    }
-    return existing;
+    // 不再塞假資料，新用戶從空白開始
+    return loadRecords();
   });
 
   // --- NEW STATE ---
@@ -15411,7 +15541,7 @@ export default function HealingApp() {
               />
             )}
             {page === 'card' && <CardPage onTaskComplete={completeTask} records={records} />}
-            {page === 'healer' && <HealerPage records={records} userEmail={user?.email || null} onNavigate={(p) => setPage(p)} onTaskComplete={() => completeTask('checkin')} />}
+            {page === 'healer' && <HealerPage records={records} userEmail={user?.email || null} onNavigate={(p) => setPage(p)} onTaskComplete={() => completeTask('checkin')} onCheckIn={(emotion) => handleCheckIn(emotion)} />}
             {page === 'journal' && <JournalPage user={user} />}
             {page === 'shop' && <ShopPage />}
             {page === 'library' && <HealingLibraryPage userEmail={user?.email || null} onNavigate={(p) => setPage(p)} />}
