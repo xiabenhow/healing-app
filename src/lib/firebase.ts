@@ -5,7 +5,7 @@ import { getStorage } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: "AIzaSyAGsgSr2xEAfSrRR5fPWdpSvDYV_lRe8hM",
-  authDomain: "fragrance-calendar-2027.firebaseapp.com",
+  authDomain: "app.xiabenhow.com",
   projectId: "fragrance-calendar-2027",
   storageBucket: "fragrance-calendar-2027.firebasestorage.app",
   messagingSenderId: "917280770124",

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from 'firebase/auth';
+import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
 import type { User } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, getDocs, query, orderBy, Timestamp, addDoc, where, updateDoc, deleteDoc, increment, onSnapshot, limit as fsLimit } from 'firebase/firestore';
 import { auth, googleProvider, db } from './lib/firebase';
@@ -5151,17 +5151,6 @@ function MemberPage({ records, onNavigate }: { records: HealingRecord[]; onNavig
       await signInWithPopup(auth, googleProvider);
     } catch (error: any) {
       console.error('Google 登入失敗:', error);
-      // Fallback to redirect if popup fails (e.g. blocked cookies, missing initial state)
-      if (error?.code === 'auth/missing-initial-state' ||
-          error?.code === 'auth/popup-blocked' ||
-          error?.code === 'auth/popup-closed-by-user' ||
-          error?.message?.includes('missing initial state')) {
-        try {
-          await signInWithRedirect(auth, googleProvider);
-        } catch (redirectError) {
-          console.error('Redirect 登入也失敗:', redirectError);
-        }
-      }
     }
   };
 
@@ -12659,18 +12648,8 @@ function FragranceCalendarPage() {
     setSigningIn(true);
     try {
       await signInWithPopup(auth, googleProvider);
-    } catch (e: any) {
+    } catch (e) {
       console.error(e);
-      if (e?.code === 'auth/missing-initial-state' ||
-          e?.code === 'auth/popup-blocked' ||
-          e?.message?.includes('missing initial state')) {
-        try {
-          await signInWithRedirect(auth, googleProvider);
-          return; // redirect will reload the page
-        } catch (re) {
-          console.error('Redirect fallback failed:', re);
-        }
-      }
     }
     setSigningIn(false);
   };
@@ -15294,11 +15273,6 @@ export default function HealingApp() {
 
   // Listen for auth changes and load Firestore records if logged in
   useEffect(() => {
-    // Handle redirect result (fallback login flow)
-    getRedirectResult(auth).catch((err) => {
-      console.log('getRedirectResult:', err?.code || 'no redirect');
-    });
-
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
