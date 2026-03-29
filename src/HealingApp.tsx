@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { signInWithPopup, signOut, onAuthStateChanged } from 'firebase/auth';
+import { signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from 'firebase/auth';
 import type { User } from 'firebase/auth';
 import { doc, getDoc, setDoc, collection, getDocs, query, orderBy, Timestamp, addDoc, where, updateDoc, deleteDoc, increment, onSnapshot, limit as fsLimit } from 'firebase/firestore';
 import { auth, googleProvider, db } from './lib/firebase';
@@ -1007,7 +1007,7 @@ function OilModal({ oilName, onClose }: { oilName: string; onClose: () => void }
 
         <div className="space-y-3">
           <div className="rounded-2xl p-4" style={{ backgroundColor: '#FAF8F5' }}>
-            <p className="text-sm font-medium mb-1" style={{ color: '#3D3530' }}>🧠 心理功效</p>
+            <p className="text-sm font-medium mb-1" style={{ color: '#3D3530' }}>🌿 心理功效</p>
             <p className="text-sm" style={{ color: '#8C7B72' }}>{oil.mental}</p>
           </div>
           <div className="rounded-2xl p-4" style={{ backgroundColor: '#FAF8F5' }}>
@@ -2806,8 +2806,8 @@ function SoundPage({ recommendedEmotion }: { recommendedEmotion?: string }) {
     playScene, stopScene, stopPomodoro,
   } = useSoundscapeHook();
 
-  const [showAux, setShowAux] = useState(false);
-  const [showBowls, setShowBowls] = useState(false);
+  const [showAux, setShowAux] = useState(true);
+  const [showBowls, setShowBowls] = useState(true);
   const [showScenes, setShowScenes] = useState(false);
   const [showBreathing, setShowBreathing] = useState(false);
   // 分類各類預設
@@ -2925,114 +2925,6 @@ function SoundPage({ recommendedEmotion }: { recommendedEmotion?: string }) {
           </motion.button>
         ))}
       </div>
-
-      {/* 情境模式 Scene Modes */}
-      <div>
-        <button
-          onClick={() => setShowScenes(!showScenes)}
-          className="flex items-center gap-2 w-full mb-3"
-        >
-          <p className="text-sm font-bold" style={{ color: '#3D3530' }}>
-            情境模式
-          </p>
-          <span className="text-xs px-2 py-0.5 rounded-full" style={{ backgroundColor: '#E07A5F20', color: '#E07A5F' }}>
-            NEW
-          </span>
-          <span className="text-xs ml-auto" style={{ color: '#8C7B72' }}>
-            {showScenes ? '收起' : '展開'}
-          </span>
-        </button>
-        {!showScenes && (
-          <p className="text-xs mb-2" style={{ color: '#8C7B72' }}>
-            為不同場景調配的多層音景，一鍵進入狀態
-          </p>
-        )}
-        <AnimatePresence>
-          {showScenes && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="space-y-2 overflow-hidden"
-            >
-              <p className="text-xs mb-2" style={{ color: '#8C7B72' }}>
-                為不同場景調配的多層音景，一鍵進入狀態
-              </p>
-              {SCENE_MODES.map(scene => {
-                const isActive = activeScene === scene.key;
-                return (
-                  <motion.button
-                    key={scene.key}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => isActive ? stopScene() : playScene(scene)}
-                    className="w-full flex items-center gap-3 p-3 rounded-2xl transition-all"
-                    style={{
-                      backgroundColor: isActive ? scene.color + '25' : '#FAF8F5',
-                      border: `1.5px solid ${isActive ? scene.color : 'transparent'}`,
-                    }}
-                  >
-                    <span className="text-2xl">{scene.emoji}</span>
-                    <div className="text-left flex-1">
-                      <p className="text-sm font-bold" style={{ color: '#3D3530' }}>
-                        {scene.label}
-                        {scene.hasPomodoro && <span className="text-xs ml-1" style={{ color: '#E07A5F' }}>🍅</span>}
-                      </p>
-                      <p className="text-xs" style={{ color: '#8C7B72' }}>
-                        {scene.subtitle}
-                      </p>
-                      <div className="flex gap-1 mt-1">
-                        {scene.tags.map(tag => (
-                          <span key={tag} className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ backgroundColor: scene.color + '15', color: scene.color }}>
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                    {isActive && (
-                      <motion.div
-                        animate={{ scale: [1, 1.2, 1] }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                        className="w-3 h-3 rounded-full"
-                        style={{ backgroundColor: scene.color }}
-                      />
-                    )}
-                  </motion.button>
-                );
-              })}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-      {/* 番茄鐘狀態 Pomodoro indicator */}
-      {pomodoro.isActive && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="rounded-2xl p-4 flex items-center gap-3"
-          style={{ backgroundColor: pomodoro.isBreak ? '#E8F5E9' : '#FFF3E0' }}
-        >
-          <span className="text-2xl">{pomodoro.isBreak ? '☕' : '🍅'}</span>
-          <div className="flex-1">
-            <p className="text-sm font-bold" style={{ color: '#3D3530' }}>
-              {pomodoro.isBreak ? '休息時間' : '專注中'}
-            </p>
-            <p className="text-lg font-mono font-bold" style={{ color: pomodoro.isBreak ? '#4CAF50' : '#E07A5F' }}>
-              {formatPomodoro(pomodoro.secondsLeft)}
-            </p>
-            <p className="text-xs" style={{ color: '#8C7B72' }}>
-              已完成 {pomodoro.sessionsCompleted} 個番茄
-            </p>
-          </div>
-          <button
-            onClick={stopPomodoro}
-            className="px-3 py-1.5 rounded-full text-xs font-medium"
-            style={{ backgroundColor: '#00000010', color: '#8C7B72' }}
-          >
-            結束
-          </button>
-        </motion.div>
-      )}
 
       {/* Now playing */}
       {isPlaying && (
@@ -3332,88 +3224,11 @@ function SoundPage({ recommendedEmotion }: { recommendedEmotion?: string }) {
         </motion.div>
       )}
 
-      {/* ===================== 呼吸同步區塊 ===================== */}
-      <div>
-        <button
-          onClick={() => setShowBreathing(!showBreathing)}
-          className="flex items-center gap-2 mb-2"
-        >
-          <p className="text-sm font-bold" style={{ color: '#3D3530' }}>
-            🫧 呼吸同步
-          </p>
-          <span className="text-xs" style={{ color: '#8C7B72' }}>
-            {showBreathing ? '收起' : '跟著聲音呼吸 →'}
-          </span>
-          {wellnessRec?.breathing && (
-            <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ backgroundColor: '#7BAFD420', color: '#7BAFD4' }}>
-              推薦
-            </span>
-          )}
-        </button>
-        <AnimatePresence>
-          {showBreathing && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="space-y-2 overflow-hidden"
-            >
-              <p className="text-xs" style={{ color: '#8C7B72' }}>
-                不用看畫面，跟著聲音的起伏自然呼吸就好
-              </p>
-              {breathingPresets.map(preset => {
-                const isActive = mainScape === preset.key;
-                const isRecommended = wellnessRec?.breathing === preset.key;
-                return (
-                  <motion.button
-                    key={preset.key}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={() => playMain(preset)}
-                    className="w-full rounded-2xl p-4 text-left transition-all"
-                    style={{
-                      backgroundColor: isActive ? preset.color + '20' : isRecommended ? '#FFF8E7' : '#FFFEF9',
-                      border: isActive ? `2px solid ${preset.color}` : isRecommended ? '1px solid #C9A96E40' : '1px solid #F0EDE8',
-                    }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-2xl">{preset.emoji}</span>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-medium" style={{ color: '#3D3530' }}>{preset.label}</p>
-                          {isRecommended && <span className="text-xs px-1.5 py-0.5 rounded-full" style={{ backgroundColor: '#C9A96E20', color: '#C9A96E' }}>推薦</span>}
-                        </div>
-                        <p className="text-xs" style={{ color: '#8C7B72' }}>{preset.subtitle}</p>
-                        {preset.breathingPattern && (
-                          <p className="text-xs mt-0.5" style={{ color: preset.color }}>
-                            吸 {preset.breathingPattern.inhale}s → 停 {preset.breathingPattern.hold}s → 吐 {preset.breathingPattern.exhale}s
-                            {preset.breathingPattern.holdAfter ? ` → 停 ${preset.breathingPattern.holdAfter}s` : ''}
-                          </p>
-                        )}
-                      </div>
-                      {isActive && (
-                        <motion.div
-                          animate={{ scale: [1, 1.3, 1] }}
-                          transition={{ duration: 2, repeat: Infinity }}
-                        >
-                          <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: preset.color }} />
-                        </motion.div>
-                      )}
-                    </div>
-                  </motion.button>
-                );
-              })}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-
       {/* Gentle tip */}
       <div className="rounded-2xl p-4" style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}>
         <p className="text-xs leading-relaxed italic text-center" style={{ color: '#8C7B72' }}>
           這些聲音會像呼吸一樣慢慢起伏，偶爾有一點小變化。<br/>
-          呼吸同步會跟著你的節奏引導，冥想極簡到幾乎感受不到。<br/>
-          水晶缽可以和任何音景疊加。
+          水晶缽可以和任何音景疊加，帶來更深層的放鬆。
         </p>
       </div>
     </motion.div>
@@ -5333,10 +5148,20 @@ function MemberPage({ records, onNavigate }: { records: HealingRecord[]; onNavig
 
   const handleGoogleLogin = async () => {
     try {
-      // Use redirect flow for custom authDomain to avoid popup white screen
       await signInWithPopup(auth, googleProvider);
     } catch (error: any) {
       console.error('Google 登入失敗:', error);
+      // Fallback to redirect if popup fails (e.g. blocked cookies, missing initial state)
+      if (error?.code === 'auth/missing-initial-state' ||
+          error?.code === 'auth/popup-blocked' ||
+          error?.code === 'auth/popup-closed-by-user' ||
+          error?.message?.includes('missing initial state')) {
+        try {
+          await signInWithRedirect(auth, googleProvider);
+        } catch (redirectError) {
+          console.error('Redirect 登入也失敗:', redirectError);
+        }
+      }
     }
   };
 
@@ -5519,7 +5344,7 @@ function MemberPage({ records, onNavigate }: { records: HealingRecord[]; onNavig
         style={{ background: 'linear-gradient(135deg, #E8E0F0 0%, #FFFEF9 100%)', border: '1px solid #F0EDE8' }}
       >
         <div className="flex items-center gap-4">
-          <span className="text-4xl">🧠</span>
+          <span className="text-4xl">🔮</span>
           <div>
             <p className="text-base font-bold" style={{ color: '#3D3530' }}>我的測驗</p>
             <p className="text-xs mt-1" style={{ color: '#8C7B72' }}>心理測驗結果與療癒人格分析</p>
@@ -11380,7 +11205,7 @@ function HealingLibraryPage({ userEmail, onNavigate }: { userEmail: string | nul
         )}
         {selectedOil.mental && (
           <div className="rounded-2xl p-4 shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
-            <p className="text-sm font-bold mb-2" style={{ color: '#3D3530' }}>🧠 心靈功效</p>
+            <p className="text-sm font-bold mb-2" style={{ color: '#3D3530' }}>🌿 心靈功效</p>
             <p className="text-sm whitespace-pre-line leading-relaxed" style={{ color: '#8C7B72' }}>{selectedOil.mental}</p>
           </div>
         )}
@@ -11442,7 +11267,7 @@ function HealingLibraryPage({ userEmail, onNavigate }: { userEmail: string | nul
           <p className="text-sm whitespace-pre-line leading-relaxed" style={{ color: '#8C7B72' }}>{selectedCrystal.physical}</p>
         </div>
         <div className="rounded-2xl p-4 shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
-          <p className="text-sm font-bold mb-2" style={{ color: '#3D3530' }}>🧠 心靈功效</p>
+          <p className="text-sm font-bold mb-2" style={{ color: '#3D3530' }}>🌿 心靈功效</p>
           <p className="text-sm whitespace-pre-line leading-relaxed" style={{ color: '#8C7B72' }}>{selectedCrystal.mental}</p>
         </div>
         <div className="rounded-2xl p-4 shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
@@ -12834,8 +12659,18 @@ function FragranceCalendarPage() {
     setSigningIn(true);
     try {
       await signInWithPopup(auth, googleProvider);
-    } catch (e) {
+    } catch (e: any) {
       console.error(e);
+      if (e?.code === 'auth/missing-initial-state' ||
+          e?.code === 'auth/popup-blocked' ||
+          e?.message?.includes('missing initial state')) {
+        try {
+          await signInWithRedirect(auth, googleProvider);
+          return; // redirect will reload the page
+        } catch (re) {
+          console.error('Redirect fallback failed:', re);
+        }
+      }
     }
     setSigningIn(false);
   };
@@ -14688,7 +14523,7 @@ function PsychTestListView({ onSelectTest }: { onSelectTest: (test: HealingTest)
       {/* Progress header */}
       <div className="rounded-2xl p-5 shadow-sm" style={{ background: 'linear-gradient(135deg, #E8E0F0 0%, #FFFEF9 100%)' }}>
         <div className="flex items-center gap-3">
-          <span className="text-4xl">🧠</span>
+          <span className="text-4xl">🔮</span>
           <div className="flex-1">
             <h3 className="text-lg font-bold" style={{ color: '#3D3530' }}>療癒心理測驗</h3>
             <p className="text-xs mt-1" style={{ color: '#8C7B72' }}>15 個精心設計的測驗，幫助你更了解自己</p>
@@ -15459,6 +15294,11 @@ export default function HealingApp() {
 
   // Listen for auth changes and load Firestore records if logged in
   useEffect(() => {
+    // Handle redirect result (fallback login flow)
+    getRedirectResult(auth).catch((err) => {
+      console.log('getRedirectResult:', err?.code || 'no redirect');
+    });
+
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
