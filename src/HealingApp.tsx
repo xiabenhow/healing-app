@@ -5152,16 +5152,13 @@ function MemberPage({ records, onNavigate }: { records: HealingRecord[]; onNavig
         // Native apps must use redirect-based auth
         await signInWithRedirect(auth, googleProvider);
       } else {
+        // Use popup for all web browsers (desktop & mobile)
+        // Do NOT fallback to signInWithRedirect — it causes "missing initial state"
+        // error on mobile browsers due to storage partitioning with custom authDomain
         await signInWithPopup(auth, googleProvider);
       }
     } catch (error: any) {
       console.error('Google 登入失敗:', error);
-      // Fallback to redirect
-      try {
-        await signInWithRedirect(auth, googleProvider);
-      } catch (redirectError) {
-        console.error('Redirect 登入也失敗:', redirectError);
-      }
     }
   };
 
