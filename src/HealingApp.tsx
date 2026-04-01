@@ -48,7 +48,7 @@ const ADMIN_EMAIL = 'xiabenhow@gmail.com';
 
 // ===================== TYPES =====================
 
-type PageType = 'home' | 'diary' | 'recipe' | 'card' | 'healer' | 'library' | 'calendar' | 'sound' | 'booking' | 'member' | 'shop' | 'healing' | 'bedtime' | 'custom' | 'service' | 'wishlist' | 'my-works' | 'collections' | 'course-journey' | 'exclusive-content' | 'community' | 'explore' | 'journal' | 'admin-dashboard' | 'ebook';
+type PageType = 'home' | 'diary' | 'recipe' | 'card' | 'healer' | 'library' | 'calendar' | 'sound' | 'booking' | 'member' | 'shop' | 'healing' | 'bedtime' | 'custom' | 'service' | 'wishlist' | 'my-works' | 'collections' | 'course-journey' | 'exclusive-content' | 'community' | 'explore' | 'journal' | 'admin-dashboard' | 'ebook' | 'ebook-checkout';
 type TaskKey = 'checkin' | 'card' | 'note' | 'breathe' | 'evening' | 'share';
 
 interface CartItem {
@@ -13624,7 +13624,7 @@ function EbookReaderPage({ book, onBack }: { book: EbookItem; onBack: () => void
   );
 }
 
-function EbookShelfPage({ userEmail, onNavigate }: { userEmail: string | null; onNavigate: (p: PageType) => void }) {
+function EbookShelfPage({ userEmail, onNavigate, onPurchaseBook }: { userEmail: string | null; onNavigate: (p: PageType) => void; onPurchaseBook?: (book: EbookItem) => void }) {
   const [user, setUser] = useState<User | null>(null);
   const [authorizedBooks, setAuthorizedBooks] = useState<string[]>([]);
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -13812,7 +13812,8 @@ function EbookShelfPage({ userEmail, onNavigate }: { userEmail: string | null; o
                   <motion.button
                     whileTap={{ scale: 0.96 }}
                     onClick={() => {
-                      window.open('https://xiabenhow.com/ebook-purchase', '_blank');
+                      setShowPurchasePrompt(null);
+                      if (onPurchaseBook) onPurchaseBook(showPurchasePrompt);
                     }}
                     className="w-full rounded-2xl py-3.5 font-bold text-sm"
                     style={{ backgroundColor: '#C9A96E', color: '#fff' }}
@@ -13821,7 +13822,7 @@ function EbookShelfPage({ userEmail, onNavigate }: { userEmail: string | null; o
                   </motion.button>
 
                   <p className="text-[10px] text-center" style={{ color: '#B0A89E' }}>
-                    購買後我們會在 24 小時內為你開通閱讀權限
+                    付款成功後立即開通閱讀權限
                   </p>
                 </div>
               )}
@@ -13837,6 +13838,240 @@ function EbookShelfPage({ userEmail, onNavigate }: { userEmail: string | null; o
           </motion.div>
         )}
       </AnimatePresence>
+    </motion.div>
+  );
+}
+
+// ===================== PAGE: 電子書結帳 (Ebook Checkout) =====================
+
+function EbookCheckoutPage({ book, onBack, onSuccess }: { book: EbookItem; onBack: () => void; onSuccess: () => void }) {
+  const [user, setUser] = useState<User | null>(null);
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState<'credit' | 'line'>('credit');
+  const [processing, setProcessing] = useState(false);
+  const [orderComplete, setOrderComplete] = useState(false);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        if (currentUser.displayName && !name) setName(currentUser.displayName);
+        if (currentUser.email && !email) setEmail(currentUser.email);
+      }
+    });
+    return unsub;
+  }, []);
+
+  const handleGoogleLogin = async () => {
+    try { await signInWithPopup(auth, googleProvider); } catch (e) { console.error('Login failed:', e); }
+  };
+
+  const handleCheckout = async () => {
+    if (!user) {
+      alert('請先登入');
+      return;
+    }
+    if (!name || !phone || !email) {
+      alert('請填寫必填欄位');
+      return;
+    }
+    setProcessing(true);
+    try {
+      // Step 1: Create WooCommerce order for ebook (virtual product)
+      const orderData = {
+        billing: { first_name: name, email, phone },
+        line_items: [{ product_id: 0, quantity: 1, name: book.title, total: String(book.price) }],
+        payment_method: paymentMethod === 'credit' ? 'credit_card' : 'line_pay',
+        set_paid: false,
+        meta_data: [
+          { key: '_ebook_id', value: book.id },
+          { key: '_ebook_email', value: email },
+          { key: '_is_ebook_order', value: 'yes' },
+        ],
+      };
+
+      const orderResponse = await fetch(`${API_BASE}/api/wc/orders`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(orderData),
+      });
+
+      if (!orderResponse.ok) throw new Error('建立訂單失敗');
+      const order = await orderResponse.json();
+      const orderId = order.id;
+
+      // Step 2: Redirect to payment
+      if (paymentMethod === 'credit') {
+        await openPaymentUrl(`${API_BASE}/api/ecpay/create?order_id=${orderId}&payment=credit`);
+      } else {
+        const linePayResponse = await fetch(`${API_BASE}/api/linepay/request`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            orderId: String(orderId),
+            amount: book.price,
+            products: [{ name: book.title, quantity: 1, price: book.price }],
+          }),
+        });
+        if (!linePayResponse.ok) throw new Error('LINE Pay 請求失敗');
+        const linePayData = await linePayResponse.json();
+        const lpUrl = linePayData.paymentUrl || linePayData.info?.paymentUrl?.web;
+        if (lpUrl) {
+          await openPaymentUrl(lpUrl);
+        } else {
+          throw new Error('無法取得 LINE Pay 付款網址');
+        }
+      }
+
+      // Step 3: After payment redirect back, grant access via Firestore
+      // The backend webhook should handle this, but as a fallback we also try here
+      try {
+        const emailKey = email.replace(/\./g, '_');
+        const docRef = doc(db, 'ebook_authorized', emailKey);
+        const snap = await getDoc(docRef);
+        const existingBooks: string[] = snap.exists() ? (snap.data()?.books || []) : [];
+        if (!existingBooks.includes(book.id)) {
+          existingBooks.push(book.id);
+        }
+        await setDoc(docRef, {
+          active: true,
+          books: existingBooks,
+          updatedAt: new Date().toISOString(),
+        }, { merge: true });
+      } catch (e) {
+        console.error('Firestore ebook auth write error (will be handled by webhook):', e);
+      }
+
+      setOrderComplete(true);
+      alert(`訂單已建立！\n訂單編號: ${orderId}\n付款完成後即可閱讀「${book.title}」`);
+    } catch (error) {
+      console.error('Ebook checkout error:', error);
+      alert('結帳失敗: ' + (error instanceof Error ? error.message : '未知錯誤'));
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  if (orderComplete) {
+    return (
+      <motion.div className="space-y-6 text-center py-10" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+        <span className="text-6xl block">🎉</span>
+        <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>訂單已建立</h2>
+        <p className="text-sm" style={{ color: '#8C7B72' }}>付款完成後，「{book.title}」將立即開通閱讀權限</p>
+        <motion.button
+          whileTap={{ scale: 0.96 }}
+          onClick={onSuccess}
+          className="mx-auto px-8 py-3 rounded-2xl font-bold text-sm"
+          style={{ backgroundColor: '#C9A96E', color: '#fff' }}
+        >
+          返回電子書書架
+        </motion.button>
+      </motion.div>
+    );
+  }
+
+  return (
+    <motion.div className="space-y-5" initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}>
+      {/* Header */}
+      <div className="flex items-center gap-3">
+        <motion.button whileTap={{ scale: 0.9 }} onClick={onBack} className="text-xl">←</motion.button>
+        <h2 className="text-xl font-bold" style={{ color: '#3D3530' }}>💳 購買電子書</h2>
+      </div>
+
+      {/* Book Summary */}
+      <div className="rounded-2xl overflow-hidden shadow-sm flex" style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}>
+        <div className="w-24 h-32 flex-shrink-0" style={{ backgroundColor: '#F5F0EB' }}>
+          <img src={book.coverUrl} alt={book.title} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+        </div>
+        <div className="flex-1 p-4 flex flex-col justify-center">
+          <p className="text-sm font-bold" style={{ color: '#3D3530' }}>{book.title}</p>
+          <p className="text-xs mt-0.5" style={{ color: '#8C7B72' }}>{book.subtitle}</p>
+          <p className="text-lg font-bold mt-2" style={{ color: '#C9A96E' }}>NT$ {book.price}</p>
+        </div>
+      </div>
+
+      {/* Login required */}
+      {!user ? (
+        <div className="rounded-2xl p-5 text-center space-y-3" style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}>
+          <p className="text-sm font-bold" style={{ color: '#3D3530' }}>請先登入</p>
+          <p className="text-xs" style={{ color: '#8C7B72' }}>登入後即可購買並開通閱讀權限</p>
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            onClick={handleGoogleLogin}
+            className="w-full rounded-2xl py-3 font-medium text-sm flex items-center justify-center gap-2"
+            style={{ backgroundColor: '#4285F4', color: '#fff' }}
+          >
+            🔑 使用 Google 帳號登入
+          </motion.button>
+        </div>
+      ) : (
+        <>
+          {/* Customer Info */}
+          <div className="rounded-2xl p-5 space-y-3" style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}>
+            <p className="text-sm font-bold" style={{ color: '#3D3530' }}>📝 基本資訊</p>
+            <div>
+              <label className="text-xs" style={{ color: '#8C7B72' }}>姓名 *</label>
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="請輸入姓名" className="w-full mt-1 p-2.5 rounded-lg text-sm" style={{ backgroundColor: '#FAF8F5', border: '1px solid #F0EDE8', color: '#3D3530' }} />
+            </div>
+            <div>
+              <label className="text-xs" style={{ color: '#8C7B72' }}>聯絡電話 *</label>
+              <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="請輸入電話" className="w-full mt-1 p-2.5 rounded-lg text-sm" style={{ backgroundColor: '#FAF8F5', border: '1px solid #F0EDE8', color: '#3D3530' }} />
+            </div>
+            <div>
+              <label className="text-xs" style={{ color: '#8C7B72' }}>電子郵件 *</label>
+              <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="請輸入電子郵件" className="w-full mt-1 p-2.5 rounded-lg text-sm" style={{ backgroundColor: '#FAF8F5', border: '1px solid #F0EDE8', color: '#3D3530' }} />
+            </div>
+          </div>
+
+          {/* Payment Method */}
+          <div className="rounded-2xl p-5 space-y-3" style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}>
+            <p className="text-sm font-bold" style={{ color: '#3D3530' }}>💳 付款方式</p>
+            <div className="space-y-2">
+              {[
+                { id: 'credit' as const, label: '信用卡付款', desc: 'Visa / Mastercard / JCB' },
+                { id: 'line' as const, label: 'LINE Pay', desc: '使用 LINE Pay 付款' },
+              ].map(method => (
+                <label key={method.id} className="flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all" style={{ backgroundColor: paymentMethod === method.id ? '#E8F0E8' : '#FAF8F5', border: `1px solid ${paymentMethod === method.id ? '#8FA886' : '#F0EDE8'}` }}>
+                  <input type="radio" name="payment" checked={paymentMethod === method.id} onChange={() => setPaymentMethod(method.id)} className="accent-amber-600" />
+                  <div>
+                    <p className="text-sm font-medium" style={{ color: '#3D3530' }}>{method.label}</p>
+                    <p className="text-[10px]" style={{ color: '#8C7B72' }}>{method.desc}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          {/* Order Summary */}
+          <div className="rounded-2xl p-5" style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}>
+            <div className="flex justify-between items-center">
+              <p className="text-sm" style={{ color: '#8C7B72' }}>電子書</p>
+              <p className="text-sm" style={{ color: '#3D3530' }}>{book.title}</p>
+            </div>
+            <div className="border-t mt-3 pt-3 flex justify-between items-center" style={{ borderColor: '#F0EDE8' }}>
+              <p className="text-sm font-bold" style={{ color: '#3D3530' }}>合計</p>
+              <p className="text-lg font-bold" style={{ color: '#C9A96E' }}>NT$ {book.price}</p>
+            </div>
+          </div>
+
+          {/* Checkout Button */}
+          <motion.button
+            whileTap={{ scale: 0.96 }}
+            onClick={handleCheckout}
+            disabled={processing}
+            className="w-full rounded-2xl py-4 font-bold text-sm shadow-md"
+            style={{ backgroundColor: processing ? '#B0A89E' : '#C9A96E', color: '#fff' }}
+          >
+            {processing ? '處理中...' : `確認付款 NT$ ${book.price}`}
+          </motion.button>
+
+          <p className="text-[10px] text-center pb-4" style={{ color: '#B0A89E' }}>
+            付款成功後將立即開通「{book.title}」閱讀權限
+          </p>
+        </>
+      )}
     </motion.div>
   );
 }
@@ -16597,6 +16832,9 @@ export default function HealingApp() {
     return loadRecords();
   });
 
+  // --- EBOOK PURCHASE STATE ---
+  const [ebookPurchaseTarget, setEbookPurchaseTarget] = useState<EbookItem | null>(null);
+
   // --- NEW STATE ---
   const [showMorningFlow, setShowMorningFlow] = useState(false);
   const [morningFlowEmotion, setMorningFlowEmotion] = useState<EmotionKey | null>(null);
@@ -16866,7 +17104,8 @@ export default function HealingApp() {
             {page === 'community' && <CommunityPage userEmail={user?.email || null} />}
             {page === 'explore' && <ExplorePage records={records} userEmail={user?.email || null} onNavigate={(p) => setPage(p)} />}
             {page === 'calendar' && <FragranceCalendarPage />}
-            {page === 'ebook' && <EbookShelfPage userEmail={user?.email || null} onNavigate={(p) => setPage(p)} />}
+            {page === 'ebook' && <EbookShelfPage userEmail={user?.email || null} onNavigate={(p) => setPage(p)} onPurchaseBook={(book) => { setEbookPurchaseTarget(book); setPage('ebook-checkout'); }} />}
+            {page === 'ebook-checkout' && ebookPurchaseTarget && <EbookCheckoutPage book={ebookPurchaseTarget} onBack={() => { setEbookPurchaseTarget(null); setPage('ebook'); }} onSuccess={() => { setEbookPurchaseTarget(null); setPage('ebook'); }} />}
             {page === 'member' && <MemberPage records={records} onNavigate={(p) => setPage(p)} />}
             {page === 'custom' && <CustomOilPage user={user} records={records} />}
             {page === 'service' && <ServiceHallPage onNavigate={(p) => setPage(p)} />}
