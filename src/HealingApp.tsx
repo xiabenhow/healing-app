@@ -3550,8 +3550,8 @@ function saveCartToStorage(cart: CartItem[]) {
   } catch (e) { /* ignore */ }
 }
 
-function ShopPage() {
-  const [view, setView] = useState<'products' | 'detail' | 'cart' | 'checkout'>('products');
+function ShopPage({ initialView }: { initialView?: 'products' | 'cart' | 'checkout' } = {}) {
+  const [view, setView] = useState<'products' | 'detail' | 'cart' | 'checkout'>(initialView || 'products');
   const [cart, setCart] = useState<CartItem[]>(() => loadCartFromStorage());
   const [selectedProduct, setSelectedProduct] = useState<WCProduct | null>(null);
   const [selectedRegion, setSelectedRegion] = useState<ShopRegion>('taipei');
@@ -13395,6 +13395,7 @@ interface EbookItem {
   imageSuffix: string; // e.g. '.jpg'
   price: number;
   year: number;
+  wcProductId: number; // WooCommerce product ID
 }
 
 const EBOOK_CATALOG: EbookItem[] = [
@@ -13408,6 +13409,7 @@ const EBOOK_CATALOG: EbookItem[] = [
     imageSuffix: '.jpg',
     price: 799,
     year: 2024,
+    wcProductId: 107817,
   },
   {
     id: '2023-fragrance-calendar',
@@ -13419,6 +13421,7 @@ const EBOOK_CATALOG: EbookItem[] = [
     imageSuffix: '.jpg',
     price: 799,
     year: 2023,
+    wcProductId: 107820,
   },
 ];
 
@@ -13624,7 +13627,7 @@ function EbookReaderPage({ book, onBack }: { book: EbookItem; onBack: () => void
   );
 }
 
-function EbookShelfPage({ userEmail, onNavigate, onPurchaseBook }: { userEmail: string | null; onNavigate: (p: PageType) => void; onPurchaseBook?: (book: EbookItem) => void }) {
+function EbookShelfPage({ userEmail, onNavigate, onPurchaseBook }: { userEmail: string | null; onNavigate: (p: PageType) => void; onPurchaseBook: (book: EbookItem) => void }) {
   const [user, setUser] = useState<User | null>(null);
   const [authorizedBooks, setAuthorizedBooks] = useState<string[]>([]);
   const [checkingAuth, setCheckingAuth] = useState(true);
@@ -13813,7 +13816,7 @@ function EbookShelfPage({ userEmail, onNavigate, onPurchaseBook }: { userEmail: 
                     whileTap={{ scale: 0.96 }}
                     onClick={() => {
                       setShowPurchasePrompt(null);
-                      if (onPurchaseBook) onPurchaseBook(showPurchasePrompt);
+                      onPurchaseBook(showPurchasePrompt);
                     }}
                     className="w-full rounded-2xl py-3.5 font-bold text-sm"
                     style={{ backgroundColor: '#C9A96E', color: '#fff' }}
@@ -13842,9 +13845,9 @@ function EbookShelfPage({ userEmail, onNavigate, onPurchaseBook }: { userEmail: 
   );
 }
 
-// ===================== PAGE: 電子書結帳 (Ebook Checkout) =====================
-
-function EbookCheckoutPage({ book, onBack, onSuccess }: { book: EbookItem; onBack: () => void; onSuccess: () => void }) {
+// (電子書購買已改為透過商城 cart/checkout 流程)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function _UNUSED_EbookCheckoutPage_placeholder({ book, onBack, onSuccess }: { book: EbookItem; onBack: () => void; onSuccess: () => void }) {
   const [user, setUser] = useState<User | null>(null);
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -16809,6 +16812,8 @@ export default function HealingApp() {
         // Push browser history state so back button works
         window.history.pushState({ page: newPage }, '', '');
       }
+      // Reset shop initial view when leaving shop
+      if (newPage !== 'shop') setShopInitialView(undefined);
       return newPage;
     });
   }, []);
@@ -16832,8 +16837,8 @@ export default function HealingApp() {
     return loadRecords();
   });
 
-  // --- EBOOK PURCHASE STATE ---
-  const [ebookPurchaseTarget, setEbookPurchaseTarget] = useState<EbookItem | null>(null);
+  // --- SHOP INITIAL VIEW STATE ---
+  const [shopInitialView, setShopInitialView] = useState<'products' | 'cart' | 'checkout' | undefined>(undefined);
 
   // --- NEW STATE ---
   const [showMorningFlow, setShowMorningFlow] = useState(false);
@@ -17099,13 +17104,32 @@ export default function HealingApp() {
             {page === 'card' && <CardPage onTaskComplete={completeTask} records={records} />}
             {page === 'healer' && <HealerPage records={records} userEmail={user?.email || null} onNavigate={(p) => setPage(p)} onTaskComplete={() => completeTask('checkin')} onCheckIn={(emotion) => handleCheckIn(emotion)} />}
             {page === 'journal' && <JournalPage user={user} />}
-            {page === 'shop' && <ShopPage />}
+            {page === 'shop' && <ShopPage initialView={shopInitialView} />}
             {page === 'library' && <HealingLibraryPage userEmail={user?.email || null} onNavigate={(p) => setPage(p)} />}
             {page === 'community' && <CommunityPage userEmail={user?.email || null} />}
             {page === 'explore' && <ExplorePage records={records} userEmail={user?.email || null} onNavigate={(p) => setPage(p)} />}
             {page === 'calendar' && <FragranceCalendarPage />}
-            {page === 'ebook' && <EbookShelfPage userEmail={user?.email || null} onNavigate={(p) => setPage(p)} onPurchaseBook={(book) => { setEbookPurchaseTarget(book); setPage('ebook-checkout'); }} />}
-            {page === 'ebook-checkout' && ebookPurchaseTarget && <EbookCheckoutPage book={ebookPurchaseTarget} onBack={() => { setEbookPurchaseTarget(null); setPage('ebook'); }} onSuccess={() => { setEbookPurchaseTarget(null); setPage('ebook'); }} />}
+            {page === 'ebook' && <EbookShelfPage userEmail={user?.email || null} onNavigate={(p) => setPage(p)} onPurchaseBook={(book) => {
+              // Add ebook to cart (same localStorage as ShopPage) then navigate to shop cart
+              const cartItem: CartItem = {
+                id: `ebook-${book.id}`,
+                productId: book.wcProductId,
+                name: `📖 ${book.title}`,
+                specs: '電子書',
+                price: book.price,
+                quantity: 1,
+                isVirtual: true,
+                image: book.coverUrl,
+              };
+              const currentCart = loadCartFromStorage();
+              const exists = currentCart.find(c => c.id === cartItem.id);
+              if (!exists) {
+                currentCart.push(cartItem);
+                saveCartToStorage(currentCart);
+              }
+              setShopInitialView('cart');
+              setPage('shop');
+            }} />}
             {page === 'member' && <MemberPage records={records} onNavigate={(p) => setPage(p)} />}
             {page === 'custom' && <CustomOilPage user={user} records={records} />}
             {page === 'service' && <ServiceHallPage onNavigate={(p) => setPage(p)} />}
