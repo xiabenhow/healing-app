@@ -34,6 +34,12 @@ service cloud.firestore {
       allow read: if request.auth != null;
     }
 
+    // 電子書授權驗證
+    match /ebook_authorized/{docId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.token.email == 'xiabenhow@gmail.com';
+    }
+
     // 訂單
     match /orders/{docId} {
       allow read: if request.auth != null;
@@ -162,6 +168,24 @@ service cloud.firestore {
       allow update: if request.auth != null && resource.data.userId == request.auth.token.email;
       // 管理員也可幫學員新增課程
       allow write: if request.auth != null && request.auth.token.email == 'xiabenhow@gmail.com';
+    }
+
+    // ===================== 使用者資料同步 =====================
+    // user_data: 儲存所有帳號綁定的資料（savedCards, wishlist, energy, personality, PIN, etc.）
+    match /user_data/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // 日記本（journal）
+    match /journal_entries/{docId} {
+      allow create: if request.auth != null && request.resource.data.userId == request.auth.uid;
+      allow read, update, delete: if request.auth != null && resource.data.userId == request.auth.uid;
+    }
+
+    // 使用者按讚紀錄
+    match /user_likes/{docId} {
+      allow create: if request.auth != null;
+      allow read, delete: if request.auth != null && resource.data.userId == request.auth.token.email;
     }
 
     // 預設拒絕所有其他存取

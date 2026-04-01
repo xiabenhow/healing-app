@@ -13,6 +13,8 @@ export default defineConfig({
       includeAssets: ['favicon.svg', 'icons/*.png', 'coming-soon.jpg'],
       manifest: false, // 使用 public/manifest.json
       workbox: {
+        skipWaiting: true,
+        clientsClaim: true,
         navigateFallbackDenylist: [/^\/__\/.*/],
         globPatterns: ['**/*.{js,css,html,ico,png,svg,jpg,woff2}'],
         runtimeCaching: [
