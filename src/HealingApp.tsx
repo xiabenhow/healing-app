@@ -7313,7 +7313,6 @@ function CollectionCenterPage({ userEmail, onNavigate }: { userEmail: string | n
     { key: 'article', label: '文章', emoji: '📄' },
     { key: 'card', label: '卡冊', emoji: '✦' },
     { key: 'work', label: '作品', emoji: '✨' },
-    { key: 'community', label: '社群', emoji: '🎨' },
     { key: 'product', label: '商品', emoji: '🎁' },
   ];
 
@@ -7432,34 +7431,6 @@ function CollectionCenterPage({ userEmail, onNavigate }: { userEmail: string | n
                 </div>
               </div>
               <span className="text-sm" style={{ color: '#C9A96E' }}>›</span>
-            </motion.div>
-          ))}
-        </div>
-      )}
-
-      {/* === 社群 Tab === */}
-      {tab === 'community' && (
-        <div className="space-y-2">
-          {likedCommunity.length === 0 ? (
-            <div className="text-center py-8">
-              <p className="text-3xl mb-2">🎨</p>
-              <p className="text-sm" style={{ color: '#8C7B72' }}>還沒有喜歡的社群貼文</p>
-              <p className="text-xs mt-1" style={{ color: '#B5AFA8' }}>去社群頁面按喜歡</p>
-            </div>
-          ) : likedCommunity.map((item: any) => (
-            <motion.div key={item.id} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }} whileTap={{ scale: 0.98 }}
-              onClick={() => onNavigate('community')}
-              className="flex items-center gap-3 p-3.5 rounded-2xl shadow-sm cursor-pointer" style={{ backgroundColor: '#FFFEF9' }}>
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: '#F0EDE8' }}>
-                <span className="text-lg">{item.emoji || '🎨'}</span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate" style={{ color: '#3D3530' }}>{item.title || item.caption || '社群貼文'}</p>
-                <div className="flex items-center gap-2 mt-0.5">
-                  {item.author && <span className="text-[10px]" style={{ color: '#8FA886' }}>@{item.author}</span>}
-                  <span className="text-[10px]" style={{ color: '#8C7B72' }}>{item.likedAt || ''}</span>
-                </div>
-              </div>
             </motion.div>
           ))}
         </div>
