@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <rect x="8" y="8" width="184" height="184" fill="white" stroke="#1a1a1a" stroke-width="3"/>
+  <polygon points="8,8 8,52 52,8" fill="#1a1a1a"/>
+  <polygon points="192,192 192,148 148,192" fill="#1a1a1a"/>
+  <text font-family="'Helvetica Neue', Helvetica, Arial, sans-serif" font-size="28" font-weight="300" letter-spacing="6" fill="#1a1a1a" text-anchor="middle">
+    <tspan x="60" y="75">X</tspan><tspan x="100" y="75">I</tspan><tspan x="140" y="75">A</tspan>
+    <tspan x="60" y="115">B</tspan><tspan x="100" y="115">E</tspan><tspan x="140" y="115">N</tspan>
+    <tspan x="60" y="155">H</tspan><tspan x="100" y="155">O</tspan><tspan x="140" y="155">W</tspan>
+  </text>
+</svg>

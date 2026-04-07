@@ -3497,6 +3497,7 @@ const SHOP_REGIONS: { key: ShopRegion; label: string; emoji: string; wcCategoryI
 const REGION_CATEGORIES: Record<ShopRegion, { id: number; name: string }[]> = {
   taipei: [
     { id: 128, name: '全部' },
+    { id: 200, name: '下班隨手飾' },
     { id: 21, name: '手作飾品' },
     { id: 22, name: '多肉植栽' },
     { id: 24, name: '畫畫課程' },
@@ -3508,7 +3509,6 @@ const REGION_CATEGORIES: Record<ShopRegion, { id: number; name: string }[]> = {
     { id: 150, name: '梭織系列' },
     { id: 151, name: '藍染課程' },
     { id: 61, name: '平板自己做' },
-    { id: 200, name: '下班隨手飾' },
     { id: 75, name: 'DIY材料包' },
     { id: 27, name: '把我帶回家' },
   ],
@@ -13369,14 +13369,16 @@ interface EbookItem {
   wcProductId: number; // WooCommerce product ID
 }
 
+const EBOOK_CDN = 'https://app.xiabenhow.com';
+
 const EBOOK_CATALOG: EbookItem[] = [
   {
     id: '2024-fragrance-calendar',
     title: '2024 曆刻聞香',
     subtitle: '用香氛啟動每日共感情緒',
-    coverUrl: '/ebooks/2024-fragrance-calendar-cover.jpg',
+    coverUrl: `${EBOOK_CDN}/ebooks/2024-fragrance-calendar-cover.jpg`,
     totalPages: 380,
-    imagePrefix: '/ebooks/2024-fragrance-calendar/page-',
+    imagePrefix: `${EBOOK_CDN}/ebooks/2024-fragrance-calendar/page-`,
     imageSuffix: '.jpg',
     price: 799,
     year: 2024,
@@ -13386,9 +13388,9 @@ const EBOOK_CATALOG: EbookItem[] = [
     id: '2023-fragrance-calendar',
     title: '2023 曆刻聞香',
     subtitle: '開啟調香日曆，走進叢林香氣',
-    coverUrl: '/ebooks/2023-fragrance-calendar-cover.jpg',
+    coverUrl: `${EBOOK_CDN}/ebooks/2023-fragrance-calendar-cover.jpg`,
     totalPages: 381,
-    imagePrefix: '/ebooks/2023-fragrance-calendar/page-',
+    imagePrefix: `${EBOOK_CDN}/ebooks/2023-fragrance-calendar/page-`,
     imageSuffix: '.jpg',
     price: 799,
     year: 2023,

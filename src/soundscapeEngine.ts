@@ -850,7 +850,7 @@ export const SCAPE_PRESETS: ScapePreset[] = [
     label: '安心呼吸',
     subtitle: '一吸一吐，回到自己',
     emoji: '🌬️',
-    color: '#8FA886',
+    color: '#D2B4A1',
     defaultGain: 0.25,
     lpfCutoff: 1800,
     breathCycle: [10, 10], // 4+1+5=10 秒
