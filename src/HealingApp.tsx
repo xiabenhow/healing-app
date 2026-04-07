@@ -13369,16 +13369,14 @@ interface EbookItem {
   wcProductId: number; // WooCommerce product ID
 }
 
-const EBOOK_CDN = 'https://app.xiabenhow.com';
-
 const EBOOK_CATALOG: EbookItem[] = [
   {
     id: '2024-fragrance-calendar',
     title: '2024 曆刻聞香',
     subtitle: '用香氛啟動每日共感情緒',
-    coverUrl: `${EBOOK_CDN}/ebooks/2024-fragrance-calendar-cover.jpg`,
+    coverUrl: '/ebooks/2024-fragrance-calendar-cover.jpg',
     totalPages: 380,
-    imagePrefix: `${EBOOK_CDN}/ebooks/2024-fragrance-calendar/page-`,
+    imagePrefix: '/ebooks/2024-fragrance-calendar/page-',
     imageSuffix: '.jpg',
     price: 799,
     year: 2024,
@@ -13388,9 +13386,9 @@ const EBOOK_CATALOG: EbookItem[] = [
     id: '2023-fragrance-calendar',
     title: '2023 曆刻聞香',
     subtitle: '開啟調香日曆，走進叢林香氣',
-    coverUrl: `${EBOOK_CDN}/ebooks/2023-fragrance-calendar-cover.jpg`,
+    coverUrl: '/ebooks/2023-fragrance-calendar-cover.jpg',
     totalPages: 381,
-    imagePrefix: `${EBOOK_CDN}/ebooks/2023-fragrance-calendar/page-`,
+    imagePrefix: '/ebooks/2023-fragrance-calendar/page-',
     imageSuffix: '.jpg',
     price: 799,
     year: 2023,
