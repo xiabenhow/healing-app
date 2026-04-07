@@ -48,7 +48,7 @@ const ADMIN_EMAIL = 'xiabenhow@gmail.com';
 
 // ===================== TYPES =====================
 
-type PageType = 'home' | 'diary' | 'recipe' | 'card' | 'healer' | 'library' | 'calendar' | 'sound' | 'booking' | 'member' | 'shop' | 'healing' | 'bedtime' | 'custom' | 'service' | 'wishlist' | 'my-works' | 'collections' | 'course-journey' | 'exclusive-content' | 'community' | 'explore' | 'journal' | 'admin-dashboard' | 'ebook' | 'ebook-checkout';
+type PageType = 'home' | 'diary' | 'recipe' | 'card' | 'healer' | 'library' | 'calendar' | 'sound' | 'booking' | 'member' | 'shop' | 'healing' | 'bedtime' | 'custom' | 'service' | 'wishlist' | 'my-works' | 'collections' | 'course-journey' | 'exclusive-content' | 'community' | 'explore' | 'journal' | 'admin-dashboard' | 'ebook' | 'ebook-checkout' | 'xia-tasks' | 'crystal-energy' | 'plant-care' | 'oil-wiki' | 'ai-cs';
 type TaskKey = 'checkin' | 'card' | 'note' | 'breathe' | 'evening' | 'share';
 
 interface CartItem {
@@ -5765,6 +5765,44 @@ function MemberPage({ records, onNavigate }: { records: HealingRecord[]; onNavig
             <p className="text-[10px] font-medium" style={{ color: '#3D3530' }}>電子書</p>
           </div>
         </motion.button>
+      </motion.div>
+
+      {/* BLOCK: 知識與工具 (3 column grid) */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.22 }}
+        className="rounded-3xl p-4 shadow-sm"
+        style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8' }}
+      >
+        <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>知識與工具</p>
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { emoji: '🧪', label: '療癒配方', page: 'recipe' as PageType, color: '#D2B4A1' },
+            { emoji: '🧠', label: '心理測驗', page: 'healer' as PageType, color: '#9B7EC8' },
+            { emoji: '💎', label: '水晶能量', page: 'crystal-energy' as PageType, color: '#7EC8C8' },
+            { emoji: '🌱', label: '植栽照顧', page: 'plant-care' as PageType, color: '#6B8F5E' },
+            { emoji: '🫧', label: '精油百科', page: 'oil-wiki' as PageType, color: '#A8B876' },
+            { emoji: '📚', label: '課後照顧', page: 'library' as PageType, color: '#8C7B72' },
+            { emoji: '🎧', label: '聆聽', page: 'sound' as PageType, color: '#6B6B9B' },
+            { emoji: '🛒', label: '療癒商城', page: 'shop' as PageType, color: '#5E8FA8' },
+            { emoji: '🪙', label: 'XIA幣任務', page: 'xia-tasks' as PageType, color: '#E8B735' },
+            { emoji: '📓', label: '日記', page: 'journal' as PageType, color: '#C4A882' },
+            { emoji: '❤️', label: '收藏', page: 'collections' as PageType, color: '#E0A8A8' },
+            { emoji: '🤖', label: '智能客服', page: 'ai-cs' as PageType, color: '#5EAAB8' },
+          ].map((item) => (
+            <motion.button
+              key={item.label}
+              whileTap={{ scale: 0.93 }}
+              onClick={() => onNavigate(item.page)}
+              className="rounded-xl p-2.5 text-center"
+              style={{ backgroundColor: `${item.color}15` }}
+            >
+              <p className="text-lg mb-0.5">{item.emoji}</p>
+              <p className="text-[10px] font-medium" style={{ color: '#3D3530' }}>{item.label}</p>
+            </motion.button>
+          ))}
+        </div>
       </motion.div>
 
       {/* BLOCK 4: 帳務與設定 */}
@@ -16768,6 +16806,731 @@ function AdminDashboardPage({ onBack }: { onBack: () => void }) {
   );
 }
 
+// ===================== PAGE: XIA TASKS =====================
+
+function XiaTasksPage({ records, onNavigate }: { records: HealingRecord[]; onNavigate: (p: PageType) => void }) {
+  const tasks = [
+    { key: 'checkin', label: '每日簽到', desc: '每天打開App簽到', reward: 1, icon: '✅', done: records.some(r => r.date === getToday()) },
+    { key: 'card', label: '抽療癒卡', desc: '每日抽一張療癒卡', reward: 1, icon: '🃏', done: false },
+    { key: 'note', label: '寫日記', desc: '記錄今天的心情', reward: 2, icon: '📝', done: false },
+    { key: 'breathe', label: '聽音景5分鐘', desc: '讓自己放鬆一下', reward: 1, icon: '🎧', done: false },
+    { key: 'share', label: '分享作品', desc: '上傳一張手作照片', reward: 3, icon: '📸', done: false },
+  ];
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="pt-10 space-y-4">
+      <div className="text-center py-4">
+        <p className="text-3xl mb-2">🪙</p>
+        <h1 className="text-lg font-bold" style={{ color: '#3D3530' }}>XIA 幣任務</h1>
+        <p className="text-xs mt-1" style={{ color: '#8C7B72' }}>完成任務賺取 XIA 幣，兌換療癒好禮</p>
+      </div>
+      <div className="space-y-2.5 px-1">
+        {tasks.map(t => (
+          <motion.div key={t.key} whileTap={{ scale: 0.98 }}
+            className="rounded-2xl p-4 flex items-center gap-3"
+            style={{ backgroundColor: t.done ? '#F0EDE8' : '#FFFEF9', border: '1px solid #F0EDE8' }}>
+            <span className="text-2xl">{t.icon}</span>
+            <div className="flex-1">
+              <p className="text-sm font-bold" style={{ color: '#3D3530' }}>{t.label}</p>
+              <p className="text-xs" style={{ color: '#8C7B72' }}>{t.desc}</p>
+            </div>
+            <div className="text-right">
+              {t.done ? (
+                <span className="text-xs font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: '#8FA886', color: '#fff' }}>已完成</span>
+              ) : (
+                <span className="text-xs font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: '#E8B735', color: '#fff' }}>+{t.reward} 🪙</span>
+              )}
+            </div>
+          </motion.div>
+        ))}
+      </div>
+    </motion.div>
+  );
+}
+
+// ===================== PAGE: CRYSTAL ENERGY =====================
+
+const CRYSTAL_DATA = [
+  { id: 1, name: '白水晶', nameEn: 'Clear Quartz', color: '#E8E4DF', colorName: '透明/白', chakra: '頂輪', functions: ['淨化', '冥想', '增強能量'], desc: '水晶之王，能量放大器。能幫助集中注意力、增強記憶力，適合冥想時使用。可以淨化周圍負面能量，帶來清晰的思緒。', care: '月光淨化、流水沖洗' },
+  { id: 2, name: '粉水晶', nameEn: 'Rose Quartz', color: '#F5C6D0', colorName: '粉紅', chakra: '心輪', functions: ['愛情', '人際', '自愛'], desc: '愛情之石，散發柔和的粉紅光芒。能開啟心輪、增進人緣，幫助療癒情感創傷，學會愛自己與接納他人。', care: '月光淨化、玫瑰花瓣' },
+  { id: 3, name: '紫水晶', nameEn: 'Amethyst', color: '#C4A8D8', colorName: '紫', chakra: '眉心輪', functions: ['靈性', '安眠', '直覺'], desc: '智慧之石，與靈性能量連結。幫助提升直覺力、改善睡眠品質，特別適合放在枕頭旁，能帶來平靜安穩的夜晚。', care: '月光淨化、鼠尾草煙燻' },
+  { id: 4, name: '黃水晶', nameEn: 'Citrine', color: '#F5D76E', colorName: '黃', chakra: '太陽輪', functions: ['財運', '自信', '創造力'], desc: '招財之石，金黃色的能量帶來豐盛與自信。能激發創造力和意志力，幫助在事業上做出明確決定。', care: '陽光短暫照射、水晶簇' },
+  { id: 5, name: '虎眼石', nameEn: 'Tiger Eye', color: '#C4A055', colorName: '棕金', chakra: '太陽輪', functions: ['勇氣', '保護', '專注'], desc: '勇氣之石，如老虎般銳利的金棕色光芒。能增強自信心和勇氣，幫助做決定時更果斷，適合面對挑戰時佩戴。', care: '陽光淨化、海鹽' },
+  { id: 6, name: '月光石', nameEn: 'Moonstone', color: '#D8E0F0', colorName: '乳白/藍光', chakra: '頂輪', functions: ['直覺', '女性能量', '情緒平衡'], desc: '月亮女神之石，散發神秘的藍色光暈。能增強直覺力、平衡情緒波動，特別適合女性佩戴，與月亮週期同步。', care: '月光淨化（滿月最佳）' },
+  { id: 7, name: '黑曜石', nameEn: 'Obsidian', color: '#2D2D2D', colorName: '黑', chakra: '海底輪', functions: ['保護', '接地', '排負'], desc: '強力保護石，能吸收和轉化負面能量。幫助接地，讓人感到穩定安全。適合在感到不安或需要保護時佩戴。', care: '流水淨化、鼠尾草煙燻' },
+  { id: 8, name: '拉長石', nameEn: 'Labradorite', color: '#6B8EA0', colorName: '灰藍/彩光', chakra: '喉輪', functions: ['轉化', '保護', '直覺'], desc: '轉變之石，表面閃爍著神奇的彩色光芒。能在人生轉變期提供力量，增強直覺與靈感，保護能量場不受外界干擾。', care: '月光淨化、水晶簇' },
+  { id: 9, name: '紅瑪瑙', nameEn: 'Red Agate', color: '#C44D3E', colorName: '紅', chakra: '海底輪', functions: ['活力', '勇氣', '安全感'], desc: '生命力之石，溫暖的紅色帶來活力與熱情。能增強體力、提振精神，給予面對困難的勇氣和行動力。', care: '陽光短暫照射、流水' },
+  { id: 10, name: '青金石', nameEn: 'Lapis Lazuli', color: '#26619C', colorName: '深藍', chakra: '眉心輪', functions: ['智慧', '溝通', '真理'], desc: '智慧之石，深邃的藍色中散布著金色星點。能提升智慧、增強表達能力，幫助說出內心真實的想法。', care: '月光淨化（避免水洗）' },
+  { id: 11, name: '綠幽靈', nameEn: 'Green Phantom', color: '#7AB87A', colorName: '綠', chakra: '心輪', functions: ['財運', '事業', '成長'], desc: '事業之石，綠色的幻影象徵生機與成長。能招正財、助事業運，特別適合創業者和上班族佩戴。', care: '月光淨化、水晶簇' },
+  { id: 12, name: '草莓晶', nameEn: 'Strawberry Quartz', color: '#E8899A', colorName: '草莓粉', chakra: '心輪', functions: ['愛情', '魅力', '人緣'], desc: '魅力之石，散發甜蜜的草莓粉色。能增加個人魅力和異性緣，幫助在社交場合中更自信迷人。', care: '月光淨化、玫瑰花瓣' },
+  { id: 13, name: '螢石', nameEn: 'Fluorite', color: '#8EC5C5', colorName: '多色（綠紫藍）', chakra: '心輪/眉心輪', functions: ['專注', '學習', '思維清晰'], desc: '學習之石，擁有美麗的漸變色澤。能幫助集中注意力、增強記憶力和理解力，是學生和腦力工作者的好夥伴。', care: '月光淨化（避免陽光）' },
+  { id: 14, name: '石榴石', nameEn: 'Garnet', color: '#8B2252', colorName: '深紅', chakra: '海底輪', functions: ['活力', '熱情', '再生'], desc: '重生之石，如石榴般深紅濃烈。能激發生命力和熱情，幫助從低潮中恢復，重新找回生活的動力。', care: '月光淨化、水晶簇' },
+  { id: 15, name: '海藍寶', nameEn: 'Aquamarine', color: '#87CEEB', colorName: '淺藍', chakra: '喉輪', functions: ['溝通', '勇氣', '平靜'], desc: '勇氣之石，如大海般清澈透明。能增強溝通表達能力，幫助克服恐懼，帶來內心的平靜與勇氣。', care: '月光淨化、流水' },
+  { id: 16, name: '黑碧璽', nameEn: 'Black Tourmaline', color: '#1C1C1C', colorName: '黑', chakra: '海底輪', functions: ['防護', '接地', '化煞'], desc: '最強防護石之一，能有效阻擋電磁波和負面能量。適合放在電腦旁或大門口，為空間建立保護屏障。', care: '流水淨化、海鹽、陽光' },
+  { id: 17, name: '橄欖石', nameEn: 'Peridot', color: '#9DC183', colorName: '橄欖綠', chakra: '心輪', functions: ['療癒', '喜悅', '好運'], desc: '太陽之石，明亮的橄欖綠散發著正面能量。能帶來喜悅和好運，幫助釋放舊有的負面模式，迎接新生活。', care: '月光淨化、流水' },
+  { id: 18, name: '茶水晶', nameEn: 'Smoky Quartz', color: '#8B7355', colorName: '茶褐', chakra: '海底輪', functions: ['接地', '穩定', '釋壓'], desc: '穩定之石，溫暖的茶褐色帶來安定感。能幫助接地和釋放壓力，讓焦慮的心情平穩下來。', care: '陽光短暫照射、流水' },
+];
+
+const LIFE_PATH_CRYSTALS: Record<number, { number: number; trait: string; color: string; colorHex: string; crystals: string[]; desc: string; strengths: string; challenges: string; advice: string }> = {
+  1: { number: 1, trait: '領導者', color: '紅', colorHex: '#E8735A', crystals: ['紅瑪瑙', '石榴石', '虎眼石'], desc: '你是天生的領袖，充滿開創精神和行動力。', strengths: '獨立、果斷、創新、有魄力', challenges: '容易固執、孤獨感、不善傾聽', advice: '多傾聽他人意見，學習團隊合作。紅瑪瑙能給你行動的勇氣，虎眼石幫助做出明智決定。' },
+  2: { number: 2, trait: '和平者', color: '橙', colorHex: '#E8A87C', crystals: ['月光石', '粉水晶', '海藍寶'], desc: '你天生善解人意，是最好的傾聽者和調解者。', strengths: '溫柔、體貼、直覺強、善於合作', challenges: '容易猶豫不決、過度敏感、缺乏自信', advice: '學會堅定自己的立場，月光石增強直覺，粉水晶療癒情感，海藍寶幫助表達。' },
+  3: { number: 3, trait: '創作者', color: '黃', colorHex: '#E8C84A', crystals: ['黃水晶', '螢石', '橄欖石'], desc: '你擁有豐富的想像力和表達天賦，天生的藝術家。', strengths: '創意豐富、樂觀、善於表達、有魅力', challenges: '容易分心、情緒化、完美主義', advice: '把想法化為行動，黃水晶帶來自信，螢石幫助專注，橄欖石帶來喜悅。' },
+  4: { number: 4, trait: '建造者', color: '綠', colorHex: '#6B8F5E', crystals: ['綠幽靈', '黑碧璽', '茶水晶'], desc: '你踏實可靠，善於建構穩固的基礎。', strengths: '務實、有條理、堅持、值得信賴', challenges: '過度保守、工作狂、不易變通', advice: '適時放鬆享受生活，綠幽靈助事業成長，黑碧璽提供保護，茶水晶幫助釋壓。' },
+  5: { number: 5, trait: '自由者', color: '藍', colorHex: '#5EAAB8', crystals: ['海藍寶', '拉長石', '紫水晶'], desc: '你渴望自由與變化，是勇敢的冒險家。', strengths: '適應力強、勇於冒險、多才多藝、熱愛自由', challenges: '容易不安定、缺乏耐心、逃避責任', advice: '學會在自由中找到紀律，海藍寶給予勇氣，拉長石幫助轉變，紫水晶帶來靜心。' },
+  6: { number: 6, trait: '療癒者', color: '靛', colorHex: '#9B7EC8', crystals: ['粉水晶', '紫水晶', '月光石'], desc: '你天生有療癒他人的能力，充滿愛與責任感。', strengths: '有愛心、負責任、藝術鑒賞力、療癒力', challenges: '過度犧牲、控制欲、完美主義', advice: '先療癒自己再療癒他人，粉水晶學會自愛，紫水晶提升靈性，月光石平衡情緒。' },
+  7: { number: 7, trait: '探索者', color: '紫', colorHex: '#7B68AE', crystals: ['紫水晶', '青金石', '螢石'], desc: '你是深度思考者，追求真理與智慧。', strengths: '智慧深邃、分析力強、直覺敏銳、追求真理', challenges: '過度孤僻、多疑、不善交際', advice: '平衡理性與感性，紫水晶提升靈性直覺，青金石增強智慧，螢石幫助思維清晰。' },
+  8: { number: 8, trait: '成就者', color: '金', colorHex: '#C9A96E', crystals: ['黃水晶', '虎眼石', '綠幽靈'], desc: '你有強大的實現力，注定在物質世界取得成就。', strengths: '企圖心強、組織力佳、實際、有商業頭腦', challenges: '工作至上、控制欲強、物質主義', advice: '記得財富不只是金錢，黃水晶招財，虎眼石給予決斷力，綠幽靈助事業運。' },
+  9: { number: 9, trait: '博愛者', color: '白', colorHex: '#D2B4A1', crystals: ['白水晶', '橄欖石', '草莓晶'], desc: '你擁有大愛，是這個世界的光。', strengths: '慈悲、包容、理想主義、藝術天分', challenges: '過度理想化、難以放手、情緒敏感', advice: '學會接受不完美，白水晶淨化能量，橄欖石帶來喜悅，草莓晶增加魅力。' },
+  11: { number: 11, trait: '啟發者', color: '銀', colorHex: '#A8A8B8', crystals: ['拉長石', '月光石', '紫水晶'], desc: '11是大師數字，你擁有強大的靈感和啟發他人的能力。', strengths: '靈感豐富、直覺超強、啟發他人、有遠見', challenges: '神經緊繃、自我懷疑、能量敏感', advice: '信任你的直覺，拉長石保護能量場，月光石增強直覺，紫水晶帶來平靜。' },
+  22: { number: 22, trait: '建築師', color: '金白', colorHex: '#D4AF37', crystals: ['白水晶', '綠幽靈', '虎眼石'], desc: '22是大師數字，你能將夢想化為現實，是偉大的建造者。', strengths: '實現力超強、遠見卓識、領導力、務實的理想家', challenges: '壓力巨大、完美主義、期望過高', advice: '一步步實現偉大藍圖，白水晶放大能量，綠幽靈助事業，虎眼石堅定意志。' },
+};
+
+function CrystalEnergyPage() {
+  const [tab, setTab] = useState<'guide' | 'life-path' | 'color'>('guide');
+  const [selectedCrystal, setSelectedCrystal] = useState<typeof CRYSTAL_DATA[0] | null>(null);
+  const [birthMonth, setBirthMonth] = useState('');
+  const [birthDay, setBirthDay] = useState('');
+  const [birthYear, setBirthYear] = useState('');
+  const [lifePathResult, setLifePathResult] = useState<typeof LIFE_PATH_CRYSTALS[1] | null>(null);
+  const [selectedColor, setSelectedColor] = useState<string | null>(null);
+
+  const calcLifePath = () => {
+    const full = `${birthYear}${birthMonth.padStart(2, '0')}${birthDay.padStart(2, '0')}`;
+    let sum = full.split('').reduce((a, b) => a + parseInt(b), 0);
+    while (sum > 9 && sum !== 11 && sum !== 22) {
+      sum = sum.toString().split('').reduce((a, b) => a + parseInt(b), 0);
+    }
+    setLifePathResult(LIFE_PATH_CRYSTALS[sum] || LIFE_PATH_CRYSTALS[9]);
+  };
+
+  const colorGroups = useMemo(() => {
+    const groups: Record<string, typeof CRYSTAL_DATA> = {};
+    CRYSTAL_DATA.forEach(c => {
+      const key = c.colorName.split('/')[0].split('（')[0].trim();
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(c);
+    });
+    return groups;
+  }, []);
+
+  const tabs = [
+    { key: 'guide' as const, label: '水晶圖鑑' },
+    { key: 'life-path' as const, label: '生命靈數' },
+    { key: 'color' as const, label: '色系選晶' },
+  ];
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="pt-10 space-y-4">
+      <div className="text-center py-3">
+        <h1 className="text-lg font-bold" style={{ color: '#3D3530' }}>💎 水晶能量</h1>
+      </div>
+      <div className="flex gap-2 px-4 overflow-x-auto">
+        {tabs.map(t => (
+          <button key={t.key} onClick={() => setTab(t.key)}
+            className="px-4 py-2 rounded-full text-xs font-medium whitespace-nowrap transition-all"
+            style={{ backgroundColor: tab === t.key ? '#D2B4A1' : '#F0EDE8', color: tab === t.key ? '#fff' : '#3D3530' }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'guide' && (
+        <div className="grid grid-cols-2 gap-2.5 px-1">
+          {CRYSTAL_DATA.map(c => (
+            <motion.button key={c.id} whileTap={{ scale: 0.96 }} onClick={() => setSelectedCrystal(c)}
+              className="rounded-2xl p-3 text-left" style={{ backgroundColor: '#F0EDE8' }}>
+              <div className="w-8 h-8 rounded-full mb-2" style={{ backgroundColor: c.color }} />
+              <p className="text-sm font-bold" style={{ color: '#3D3530' }}>{c.name}</p>
+              <p className="text-[10px]" style={{ color: '#8C7B72' }}>{c.nameEn}</p>
+              <p className="text-[10px] mt-1" style={{ color: '#8C7B72' }}>{c.chakra} · {c.functions.join('・')}</p>
+            </motion.button>
+          ))}
+        </div>
+      )}
+
+      {tab === 'life-path' && (
+        <div className="px-4 space-y-4">
+          <div className="rounded-2xl p-4" style={{ backgroundColor: '#F0EDE8' }}>
+            <p className="text-sm font-bold mb-3" style={{ color: '#3D3530' }}>輸入你的生日</p>
+            <div className="flex gap-2">
+              <input type="number" placeholder="年" value={birthYear} onChange={e => setBirthYear(e.target.value)}
+                className="flex-1 rounded-xl px-3 py-2 text-sm text-center outline-none" style={{ backgroundColor: '#FFFEF9', color: '#3D3530' }} />
+              <input type="number" placeholder="月" value={birthMonth} onChange={e => setBirthMonth(e.target.value)}
+                className="w-16 rounded-xl px-3 py-2 text-sm text-center outline-none" style={{ backgroundColor: '#FFFEF9', color: '#3D3530' }} />
+              <input type="number" placeholder="日" value={birthDay} onChange={e => setBirthDay(e.target.value)}
+                className="w-16 rounded-xl px-3 py-2 text-sm text-center outline-none" style={{ backgroundColor: '#FFFEF9', color: '#3D3530' }} />
+            </div>
+            <button onClick={calcLifePath} disabled={!birthYear || !birthMonth || !birthDay}
+              className="w-full mt-3 py-2.5 rounded-xl text-sm font-bold text-white" style={{ backgroundColor: '#D2B4A1' }}>
+              計算生命靈數
+            </button>
+          </div>
+          {lifePathResult && (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="rounded-2xl overflow-hidden" style={{ border: '1px solid #F0EDE8' }}>
+              <div className="p-4 text-center text-white" style={{ background: `linear-gradient(135deg, ${lifePathResult.colorHex}, ${lifePathResult.colorHex}dd)` }}>
+                <p className="text-3xl font-bold">{lifePathResult.number}</p>
+                <p className="text-sm font-bold mt-1">{lifePathResult.trait}</p>
+                <p className="text-xs mt-1 opacity-90">{lifePathResult.desc}</p>
+              </div>
+              <div className="p-4 space-y-3" style={{ backgroundColor: '#FFFEF9' }}>
+                <div><p className="text-xs font-bold mb-1" style={{ color: '#8FA886' }}>✨ 優勢</p><p className="text-xs" style={{ color: '#3D3530' }}>{lifePathResult.strengths}</p></div>
+                <div><p className="text-xs font-bold mb-1" style={{ color: '#E8735A' }}>⚡ 課題</p><p className="text-xs" style={{ color: '#3D3530' }}>{lifePathResult.challenges}</p></div>
+                <div><p className="text-xs font-bold mb-1" style={{ color: '#5EAAB8' }}>💎 水晶建議</p><p className="text-xs" style={{ color: '#3D3530' }}>{lifePathResult.crystals.join('、')}</p><p className="text-xs mt-1" style={{ color: '#8C7B72' }}>{lifePathResult.advice}</p></div>
+              </div>
+            </motion.div>
+          )}
+        </div>
+      )}
+
+      {tab === 'color' && (
+        <div className="px-4 space-y-3">
+          <div className="flex flex-wrap gap-2">
+            {Object.keys(colorGroups).map(color => (
+              <button key={color} onClick={() => setSelectedColor(selectedColor === color ? null : color)}
+                className="px-3 py-1.5 rounded-full text-xs font-medium"
+                style={{ backgroundColor: selectedColor === color ? '#D2B4A1' : '#F0EDE8', color: selectedColor === color ? '#fff' : '#3D3530' }}>
+                {color}
+              </button>
+            ))}
+          </div>
+          {selectedColor && colorGroups[selectedColor]?.map(c => (
+            <div key={c.id} className="rounded-2xl p-3.5 flex gap-3" style={{ backgroundColor: '#F0EDE8' }}>
+              <div className="w-10 h-10 rounded-full flex-shrink-0" style={{ backgroundColor: c.color }} />
+              <div>
+                <p className="text-sm font-bold" style={{ color: '#3D3530' }}>{c.name} <span className="font-normal text-xs" style={{ color: '#8C7B72' }}>{c.nameEn}</span></p>
+                <p className="text-xs mt-1" style={{ color: '#8C7B72' }}>{c.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Crystal detail modal */}
+      <AnimatePresence>
+        {selectedCrystal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-end justify-center" style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}
+            onClick={() => setSelectedCrystal(null)}>
+            <motion.div initial={{ y: 300 }} animate={{ y: 0 }} exit={{ y: 300 }}
+              className="w-full max-w-md rounded-t-3xl p-5 space-y-3" style={{ backgroundColor: '#FFFEF9' }}
+              onClick={e => e.stopPropagation()}>
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full" style={{ backgroundColor: selectedCrystal.color }} />
+                <div>
+                  <p className="text-base font-bold" style={{ color: '#3D3530' }}>{selectedCrystal.name}</p>
+                  <p className="text-xs" style={{ color: '#8C7B72' }}>{selectedCrystal.nameEn} · {selectedCrystal.chakra}</p>
+                </div>
+              </div>
+              <p className="text-sm leading-relaxed" style={{ color: '#3D3530' }}>{selectedCrystal.desc}</p>
+              <div className="flex flex-wrap gap-1.5">
+                {selectedCrystal.functions.map(f => (
+                  <span key={f} className="px-2.5 py-1 rounded-full text-xs" style={{ backgroundColor: '#F0EDE8', color: '#8C7B72' }}>{f}</span>
+                ))}
+              </div>
+              <p className="text-xs" style={{ color: '#8C7B72' }}>🧹 淨化方式：{selectedCrystal.care}</p>
+              <button onClick={() => setSelectedCrystal(null)} className="w-full py-2.5 rounded-xl text-sm font-bold text-white" style={{ backgroundColor: '#D2B4A1' }}>關閉</button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
+// ===================== PAGE: PLANT CARE =====================
+
+function PlantCarePage() {
+  const [tab, setTab] = useState<'guide' | 'varieties' | 'mistakes'>('guide');
+
+  const careGuide = [
+    { title: '💧 澆水技巧', items: ['觀察土壤乾濕度，表土乾了再澆', '澆水要澆透，直到底部排水孔流出', '避免積水，多肉植物怕澇', '冬季減少澆水頻率', '清晨或傍晚澆水最佳', '使用室溫水，避免冰水刺激根部', '葉面盡量不要積水，防止曬傷'] },
+    { title: '☀️ 光照需求', items: ['大多數多肉需要充足散射光', '避免夏季正午直射（容易曬傷）', '光照不足會徒長（拉長變形）', '新買回來的植物需要適應環境光照', '窗邊是最理想的擺放位置', '冬季日照減少時可考慮補光燈', '觀葉植物大多適合半日照環境', '仙人掌類需要最多日照'] },
+    { title: '🌱 土壤與介質', items: [
+      '發泡煉石：高溫燒製的輕質顆粒，透氣排水極佳，可鋪盆底或混合介質使用。重量輕、不易崩解，適合需要良好排水的植物。',
+      '多肉專用土：由泥炭土、珍珠石、蛭石等混合而成，排水透氣性佳，pH值中性偏酸。適合大部分多肉和仙人掌，開袋即用。',
+      '赤玉土：來自日本的火山土，顆粒結構穩定，保水又透氣。分為大中小顆粒，常用於多肉、盆栽，是進階玩家的首選介質。',
+      '排水良好是所有植物的基本需求', '可混合珍珠石增加透氣性', '定期更換盆土（約1-2年一次）', '底部加碎石或發泡煉石幫助排水',
+    ] },
+    { title: '💨 通風環境', items: ['良好通風減少病蟲害', '避免密閉悶熱環境', '空調直吹也不好', '適當通風幫助土壤乾燥', '戶外養護風太大要避風', '浴室等潮濕環境需特別注意通風', '多肉植物特別需要通風'] },
+    { title: '✂️ 繁殖方法', items: ['葉插：取健康葉片平放在土上等發根', '扦插：剪取莖段晾乾傷口後插入土中', '分株：將叢生植物分開各自種植', '播種：適合有耐心的進階玩家', '水培：部分植物可以水培生根後移土', '嫁接：仙人掌常用的繁殖技術', '走莖繁殖：如吊蘭自然長出小苗'] },
+    { title: '🗓️ 四季照護重點', items: ['春：生長旺季，適合換盆施肥', '夏：注意遮陽通風，減少澆水', '秋：許多多肉上色最美的季節', '冬：減少澆水，室內保暖', '換季時注意溫差變化', '梅雨季節防止爛根'] },
+    { title: '🐛 病蟲害防治', items: ['介殼蟲：用酒精棉花擦拭', '紅蜘蛛：增加濕度，嚴重用藥', '黑腐病：剪掉腐爛部分，晾乾', '白粉病：改善通風，減少澆水', '根粉介：換土換盆，藥劑浸泡', '蚜蟲：肥皂水噴灑，引入瓢蟲', '預防勝於治療，定期檢查'] },
+    { title: '🏺 花盆選擇', items: ['素燒盆：透氣性最好，適合新手', '塑膠盆：保水好，適合喜濕植物', '陶瓷盆：美觀但要注意排水', '一定要有排水孔', '大小合適，不要太大的盆', '淺盆適合多肉，深盆適合仙人掌', '材質影響澆水頻率'] },
+  ];
+
+  const succulentData = [
+    { id: 1, name: '吉娃娃', nameEn: 'Chihuahua', difficulty: '⭐⭐', water: '少', sun: '全日照', season: '春秋', desc: '葉尖帶有迷人的紅邊', tips: '夏季需要遮陽避暑' },
+    { id: 2, name: '白牡丹', nameEn: 'Graptoveria', difficulty: '⭐', water: '少', sun: '全日照', season: '春秋', desc: '新手入門首選品種', tips: '非常好養，不容易死' },
+    { id: 3, name: '黑王子', nameEn: 'Black Prince', difficulty: '⭐⭐', water: '少', sun: '全日照', season: '春秋', desc: '深紫黑色的貴族', tips: '光照越足顏色越深' },
+    { id: 4, name: '桃蛋', nameEn: 'Moon Gad', difficulty: '⭐⭐⭐', water: '極少', sun: '全日照', season: '春秋冬', desc: '粉嫩圓潤超療癒', tips: '夏天要特別注意遮陽' },
+    { id: 5, name: '熊童子', nameEn: 'Bear Paw', difficulty: '⭐⭐', water: '少', sun: '半日照', season: '春秋', desc: '毛茸茸的熊掌造型', tips: '不喜歡葉面沾水' },
+    { id: 6, name: '仙人掌', nameEn: 'Cactus', difficulty: '⭐', water: '極少', sun: '全日照', season: '四季', desc: '沙漠之王，超耐旱', tips: '冬天幾乎不用澆水' },
+    { id: 7, name: '玉露', nameEn: 'Haworthia', difficulty: '⭐⭐', water: '中', sun: '散射光', season: '春秋', desc: '晶瑩剔透的窗面', tips: '不能直曬強光' },
+    { id: 8, name: '蒂亞', nameEn: 'Sedeveria', difficulty: '⭐', water: '少', sun: '全日照', season: '春秋冬', desc: '秋冬變紅超美', tips: '溫差越大越容易上色' },
+    { id: 9, name: '虹之玉', nameEn: 'Jelly Bean', difficulty: '⭐', water: '少', sun: '全日照', season: '四季', desc: '像QQ軟糖的可愛多肉', tips: '曬太陽會變紅' },
+    { id: 10, name: '銀杏木', nameEn: 'Portulacaria', difficulty: '⭐', water: '中', sun: '全日照', season: '四季', desc: '適合做小盆景', tips: '扦插繁殖很容易' },
+  ];
+
+  const beginnerMistakes = [
+    { emoji: '💀', title: '澆水過多', desc: '新手最常犯的錯！多肉植物寧可乾也不要濕。表土完全乾燥後再澆水，冬季更要減少。積水會導致根部腐爛。' },
+    { emoji: '🌑', title: '光照不足', desc: '放在完全無光的室內會徒長（莖拉長、葉片間距變大）。盡量放在窗邊有散射光的地方。' },
+    { emoji: '🏺', title: '花盆無排水孔', desc: '沒有排水孔的花盆容易積水導致爛根。如果用無孔花盆，底部一定要鋪厚厚的排水層。' },
+    { emoji: '🌡️', title: '忽略溫度', desc: '大部分多肉不耐寒（5°C以下會凍傷），也不耐高溫悶熱。夏天要通風遮陽，冬天要搬進室內。' },
+    { emoji: '✂️', title: '不敢修剪', desc: '徒長的多肉要果斷砍頭！砍下的頂部可以重新扦插，母株會長出更多側芽，變得更漂亮。' },
+    { emoji: '🧴', title: '過度施肥', desc: '多肉不需要太多肥料。生長季節每月施一次薄肥即可，冬夏休眠期不要施肥。' },
+    { emoji: '🌧️', title: '淋雨不管', desc: '梅雨季節讓多肉淋雨是大忌。長期潮濕容易引發黑腐和介殼蟲，下雨天務必移到遮雨處。' },
+    { emoji: '📦', title: '買回來直接曬', desc: '網購多肉到貨後需要「緩苗」，先放散射光處3-5天適應環境，再慢慢增加光照。' },
+    { emoji: '🫗', title: '只澆表面', desc: '澆水要澆透！只澆表面會讓根系往上生長，變得脆弱。正確做法是澆到底部排水孔有水流出。' },
+    { emoji: '👥', title: '種太密', desc: '組盆時植物間要留適當間距。太密會影響通風和光照，容易發生病蟲害，也不利於各自生長。' },
+  ];
+
+  const tabs2 = [
+    { key: 'guide' as const, label: '照護指南' },
+    { key: 'varieties' as const, label: '常見品種' },
+    { key: 'mistakes' as const, label: '新手禁忌' },
+  ];
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="pt-10 space-y-4">
+      <div className="text-center py-3">
+        <h1 className="text-lg font-bold" style={{ color: '#3D3530' }}>🌱 植栽照顧</h1>
+      </div>
+      <div className="flex gap-2 px-4">
+        {tabs2.map(t => (
+          <button key={t.key} onClick={() => setTab(t.key)}
+            className="px-4 py-2 rounded-full text-xs font-medium whitespace-nowrap"
+            style={{ backgroundColor: tab === t.key ? '#6B8F5E' : '#F0EDE8', color: tab === t.key ? '#fff' : '#3D3530' }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'guide' && (
+        <div className="space-y-3 px-1">
+          {careGuide.map((section, i) => (
+            <div key={i} className="rounded-2xl p-4" style={{ backgroundColor: '#F0EDE8' }}>
+              <p className="text-sm font-bold mb-2" style={{ color: '#3D3530' }}>{section.title}</p>
+              <div className="space-y-1.5">
+                {section.items.map((item, j) => (
+                  <p key={j} className="text-xs leading-relaxed" style={{ color: '#8C7B72' }}>• {item}</p>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tab === 'varieties' && (
+        <div className="space-y-2.5 px-1">
+          {succulentData.map(s => (
+            <div key={s.id} className="rounded-2xl p-3.5" style={{ backgroundColor: '#F0EDE8' }}>
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="text-sm font-bold" style={{ color: '#3D3530' }}>{s.name} <span className="font-normal text-xs" style={{ color: '#8C7B72' }}>{s.nameEn}</span></p>
+                  <p className="text-xs mt-1" style={{ color: '#8C7B72' }}>{s.desc}</p>
+                </div>
+                <span className="text-xs">{s.difficulty}</span>
+              </div>
+              <div className="flex gap-3 mt-2 text-[10px]" style={{ color: '#8C7B72' }}>
+                <span>💧 {s.water}</span><span>☀️ {s.sun}</span><span>🗓️ {s.season}</span>
+              </div>
+              <p className="text-[10px] mt-1.5" style={{ color: '#6B8F5E' }}>💡 {s.tips}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tab === 'mistakes' && (
+        <div className="space-y-2.5 px-1">
+          {beginnerMistakes.map((m, i) => (
+            <div key={i} className="rounded-2xl p-4 flex gap-3" style={{ backgroundColor: '#F0EDE8' }}>
+              <span className="text-2xl">{m.emoji}</span>
+              <div>
+                <p className="text-sm font-bold" style={{ color: '#3D3530' }}>{m.title}</p>
+                <p className="text-xs mt-1 leading-relaxed" style={{ color: '#8C7B72' }}>{m.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
+// ===================== PAGE: OIL WIKI =====================
+
+const OIL_WIKI_DATA = [
+  { id: 1, name: '薰衣草', nameEn: 'Lavender', family: '唇形科', nature: '涼', mainEffect: '放鬆安眠、皮膚修護', psychEffect: '安撫焦慮、幫助入眠' },
+  { id: 2, name: '茶樹', nameEn: 'Tea Tree', family: '桃金孃科', nature: '涼', mainEffect: '抗菌消炎、淨化', psychEffect: '提振精神、淨化思緒' },
+  { id: 3, name: '甜橙', nameEn: 'Sweet Orange', family: '芸香科', nature: '溫', mainEffect: '助消化、愉悅心情', psychEffect: '帶來快樂、緩解憂鬱' },
+  { id: 4, name: '檸檬', nameEn: 'Lemon', family: '芸香科', nature: '涼', mainEffect: '提神醒腦、淨化空氣', psychEffect: '清新思緒、提升專注' },
+  { id: 5, name: '尤加利', nameEn: 'Eucalyptus', family: '桃金孃科', nature: '涼', mainEffect: '呼吸順暢、驅蟲', psychEffect: '清理思緒、恢復活力' },
+  { id: 6, name: '胡椒薄荷', nameEn: 'Peppermint', family: '唇形科', nature: '涼', mainEffect: '提神醒腦、舒緩頭痛', psychEffect: '提振精神、增強記憶' },
+  { id: 7, name: '迷迭香', nameEn: 'Rosemary', family: '唇形科', nature: '溫', mainEffect: '增強記憶、促進循環', psychEffect: '提升專注力、激發靈感' },
+  { id: 8, name: '天竺葵', nameEn: 'Geranium', family: '牻牛兒苗科', nature: '平', mainEffect: '平衡荷爾蒙、護膚', psychEffect: '平衡情緒、溫暖心靈' },
+  { id: 9, name: '依蘭依蘭', nameEn: 'Ylang Ylang', family: '番荔枝科', nature: '溫', mainEffect: '平衡油脂、催情', psychEffect: '釋放壓力、增添浪漫' },
+  { id: 10, name: '乳香', nameEn: 'Frankincense', family: '橄欖科', nature: '溫', mainEffect: '抗老化、冥想', psychEffect: '深度放鬆、靈性提升' },
+  { id: 11, name: '佛手柑', nameEn: 'Bergamot', family: '芸香科', nature: '涼', mainEffect: '消化、護膚', psychEffect: '振奮情緒、驅散陰鬱' },
+  { id: 12, name: '雪松', nameEn: 'Cedarwood', family: '松科', nature: '溫', mainEffect: '收斂、安定', psychEffect: '穩定心神、增強自信' },
+  { id: 13, name: '快樂鼠尾草', nameEn: 'Clary Sage', family: '唇形科', nature: '溫', mainEffect: '荷爾蒙平衡、放鬆', psychEffect: '帶來愉悅、釋放恐懼' },
+  { id: 14, name: '檀香', nameEn: 'Sandalwood', family: '檀香科', nature: '溫', mainEffect: '護膚、冥想', psychEffect: '深層寧靜、靈性連結' },
+  { id: 15, name: '羅馬洋甘菊', nameEn: 'Roman Chamomile', family: '菊科', nature: '涼', mainEffect: '安撫、抗過敏', psychEffect: '深度放鬆、安撫情緒' },
+];
+
+const OIL_RECIPES = [
+  { name: '安眠配方', desc: '助眠放鬆', oils: '薰衣草3滴 + 甜橙2滴 + 雪松1滴', method: '擴香儀或枕頭噴霧' },
+  { name: '提神醒腦', desc: '工作學習', oils: '胡椒薄荷2滴 + 迷迭香2滴 + 檸檬2滴', method: '擴香儀' },
+  { name: '舒壓放鬆', desc: '下班療癒', oils: '薰衣草3滴 + 佛手柑2滴 + 依蘭依蘭1滴', method: '泡澡或按摩' },
+  { name: '淨化空間', desc: '居家清新', oils: '茶樹3滴 + 檸檬2滴 + 尤加利1滴', method: '擴香儀或噴霧' },
+  { name: '專注配方', desc: '考試工作', oils: '迷迭香3滴 + 檸檬2滴 + 胡椒薄荷1滴', method: '擴香儀' },
+  { name: '情緒平衡', desc: '經期舒緩', oils: '天竺葵2滴 + 快樂鼠尾草2滴 + 薰衣草2滴', method: '腹部按摩（加基底油）' },
+  { name: '肌膚修護', desc: '日常保養', oils: '薰衣草2滴 + 乳香2滴 + 天竺葵1滴', method: '加入荷荷巴油按摩' },
+  { name: '浪漫氛圍', desc: '約會之夜', oils: '依蘭依蘭2滴 + 檀香2滴 + 甜橙1滴', method: '擴香儀' },
+];
+
+function OilWikiPage() {
+  const [tab, setTab] = useState<'guide' | 'function' | 'recipe' | 'carrier' | 'ratio'>('guide');
+  const [searchText, setSearchText] = useState('');
+
+  const filteredOils = useMemo(() => {
+    if (!searchText.trim()) return OIL_WIKI_DATA;
+    const q = searchText.toLowerCase();
+    return OIL_WIKI_DATA.filter(o =>
+      o.name.includes(q) || o.nameEn.toLowerCase().includes(q) || o.mainEffect.includes(q) || o.psychEffect.includes(q)
+    );
+  }, [searchText]);
+
+  const tabs3 = [
+    { key: 'guide' as const, label: '精油圖鑑' },
+    { key: 'function' as const, label: '找功效' },
+    { key: 'recipe' as const, label: '配方參考' },
+    { key: 'carrier' as const, label: '植物油' },
+    { key: 'ratio' as const, label: '精油比例' },
+  ];
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="pt-10 space-y-4">
+      <div className="text-center py-3">
+        <h1 className="text-lg font-bold" style={{ color: '#3D3530' }}>🫧 精油百科</h1>
+      </div>
+      <div className="flex gap-2 px-4 overflow-x-auto">
+        {tabs3.map(t => (
+          <button key={t.key} onClick={() => setTab(t.key)}
+            className="px-4 py-2 rounded-full text-xs font-medium whitespace-nowrap"
+            style={{ backgroundColor: tab === t.key ? '#A8B876' : '#F0EDE8', color: tab === t.key ? '#fff' : '#3D3530' }}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'guide' && (
+        <div className="space-y-2.5 px-1">
+          <input type="text" placeholder="搜尋精油名稱或功效..." value={searchText} onChange={e => setSearchText(e.target.value)}
+            className="w-full rounded-xl px-4 py-2.5 text-sm outline-none" style={{ backgroundColor: '#F0EDE8', color: '#3D3530' }} />
+          {filteredOils.map(o => (
+            <div key={o.id} className="rounded-2xl p-3.5" style={{ backgroundColor: '#F0EDE8' }}>
+              <p className="text-sm font-bold" style={{ color: '#3D3530' }}>{o.name} <span className="font-normal text-xs" style={{ color: '#8C7B72' }}>{o.nameEn}</span></p>
+              <div className="flex gap-3 mt-1.5 text-[10px]" style={{ color: '#8C7B72' }}>
+                <span>{o.family}</span><span>{o.nature}性</span>
+              </div>
+              <p className="text-xs mt-1.5" style={{ color: '#3D3530' }}>🌿 {o.mainEffect}</p>
+              <p className="text-xs mt-0.5" style={{ color: '#8C7B72' }}>🧠 {o.psychEffect}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tab === 'function' && (
+        <div className="space-y-2.5 px-1">
+          <input type="text" placeholder="輸入你想改善的問題..." value={searchText} onChange={e => setSearchText(e.target.value)}
+            className="w-full rounded-xl px-4 py-2.5 text-sm outline-none" style={{ backgroundColor: '#F0EDE8', color: '#3D3530' }} />
+          {OIL_WIKI_DATA.filter(o => {
+            if (!searchText.trim()) return true;
+            const q = searchText.toLowerCase();
+            return o.mainEffect.includes(q) || o.psychEffect.includes(q) || o.name.includes(q);
+          }).map(o => (
+            <div key={o.id} className="rounded-2xl p-3.5" style={{ backgroundColor: '#F0EDE8' }}>
+              <p className="text-sm font-bold" style={{ color: '#3D3530' }}>{o.name}</p>
+              <p className="text-xs mt-1" style={{ color: '#3D3530' }}>🌿 {o.mainEffect}</p>
+              <p className="text-xs mt-0.5" style={{ color: '#8C7B72' }}>🧠 {o.psychEffect}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tab === 'recipe' && (
+        <div className="space-y-2.5 px-1">
+          {OIL_RECIPES.map((r, i) => (
+            <div key={i} className="rounded-2xl p-4" style={{ backgroundColor: '#F0EDE8' }}>
+              <p className="text-sm font-bold" style={{ color: '#3D3530' }}>{r.name}</p>
+              <p className="text-[10px] mb-2" style={{ color: '#8C7B72' }}>{r.desc}</p>
+              <p className="text-xs" style={{ color: '#3D3530' }}>🧴 {r.oils}</p>
+              <p className="text-[10px] mt-1" style={{ color: '#8C7B72' }}>使用方式：{r.method}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tab === 'carrier' && (
+        <div className="space-y-2.5 px-1">
+          {[
+            { name: '荷荷巴油', desc: '最接近人體皮脂，適合所有膚質，清爽不油膩' },
+            { name: '甜杏仁油', desc: '質地輕柔好吸收，適合敏感肌和嬰幼兒' },
+            { name: '椰子油', desc: '滋潤度高，適合乾性肌膚和護髮使用' },
+            { name: '葡萄籽油', desc: '質地最清爽，適合油性和混合性肌膚' },
+            { name: '玫瑰果油', desc: '富含維他命C，淡化疤痕和細紋，適合熟齡肌' },
+            { name: '酪梨油', desc: '營養豐富，適合極乾燥和受損肌膚' },
+          ].map((c, i) => (
+            <div key={i} className="rounded-2xl p-3.5" style={{ backgroundColor: '#F0EDE8' }}>
+              <p className="text-sm font-bold" style={{ color: '#3D3530' }}>{c.name}</p>
+              <p className="text-xs mt-1" style={{ color: '#8C7B72' }}>{c.desc}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tab === 'ratio' && (
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-4 px-1">
+          {/* 稀釋比例 */}
+          <div className="rounded-2xl p-4" style={{ backgroundColor: '#F0EDE8' }}>
+            <p className="text-sm font-semibold mb-2" style={{ color: '#3D3530' }}>一、稀釋比例參考</p>
+            {['1% = 每 10ml 基底油加 2 滴精油（臉部保養、敏感肌）', '2% = 每 10ml 基底油加 4 滴精油（日常身體按摩）', '3% = 每 10ml 基底油加 6 滴精油（局部加強護理）', '5% = 每 10ml 基底油加 10 滴精油（急性處理，短期使用）'].map((t, i) => (
+              <p key={i} className="text-xs leading-relaxed mb-1" style={{ color: '#8C7B72' }}>• {t}</p>
+            ))}
+          </div>
+          {/* 各對象濃度 */}
+          <div className="rounded-2xl p-4" style={{ backgroundColor: '#F0EDE8' }}>
+            <p className="text-sm font-semibold mb-2" style={{ color: '#3D3530' }}>二、各對象適合濃度</p>
+            {['嬰幼兒（2歲以下）：不建議使用，可用純露代替', '兒童（2-12歲）：0.5%-1%', '青少年/成人：2%-3%', '孕婦：1% 以下，且避免特定精油', '老年人：1%-2%'].map((t, i) => (
+              <p key={i} className="text-xs leading-relaxed mb-1" style={{ color: '#8C7B72' }}>• {t}</p>
+            ))}
+          </div>
+          {/* 調香黃金比例 */}
+          <div className="rounded-2xl p-4" style={{ backgroundColor: '#F0EDE8' }}>
+            <p className="text-sm font-semibold mb-2" style={{ color: '#3D3530' }}>三、調香黃金比例 3:2:1</p>
+            {['前調（3份）：柑橘類、薄荷等（揮發快，第一印象）', '中調（2份）：花類、草本類（主體香氣）', '後調（1份）：木質、樹脂類（持久基底）', '範例：甜橙3滴 + 薰衣草2滴 + 雪松1滴'].map((t, i) => (
+              <p key={i} className="text-xs leading-relaxed mb-1" style={{ color: '#8C7B72' }}>• {t}</p>
+            ))}
+          </div>
+          {/* 注意事項 */}
+          <div className="space-y-3">
+            <p className="text-sm font-semibold" style={{ color: '#3D3530' }}>四、使用注意事項</p>
+            {[
+              '精油不可直接塗抹在皮膚上（茶樹和薰衣草例外，但仍建議稀釋）',
+              '使用前先在手腕內側做皮膚測試，等待24小時確認無過敏反應',
+              '柑橘類精油（甜橙、檸檬、佛手柑）有光敏性，使用後避免日曬',
+              '孕婦避免使用：索馬利亞乳香、百里酚百里香、甜茴香、馬鞭草酮迷迭香',
+              '蠶豆症患者及2歲以下嬰幼兒避免使用胡椒薄荷',
+              '精油保存於深色玻璃瓶中，遠離陽光和火源',
+              '開封後柑橘類精油建議6個月內用完，其他精油1-2年',
+            ].map((note, idx) => (
+              <div key={idx} className="flex gap-2 items-start px-3 py-2 rounded-lg" style={{ backgroundColor: '#F0EDE8' }}>
+                <span className="text-xs flex-shrink-0" style={{ color: '#E8735A' }}>⚠️</span>
+                <p className="text-xs" style={{ color: '#8C7B72' }}>{note}</p>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+    </motion.div>
+  );
+}
+
+// ===================== PAGE: AI CUSTOMER SERVICE =====================
+
+const CS_LINE_URL = 'https://page.line.me/296yrpvh?openQrModal=true';
+
+interface CSCta {
+  label: string;
+  type: 'line' | 'shop' | 'shop-category';
+  categoryId?: number;
+}
+
+interface CSKnowledgeItem {
+  id: string;
+  category: string;
+  keywords: string[];
+  question: string;
+  answer: string;
+  priority: number;
+  ctas?: CSCta[];
+}
+
+const CS_KNOWLEDGE_BASE: CSKnowledgeItem[] = [
+  { id: 'crystal-bracelet-intro', category: '水晶手鍊', keywords: ['水晶', '手鍊', '手鏈', '手環', '串珠', '礦石', '串水晶', '手串'], question: '水晶手鍊課程是什麼？', answer: '我們提供水晶手鍊 DIY 體驗！您可以在店內挑選喜歡的天然水晶礦石，我們有兩種模式，一種是看說明書製作，有分成一般899 和高階水晶1599，不過有問題現場老師都在唷，每天從下午1點到7點都有場次。另一種是老師教學，會依照老師的開課場次，可以進到商城選擇喔。全程約 1～1.5 小時，完成後可直接帶走還有包裝唷！', priority: 10, ctas: [{ label: '🔮 自己做一般水晶', type: 'shop-category', categoryId: 200 }, { label: '💎 自己做高階水晶', type: 'shop-category', categoryId: 200 }, { label: '👩‍🏫 老師教學', type: 'shop' }] },
+  { id: 'crystal-booking', category: '水晶手鍊', keywords: ['預約', '怎麼預約', '如何預約', '要預約', '報名', '怎麼報名', '預訂', '怎麼訂'], question: '水晶手鍊怎麼預約？', answer: '您可以直接到我們的商城選擇「水晶手鍊自己做」進行線上預約，選擇日期與時間後完成付款即可。', priority: 10, ctas: [{ label: '🔮 前往商城預約', type: 'shop-category', categoryId: 200 }] },
+  { id: 'crystal-price', category: '水晶手鍊', keywords: ['多少錢', '價格', '費用', '價位', '收費', '水晶.*錢', '水晶.*費', '590', '899', '1599'], question: '水晶手鍊多少錢？', answer: '我們提供水晶手鍊 DIY 體驗！我們有兩種版本，一種是看說明書製作，有分成一般899 和高階水晶1599，不過有問題現場老師都在唷！每天從下午1點到7點都有場次。全程約 1～1.5 小時，完成後可直接帶走還有包裝唷！', priority: 9, ctas: [{ label: '🔮 自己做一般水晶', type: 'shop-category', categoryId: 200 }, { label: '💎 自己做高階水晶', type: 'shop-category', categoryId: 200 }] },
+  { id: 'crystal-own-material', category: '水晶手鍊', keywords: ['自備', '自己帶', '自己的水晶', '加進去', '自帶'], question: '可以自備水晶嗎？', answer: '可以唷！如果您有自己的水晶想加進手鍊裡，歡迎帶來，在串製的時候直接加進去就好～', priority: 7 },
+  { id: 'crystal-material', category: '水晶手鍊', keywords: ['材料', '有哪些', '什麼水晶', '選擇', '種類', '紅瑪瑙', '黃水晶', '青金石', '紫水晶'], question: '有什麼水晶材料可以選？', answer: '我們店內提供多種天然水晶礦石可以挑選，包含紫水晶、粉水晶、白水晶、黃水晶、紅瑪瑙、虎眼石、青金石等破百種。實際品項以現場庫存為準，歡迎到店挑選您喜歡的！', priority: 7 },
+  { id: 'crystal-tablet-vs-teacher', category: '水晶手鍊', keywords: ['平板', '差異', '差別', '不同', '真人', '自己做', '老師教'], question: '平板教學跟真人老師教學有什麼不同？', answer: '平板教學是看平板上的說明自己操作完成，費用較低（590 元起）。真人老師教學會有專業講師手把手帶您製作，體驗更深入，適合團體包班或想深度學習的朋友。但即使是選擇平板教學也可以很輕鬆的完成喔，有不懂的也可以隨時問現場的工作人員。', priority: 8 },
+  { id: 'booking-flow', category: '預約流程', keywords: ['預約', '怎麼預約', '如何預約', '預約流程', '步驟', '報名', '怎麼報名'], question: '要怎麼預約體驗課程？', answer: '預約方式有兩種：\n1️⃣ 線上預約：到頁面裡的療癒商城或是到官網 www.xiabenhow.com 選擇課程 → 選日期時間 → 填寫資料 → 完成付款\n2️⃣ 企業包班預約：直接在 LINE 官方帳號告訴我們想要的課程、日期、人數，小編會協助您安排！\n\n請問您要哪一種？', priority: 10, ctas: [{ label: '🛒 前往療癒商城', type: 'shop' }, { label: '💬 企業包班 LINE 諮詢', type: 'line' }] },
+  { id: 'booking-need', category: '預約流程', keywords: ['需要預約', '要預約嗎', '可以直接去', '現場', 'walk in'], question: '需要預約嗎？可以直接去嗎？', answer: '建議先預約唷！這樣可以確保您到店時有座位和材料。如果想直接來，也可以先透過 LINE 確認當天是否還有空位～', priority: 8 },
+  { id: 'booking-confirm', category: '預約流程', keywords: ['預約完成', '成功', '確認', '這樣就預約', '有預約到'], question: '怎麼確認預約成功？', answer: '完成線上預約並付款後，系統會發送確認通知到您的信箱。有不確定的話也可以 Line 詢問我們', priority: 7 },
+  { id: 'price-general', category: '價格費用', keywords: ['多少錢', '價格', '費用', '價位', '收費', '優惠', '折扣', '便宜'], question: '課程費用大概多少？', answer: '不同課程費用不同，以下是參考：\n🔮 （平板自助）：590 元起\n🕯️ 蠟燭 / 擴香課程：依項目而定\n🌿 多肉植物 / 水晶手鍊 / 花藝：依項目而定\n\n可以進到商城看不同課程喔\n團體包班另有優惠方案，歡迎透過 LINE 詢問詳細報價！', priority: 9, ctas: [{ label: '🛒 前往商城看課程', type: 'shop' }] },
+  { id: 'price-deposit', category: '價格費用', keywords: ['訂金', '定金', '先付', '預付'], question: '需要先付訂金嗎？', answer: '個人預約通常在線上預約時直接付全額。企業包班或團體預約需先支付 50% 訂金，尾款在活動當天支付即可。', priority: 7 },
+  { id: 'culture-coin', category: '價格費用', keywords: ['文化幣', '文化', '青年文化'], question: '可以使用文化幣嗎？', answer: '可以使用文化幣唷，不過會需要您先預約付款完後，到時候到現場掃碼退現金喔。', priority: 8 },
+  { id: 'payment-methods', category: '付款方式', keywords: ['付款', '怎麼付', '付費', '信用卡', 'line pay', '匯款', '轉帳', '帳號', '現金'], question: '有哪些付款方式？', answer: '我們接受以下付款方式：\n💳 線上刷卡（官網預約時付款）\n🏦 銀行轉帳 / 匯款 / 💚 LINE Pay / 🏪 超商條碼\n💵 現場現金付款\n\n企業包班如需匯款，預約確認後會提供匯款帳號資訊。匯款完成請提供帳號後五碼方便財務核對～', priority: 8 },
+  { id: 'payment-invoice', category: '付款方式', keywords: ['發票', '統編', '抬頭', '公司發票', '三聯', '電子發票'], question: '可以開發票嗎？', answer: '可以的！我們提供電子發票，開立後會直接寄送到您提供的電子信箱。如果需要開立公司抬頭的發票，請在預約時提供公司名稱和統一編號唷～', priority: 7 },
+  { id: 'business-hours', category: '時間地點', keywords: ['營業', '幾點', '開門', '幾點到幾點', '週幾', '星期', '休息', '時間'], question: '營業時間是？', answer: '我們每天早上10點到晚上9點，不過水晶手鍊會是下午1點開始喔，您可以先在商城裡預約完成，有任何問題也可以點擊 Line 跟我們說。', priority: 8, ctas: [{ label: '🛒 前往商城預約', type: 'shop' }, { label: '💬 LINE 詢問', type: 'line' }] },
+  { id: 'location', category: '時間地點', keywords: ['地址', '在哪', '地點', '怎麼去', '位置', '門市'], question: '店在哪裡？', answer: '我們在台北台中高雄皆有據點，台北門市在萬華區漢口街2段121號喔，可以在 Google Map 搜尋「下班隨手做」', priority: 8 },
+  { id: 'parking', category: '時間地點', keywords: ['停車', '車位', '停車場', '開車'], question: '附近好停車嗎？', answer: '台北門市旁邊有西門町洛陽停車場。', priority: 5 },
+  { id: 'duration', category: '時間地點', keywords: ['多久', '多長', '幾個小時', '多少時間', '要多久', '時間長度'], question: '課程大約要多久？', answer: '各課程時長不同：\n🔮 水晶手鍊：約 1～1.5 小時\n🕯️ 蠟燭 / 擴香：約 1～2 小時\n🌿 多肉 / 花藝：約 1.5～2 小時\n\n企業包班可依需求調整，含講解與製作通常安排 1.5～2 小時為佳。', priority: 8 },
+  { id: 'cancel-policy', category: '取消退款', keywords: ['取消', '退款', '退費', '不去', '不能去'], question: '預約後可以取消嗎？', answer: '可以取消，但依據取消時間有不同的退款比例。一般來說，提前通知可退 80% 的費用。建議盡早告知我們以便安排，不過課程當天沒辦法改期或取消喔，詳細退款政策請透過 LINE 與小編確認。', priority: 8 },
+  { id: 'reschedule', category: '取消退款', keywords: ['改期', '更改', '換時間', '延期', '改日期', '改時間'], question: '可以改期嗎？', answer: '可以的！請提前透過 LINE 告知想更改的新日期與時間，小編會幫您確認是否還有名額並協助調整。不過當天課程沒辦法改期，建議您至少提前 1-2 天通知唷～', priority: 8 },
+  { id: 'enterprise-intro', category: '企業活動', keywords: ['企業', '公司', '團體', 'team', '包場', '包班', '員工', 'team building', '團建', '公司活動'], question: '有提供企業包班嗎？', answer: '有的！我們提供企業手作活動與包班服務。可選擇水晶手鍊、蠟燭、擴香、多肉植物等多種手作項目。我們可以到貴公司場地授課，也可以在我們的教室進行。歡迎透過 LINE 告知您的需求，我們會提供專屬報價！', priority: 9 },
+  { id: 'enterprise-onsite', category: '企業活動', keywords: ['到公司', '到場', '外派', '上門', '到府', '出差', '場地'], question: '老師可以到公司教學嗎？', answer: '可以的！我們提供到府教學服務，老師會帶齊所有材料到貴公司場地授課。外派教學會有車馬費（依距離而定），詳細費用會在報價單中說明。', priority: 8 },
+  { id: 'enterprise-headcount', category: '企業活動', keywords: ['最少', '最多', '幾人', '人數', '幾個人', '最低', '起跳'], question: '企業包班最少要幾個人？', answer: '如果是在門市，6人以上可以包班，如果人數不足，也可以參考我們的個人預約體驗，如果到公司行號上課，會有最低預約人數，您可以透過 Line 跟我們聯繫', priority: 7, ctas: [{ label: '💬 LINE 聯繫包班', type: 'line' }] },
+  { id: 'enterprise-quote', category: '企業活動', keywords: ['報價', '怎麼算', '費用怎麼算', '報價單', '估價'], question: '企業活動費用怎麼算？', answer: '企業活動費用會依據以下因素報價：\n📋 課程項目（水晶、蠟燭、擴香等）\n👥 參加人數\n📍 上課地點（店內或外派）\n⏰ 活動時長\n\n請透過 LINE 提供以上資訊，我們會盡快開立報價單給您！通常需先支付 50% 訂金確認檔期。', priority: 8, ctas: [{ label: '💬 LINE 索取報價單', type: 'line' }] },
+  { id: 'course-types', category: '課程種類', keywords: ['有什麼課', '哪些課', '什麼可以做', '課程', '項目', '種類', '體驗', '可以做什麼', '手作'], question: '有哪些課程可以體驗？', answer: '我們提供多種療癒手作體驗：\n🔮 水晶手鍊 DIY\n🕯️ 香氛蠟燭製作\n🌸 擴香石 / 擴香花泥盤\n🌿 多肉植物組盆\n💐 乾燥花 / 永生花\n🎨 流體畫\n💎 水晶飾品\n🧴 香水調製 皮革 藍染\n\n各項目詳細內容與價格請到商城頁面或是官網 www.xiabenhow.com 查看！', priority: 9, ctas: [{ label: '🛒 前往商城看課程', type: 'shop' }] },
+  { id: 'candle-course', category: '課程種類', keywords: ['蠟燭', '香氛蠟燭', '蠟燭課'], question: '蠟燭課程怎麼預約？', answer: '蠟燭課程可以到商城頁面或在官網 www.xiabenhow.com 上搜尋「蠟燭」找到相關課程並線上預約。也可以透過 LINE 告訴我們您想體驗的蠟燭類型（容器蠟燭、柱狀蠟燭等），小編會協助您預約唷！', priority: 7 },
+  { id: 'succulent-course', category: '課程種類', keywords: ['多肉', '植物', '組盆', '盆栽'], question: '多肉植物課程有嗎？', answer: '有的！我們有多肉植物組盆體驗課程，可以挑選喜歡的多肉品種和花盆，在老師指導下完成屬於自己的小盆栽。適合個人或團體包班，歡迎到官網或 LINE 查詢預約～', priority: 7 },
+  { id: 'diffuser-course', category: '課程種類', keywords: ['擴香', '擴香石', '泥盤', '花泥盤', '擴香座'], question: '擴香課程有什麼？', answer: '我們有擴香石、水泥六角擴香花泥盤等多種擴香手作課程。製作完成後可以搭配精油使用，讓您的空間充滿香氣！詳情請到官網查看或 LINE 詢問～', priority: 6 },
+  { id: 'perfume-course', category: '課程種類', keywords: ['香水', '調香', '調製', '香味'], question: '有香水調製課程嗎？', answer: '有的！我們有提供香水 / 調香體驗課程，可以在專業指導下調製出屬於自己獨特氣味的香水。歡迎到官網查看「調香」相關課程或透過 LINE 詢問最新場次！', priority: 6 },
+  { id: 'kids-age', category: '小孩年齡', keywords: ['小孩', '兒童', '幾歲', '年齡', '小朋友', '孩子', '親子', '小孩可以', '帶小孩'], question: '小孩可以參加嗎？幾歲可以做？', answer: '大部分課程適合 10 歲以上的小朋友參加。10 歲以下的小朋友建議由家長陪同一起製作。部分精細課程可能不太適合太小的孩子，可以透過 LINE 跟我們確認適合的年齡範圍唷！', priority: 8 },
+  { id: 'customization', category: '客製化', keywords: ['客製', '訂製', '特別', '設計', 'logo', '文字', '刻字'], question: '可以客製化嗎？', answer: '部分產品支持客製化（如企業活動加 logo 等），但一般個人課程使用的是固定模具，文字或圖案的客製化比較有限。如果有特殊需求，歡迎透過 LINE 告訴我們，我們會評估是否能達成您的想法！', priority: 7 },
+  { id: 'take-home', category: '其他', keywords: ['帶回', '帶走', '回家', '提袋', '袋子', '打包'], question: '作品可以帶回家嗎？', answer: '當然可以！手作完成後就是您的作品，可以直接帶走。部分需要等待乾燥的作品（如蠟燭），老師會教您如何安全攜帶。我們也會提供提袋方便您帶回～', priority: 6 },
+  { id: 'not-finished', category: '其他', keywords: ['做不完', '來不及', '半成品', '沒做完'], question: '時間內做不完怎麼辦？', answer: '不用擔心！老師會依進度彈性調整，大部分的人都能在時間內完成。如果真的來不及，老師也會協助您喔', priority: 5 },
+  { id: 'greeting', category: '問候', keywords: ['你好', '哈囉', '嗨', 'hi', 'hello', '安安', '午安', '早安', '晚安'], question: '你好', answer: '您好！歡迎來到下班隨手作 🌿 我是智能客服小助手，可以幫您解答課程、預約、價格等常見問題。請問有什麼我可以幫您的呢？', priority: 3 },
+  { id: 'thanks', category: '問候', keywords: ['謝謝', '感謝', '感恩', '3q', 'thanks', 'thx'], question: '謝謝', answer: '不客氣～很高興能幫到您！如果還有其他問題，隨時都可以問我唷 😊', priority: 2 },
+  { id: 'contact-human', category: '聯繫客服', keywords: ['真人', '客服', '小編', '打電話', '聯繫', '聯絡', '通話', '電話'], question: '想找真人客服', answer: '沒問題！如果需要更詳細的協助，歡迎透過以下方式聯繫我們的真人客服：\n📱 LINE 官方帳號：搜尋「下班隨手作」\n🌐 官網：www.xiabenhow.com\n\n小編會在上班時間盡快回覆您！', priority: 8, ctas: [{ label: '💬 LINE 聯繫真人客服', type: 'line' }] },
+  { id: 'teacher-nationwide', category: '全台教學', keywords: ['全台', '老師', '哪裡有', '其他城市', '台中', '台南', '高雄', '新竹'], question: '其他縣市也有老師可以教學嗎？', answer: '有的！我們在全台各地都有合作老師可以提供教學服務。無論您在台北、台中、台南、高雄或其他地區，都歡迎透過 LINE 跟我們詢問您所在區域的老師檔期與課程安排！', priority: 7 },
+  { id: 'buy-material-only', category: '其他', keywords: ['買材料', '只要材料', '材料包', '不上課', '回家做'], question: '可以只買材料不上課嗎？', answer: '可以的！我們有提供材料包販售。您可以在官網上選購材料包回家自己 DIY，也可以到店裡挑選材料。詳情可到療癒商城選購或官網 www.xiabenhow.com 查看商品區，或 LINE 詢問。', priority: 6, ctas: [{ label: '📦 前往 DIY 材料包', type: 'shop-category', categoryId: 75 }] },
+];
+
+const CS_QUICK_QUESTIONS = [
+  { emoji: '🔮', label: '水晶手鍊', query: '水晶手鍊課程是什麼' },
+  { emoji: '📅', label: '怎麼預約', query: '怎麼預約' },
+  { emoji: '💰', label: '價格費用', query: '課程費用' },
+  { emoji: '🏢', label: '企業包班', query: '企業包班' },
+  { emoji: '📍', label: '地點時間', query: '營業時間在哪裡' },
+  { emoji: '🔄', label: '取消改期', query: '取消改期' },
+  { emoji: '💳', label: '付款方式', query: '付款方式' },
+  { emoji: '👶', label: '小孩可以嗎', query: '小孩可以參加嗎' },
+  { emoji: '⏱️', label: '要多久', query: '課程多久' },
+  { emoji: '📋', label: '課程種類', query: '有哪些課程' },
+];
+
+function matchCSAnswer(input: string): CSKnowledgeItem[] {
+  const q = input.toLowerCase().trim();
+  if (!q) return [];
+  const scored: { item: CSKnowledgeItem; score: number }[] = [];
+  for (const item of CS_KNOWLEDGE_BASE) {
+    let score = 0;
+    for (const kw of item.keywords) {
+      if (kw.includes('.*')) { try { if (new RegExp(kw, 'i').test(q)) score += 5; } catch { /* skip */ } }
+      else if (q.includes(kw)) { score += 4 + kw.length; }
+    }
+    if (q.includes(item.category)) score += 3;
+    const qChars = [...new Set(q.split(''))];
+    const questionChars = [...new Set(item.question.split(''))];
+    const overlap = qChars.filter(c => questionChars.includes(c) && c.trim()).length;
+    if (overlap > 3) score += overlap * 0.3;
+    score += item.priority * 0.2;
+    if (score > 2) scored.push({ item, score });
+  }
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, 3).map(s => s.item);
+}
+
+interface CSMessage { id: string; role: 'user' | 'bot'; text: string; time: string; ctas?: CSCta[]; }
+
+function CustomerServicePage({ onNavigate }: { onNavigate: (page: PageType) => void }) {
+  const [messages, setMessages] = useState<CSMessage[]>([{ id: 'welcome', role: 'bot', text: '您好！歡迎來到下班隨手作 🌿\n我是智能客服小助手，可以幫您解答課程、預約、價格等常見問題。\n\n請直接輸入您的問題，或點選下方常見問題快速查詢！', time: new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }) }]);
+  const [inputText, setInputText] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = useCallback(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, []);
+  useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
+
+  const handleCtaClick = useCallback((cta: CSCta) => {
+    if (cta.type === 'line') window.open(CS_LINE_URL, '_blank');
+    else onNavigate('shop');
+  }, [onNavigate]);
+
+  const handleSend = useCallback((text?: string) => {
+    const msg = (text || inputText).trim();
+    if (!msg) return;
+    const now = new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+    setMessages(prev => [...prev, { id: `user-${Date.now()}`, role: 'user', text: msg, time: now }]);
+    setInputText('');
+    setIsTyping(true);
+    setTimeout(() => {
+      const matches = matchCSAnswer(msg);
+      let botText: string; let botCtas: CSCta[] | undefined;
+      if (matches.length > 0) {
+        botText = matches[0].answer; botCtas = matches[0].ctas;
+        if (matches.length > 1) botText += '\n\n💡 您可能也想知道：\n' + matches.slice(1).map(m => `• ${m.question}`).join('\n');
+      } else {
+        botText = '抱歉，我暫時無法回答這個問題 😅\n\n建議您透過 LINE 聯繫真人客服，小編會在上班時間盡快回覆您！';
+        botCtas = [{ label: '💬 LINE 聯繫真人客服', type: 'line' }];
+      }
+      setMessages(prev => [...prev, { id: `bot-${Date.now()}`, role: 'bot', text: botText, time: new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }), ctas: botCtas }]);
+      setIsTyping(false);
+    }, 600 + Math.random() * 400);
+  }, [inputText]);
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-screen flex flex-col pt-10" style={{ backgroundColor: '#FFFEF9' }}>
+      <div className="px-4 py-3 text-center" style={{ backgroundColor: '#F0EDE8' }}>
+        <h1 className="text-lg font-bold" style={{ color: '#3D3530' }}>🤖 智能客服</h1>
+        <p className="text-xs mt-0.5" style={{ color: '#8C7B72' }}>下班隨手作 ｜ 常見問題即時回覆</p>
+      </div>
+      <div className="px-3 py-2 overflow-x-auto flex gap-2 flex-nowrap" style={{ backgroundColor: '#F8F5F0' }}>
+        {CS_QUICK_QUESTIONS.map((q) => (
+          <button key={q.label} onClick={() => handleSend(q.query)} className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all active:scale-95" style={{ backgroundColor: '#FFFEF9', color: '#3D3530', border: '1px solid #D2B4A1' }}>{q.emoji} {q.label}</button>
+        ))}
+      </div>
+      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3" style={{ minHeight: 0 }}>
+        {messages.map((msg) => (
+          <div key={msg.id}>
+            <div className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              {msg.role === 'bot' && <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mr-2 mt-1" style={{ backgroundColor: '#D2B4A1' }}><span className="text-sm">🌿</span></div>}
+              <div className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 ${msg.role === 'user' ? 'rounded-tr-sm' : 'rounded-tl-sm'}`} style={{ backgroundColor: msg.role === 'user' ? '#D2B4A1' : '#F0EDE8', color: msg.role === 'user' ? '#FFFEF9' : '#3D3530' }}>
+                <p className="text-sm whitespace-pre-line leading-relaxed">{msg.text}</p>
+                <p className="text-[10px] mt-1 text-right opacity-50">{msg.time}</p>
+              </div>
+            </div>
+            {msg.ctas && msg.ctas.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2 ml-10">
+                {msg.ctas.map((cta, idx) => (
+                  <button key={idx} onClick={() => handleCtaClick(cta)} className="px-3.5 py-2 rounded-xl text-xs font-medium transition-all active:scale-95 shadow-sm" style={{ backgroundColor: cta.type === 'line' ? '#06C755' : '#D2B4A1', color: '#FFFFFF' }}>{cta.label}</button>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+        {isTyping && (
+          <div className="flex justify-start">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mr-2 mt-1" style={{ backgroundColor: '#D2B4A1' }}><span className="text-sm">🌿</span></div>
+            <div className="rounded-2xl rounded-tl-sm px-4 py-3" style={{ backgroundColor: '#F0EDE8' }}>
+              <div className="flex gap-1.5">
+                <span className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: '#8C7B72', animationDelay: '0ms' }} />
+                <span className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: '#8C7B72', animationDelay: '150ms' }} />
+                <span className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: '#8C7B72', animationDelay: '300ms' }} />
+              </div>
+            </div>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+      <div className="px-3 py-3 border-t" style={{ borderColor: '#E8E4DF', backgroundColor: '#FFFEF9' }}>
+        <div className="flex gap-2 items-center">
+          <input type="text" value={inputText} onChange={(e) => setInputText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleSend(); }} placeholder="輸入您的問題..." className="flex-1 rounded-full px-4 py-2.5 text-sm outline-none" style={{ backgroundColor: '#F0EDE8', color: '#3D3530', border: '1px solid transparent' }} />
+          <button onClick={() => handleSend()} disabled={!inputText.trim()} className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-90" style={{ backgroundColor: inputText.trim() ? '#D2B4A1' : '#E8E4DF', color: '#FFFEF9' }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
+          </button>
+        </div>
+        <div className="mt-2.5 flex justify-center">
+          <a href={CS_LINE_URL} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-5 py-2 rounded-full text-xs font-semibold transition-all active:scale-95 shadow-sm" style={{ backgroundColor: '#06C755', color: '#FFFFFF' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.346 0 .627.285.627.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.282.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314"/></svg>
+            找不到答案？LINE 聯繫真人客服
+          </a>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 // ===================== MAIN COMPONENT =====================
 
 export default function HealingApp() {
@@ -17001,12 +17764,12 @@ export default function HealingApp() {
 
       {/* Global Back Button — top left (hidden on main tab pages) */}
       {!isBedtimeFullscreen && pageHistoryRef.current.length > 1 && !NAV_ITEMS.some(item => item.key === page) && (
-        <div className="fixed top-0 left-0 right-0 z-30" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+        <div className="fixed top-0 left-0 right-0 z-30 pointer-events-none" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
           <div className="max-w-md mx-auto px-3 py-2">
             <motion.button
               whileTap={{ scale: 0.85 }}
               onClick={() => window.history.back()}
-              className="w-9 h-9 rounded-full flex items-center justify-center"
+              className="w-9 h-9 rounded-full flex items-center justify-center pointer-events-auto"
               style={{ backgroundColor: 'rgba(255,254,249,0.9)', backdropFilter: 'blur(8px)', border: '1px solid #F0EDE8', color: '#3D3530' }}
             >
               <span className="text-sm">←</span>
@@ -17110,6 +17873,11 @@ export default function HealingApp() {
             {page === 'course-journey' && <CourseJourneyPage userEmail={user?.email || null} />}
             {page === 'exclusive-content' && <ExclusiveContentPage userEmail={user?.email || null} />}
             {page === 'admin-dashboard' && <AdminDashboardPage onBack={() => setPage('member')} />}
+            {page === 'xia-tasks' && <XiaTasksPage records={records} onNavigate={(p) => setPage(p)} />}
+            {page === 'crystal-energy' && <CrystalEnergyPage />}
+            {page === 'plant-care' && <PlantCarePage />}
+            {page === 'oil-wiki' && <OilWikiPage />}
+            {page === 'ai-cs' && <CustomerServicePage onNavigate={(p) => setPage(p)} />}
           </motion.div>
         </AnimatePresence>
       </div>
