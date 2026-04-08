@@ -577,55 +577,55 @@ const EMOTION_PRODUCT_SUGGESTIONS: Record<string, { title: string; desc: string;
 
 // 動手做一點什麼 - 情境卡資料
 const HANDS_ON_CARDS = [
-  { emoji: '🕯️', title: '點一盞光', desc: '做一支蠟燭，讓房間有你的味道', categoryId: 18 },
-  { emoji: '🌿', title: '調一瓶香氣', desc: '選你今天最想靠近的氣味', categoryId: 173 },
-  { emoji: '🌱', title: '種一棵小植物', desc: '照顧它的同時，也在照顧自己', categoryId: 22 },
-  { emoji: '💍', title: '做一個小飾品', desc: '手上多了一個只屬於你的東西', categoryId: 21 },
-  { emoji: '🎨', title: '畫點什麼', desc: '不需要很會畫，動筆就好', categoryId: 24 },
-  { emoji: '💐', title: '插一束花', desc: '讓今天的空間有不一樣的呼吸', categoryId: 25 },
-  { emoji: '📦', title: '在家做', desc: '材料包寄到家，慢慢來就好', categoryId: 75 },
+  { emoji: '🕯️', title: '點一盞光', desc: '做一支蠟燭，讓今天慢慢有了氣味', categoryId: 18 },
+  { emoji: '🌿', title: '調一瓶香氣', desc: '選一個，今天想靠近的味道', categoryId: 173 },
+  { emoji: '🌱', title: '種一棵小植物', desc: '替它留一點水，也替自己留一點心', categoryId: 22 },
+  { emoji: '💍', title: '做一個小飾品', desc: '做一個小東西，安靜陪在你身邊', categoryId: 21 },
+  { emoji: '🎨', title: '畫點什麼', desc: '今天不用畫得很好，動筆就很好', categoryId: 24 },
+  { emoji: '💐', title: '插一束花', desc: '替今天的空間，放進一點新的呼吸', categoryId: 25 },
+  { emoji: '📦', title: '在家做', desc: '把材料帶回家，照自己的步調慢慢做', categoryId: 75 },
 ];
 
 // ===================== CONSTANTS =====================
 
 
 const DAILY_QUOTES = [
-  '你不需要解決所有事。今天，先照顧好自己就好。',
-  '慢下來不是落後。是在聽自己說話。',
-  '你今天也打開了這裡，這就很好了。',
-  '今天的感受，不管是什麼，都是真的、都值得被看見。',
-  '不完美的今天，也是你完整的一天。',
-  '你很好。就算你現在不這麼覺得。',
-  '先深呼吸一次。其他的，等等再說。',
-  '你來了，我在。',
-  '今天不用很厲害，好好的就好。',
+  '今天不用把所有事都解決。',
+  '慢下來的時候，比較聽得見自己。',
+  '今天你來了，這樣就很好。',
+  '今天有什麼感覺，都可以先放在這裡。',
+  '今天不完美，也還是今天。',
+  '就算今天不這麼覺得，你也還是你。',
+  '先深呼吸一下，其他的晚一點再說。',
+  '你來了，這裡就在。',
+  '今天不用很厲害，安穩就好。',
 ];
 
 const MICRO_TASKS = [
-  '試著做三次深呼吸——吸氣 4 秒，屏息 4 秒，慢慢吐氣 6 秒。就這樣就好。',
-  '現在把肩膀慢慢放下來，感受後背靠著椅子。讓身體先安定。',
-  '去倒一杯溫水，慢慢喝完。這是今天送給自己的小儀式。',
-  '閉上眼睛，想一個讓你覺得安心的地方。在那裡待一下。',
-  '伸展一下手臂和脖子。身體記得的比你想得多。',
+  '先陪自己呼吸三次。慢慢吸，慢慢吐。',
+  '把肩膀放下來，先讓身體回來。',
+  '倒一杯溫水，讓今天慢一點。',
+  '閉上眼睛，先回到一個安心的地方。',
+  '伸展一下，讓身體先鬆開。',
 ];
 
 // --- NEW: Daily Task System ---
 const TASK_LABELS: Record<TaskKey, string> = {
-  checkin: '跟自己打個招呼',
-  card: '抽一張今天的卡片',
-  note: '寫點什麼給自己',
-  breathe: '跟著呼吸一下',
-  evening: '跟今天的自己說晚安',
-  share: '把溫暖分享出去',
+  checkin: '跟今天的自己碰個面',
+  card: '翻一張，今天的卡',
+  note: '留一句話給自己',
+  breathe: '陪自己呼吸一下',
+  evening: '替今天收個尾',
+  share: '把這份感覺送出去',
 };
 
 const TASK_KEYS: TaskKey[] = ['checkin', 'card', 'note', 'breathe', 'evening', 'share'];
 
 // --- NEW: Evening Feedback Responses ---
 const EVENING_RESPONSES: Record<string, string> = {
-  better: '真好。你今天有照顧到自己了。帶著這份感覺，好好睡吧。',
-  little: '一點點也很好。不用跟昨天比，今天的你已經夠努力了。',
-  same: '沒關係的。有些日子就是這樣，你不需要好起來才值得被溫柔對待。',
+  better: '真好，今晚把這份感覺帶去睡吧。',
+  little: '一點點也很好，今天就先到這裡。',
+  same: '沒關係，今天就先這樣也可以。',
 };
 
 // --- NEW: Milestone Days ---
@@ -2169,6 +2169,30 @@ function HomePage({
 
   const recommendedSound = getRecommendedSound();
 
+  const HOME_GRID_ITEMS: { icon: string; label: string; page: PageType; color: string }[] = [
+    { icon: '/icons/療癒配方.png', label: '療癒配方', page: 'recipe', color: '#D2B4A1' },
+    { icon: '/icons/電子書.png', label: '電子書', page: 'ebook', color: '#C9A96E' },
+    { icon: '/icons/心理測驗.png', label: '心理測驗', page: 'healer', color: '#9B7EC8' },
+    { icon: '/icons/水晶能量.png', label: '水晶能量', page: 'crystal-energy', color: '#7EC8C8' },
+    { icon: '/icons/植栽照顧.png', label: '植栽照顧', page: 'plant-care', color: '#6B8F5E' },
+    { icon: '/icons/精油百科.png', label: '精油百科', page: 'oil-wiki', color: '#A8B876' },
+    { icon: '/icons/課後照顧.png', label: '課後照顧', page: 'library', color: '#8C7B72' },
+    { icon: '/icons/社群.png', label: '社群', page: 'community', color: '#E8A8A8' },
+    { icon: '/icons/我的作品.png', label: '我的作品集', page: 'my-works', color: '#C88ED8' },
+    { icon: '/icons/聆聽.png', label: '聆聽', page: 'sound', color: '#6B6B9B' },
+    { icon: '/icons/療癒商城.png', label: '療癒商城', page: 'shop', color: '#5E8FA8' },
+    { icon: '/icons/XIA幣任務.png', label: 'XIA幣任務', page: 'xia-tasks', color: '#E8B735' },
+    { icon: '/icons/日記.png', label: '日記', page: 'journal', color: '#C4A882' },
+    { icon: '/icons/收藏.png', label: '收藏', page: 'collections', color: '#E0A8A8' },
+    { icon: '/icons/智能客服.png', label: '智能客服', page: 'ai-cs', color: '#5EAAB8' },
+  ];
+
+  const getTimeGreeting = () => {
+    if (currentHour >= 5 && currentHour < 12) return '嗨！早安';
+    if (currentHour >= 12 && currentHour < 18) return '嗨！午安';
+    return '嗨！晚安';
+  };
+
   return (
     <motion.div
       className="space-y-5"
@@ -2176,168 +2200,38 @@ function HomePage({
       initial="initial"
       animate="animate"
     >
-      {/* 1. 時段問候 */}
-      <motion.div variants={staggerItem} className="flex items-center justify-between">
-        <p className="text-sm leading-relaxed" style={{ color: '#3D3530' }}>
-          {getGreeting()}
-        </p>
-        <p className="text-xs" style={{ color: '#8C7B72' }}>{getDisplayDate()}</p>
+      {/* Header: Logo + Greeting */}
+      <motion.div variants={staggerItem} className="flex items-center gap-3">
+        <div className="w-10 h-10 rounded-lg flex items-center justify-center border" style={{ borderColor: '#E8E3DC' }}>
+          <span className="text-[6px] font-bold leading-tight text-center" style={{ color: '#3D3530' }}>XIA{'\n'}BEN{'\n'}HOW</span>
+        </div>
+        <h1 className="text-lg font-bold" style={{ color: '#3D3530' }}>{getTimeGreeting()}</h1>
       </motion.div>
 
-      {/* 2. 情緒打卡 */}
-      {!todayRecord ? (
-        <motion.div variants={staggerItem}>
-          <EmotionCheckInFlow onComplete={onCheckIn} />
-        </motion.div>
-      ) : (
-        <motion.div variants={staggerItem} className="rounded-3xl p-5 shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ backgroundColor: (todayEmoInfo?.color || '#C9A96E') + '25' }}>
-              <span className="text-xl">{todayEmoInfo?.emoji}</span>
-            </div>
-            <div>
-              <p className="text-sm font-bold" style={{ color: '#3D3530' }}>
-                {todayEmoInfo?.label}
-              </p>
-              <p className="text-xs" style={{ color: '#8C7B72' }}>
-                {todayHealingData ? `${todayHealingData.levelLabel}` : todayRecord.level || 'L1'}
-              </p>
-            </div>
-          </div>
-          {todayHealingData && (
-            <p className="text-xs leading-relaxed" style={{ color: '#5C534C' }}>
-              {getRandomWarmMessage(todayRecord.emotion, todayRecord.level || 'L1')}
-            </p>
-          )}
-        </motion.div>
-      )}
-
-      {/* 3. 今日一句話 */}
-      {todayRecord && (
-        <motion.div
-          variants={staggerItem}
-          className="rounded-3xl p-5 shadow-sm"
-          style={{
-            background: `linear-gradient(135deg, ${todayEmoInfo?.color || '#C9A96E'}33, ${todayEmoInfo?.color || '#C9A96E'}11)`,
-          }}
-        >
-          <p className="text-sm leading-relaxed text-center italic" style={{ color: '#3D3530' }}>
-            「{getRandomWarmMessage(todayRecord.emotion, todayRecord.level || 'L1')}」
-          </p>
-        </motion.div>
-      )}
-
-      {/* 4. 今日香氣 - only show after check-in */}
-      {todayRecord && todayHealingData && (
-        <motion.div variants={staggerItem} className="rounded-3xl p-5 shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
-          <p className="text-xs font-medium mb-3" style={{ color: '#C9A96E' }}>🌿 今日香氣</p>
-          <div className="flex flex-wrap gap-2 mb-3">
-            {todayHealingData.blend.oils.map((oil, i) => (
-              <span
-                key={i}
-                className="px-3 py-1.5 rounded-full text-xs font-medium"
-                style={{ backgroundColor: '#FAF8F5', color: '#3D3530' }}
-              >
-                {oil}
-              </span>
-            ))}
-          </div>
-          <p className="text-xs leading-relaxed" style={{ color: '#8C7B72' }}>
-            {todayHealingData.blend.note}
-          </p>
-        </motion.div>
-      )}
-
-      {/* 5. 今日小儀式 - only after check-in */}
-      {todayRecord && todayHealingData && (
-        <motion.div variants={staggerItem} className="rounded-3xl p-5 shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
-          <p className="text-xs font-medium mb-3" style={{ color: '#C9A96E' }}>✦ 今日小儀式</p>
-          <p className="text-xs leading-relaxed mb-4" style={{ color: '#3D3530' }}>
-            {todayHealingData.practicalTips[0]}
-          </p>
-          <div className="flex justify-center">
-            <BreathingCircle />
-          </div>
-        </motion.div>
-      )}
-
-      {/* 6. 今日音景推薦 - only after check-in */}
-      {todayRecord && (
-        <motion.div variants={staggerItem} className="rounded-3xl p-5 shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
-          <div className="flex items-center gap-3 mb-3">
-            <span className="text-2xl">{recommendedSound.emoji}</span>
-            <div>
-              <p className="text-sm font-bold" style={{ color: '#3D3530' }}>{recommendedSound.label}</p>
-              <p className="text-xs" style={{ color: '#8C7B72' }}>{recommendedSound.reason}</p>
-            </div>
-          </div>
-          <motion.button
-            whileTap={{ scale: 0.96 }}
-            onClick={onGoToSound}
-            className="w-full rounded-2xl py-2.5 text-white font-medium text-sm"
-            style={{ backgroundColor: '#8FA886' }}
-          >
-            播放
-          </motion.button>
-        </motion.div>
-      )}
-
-      {/* 7. 睡前儀式入口 - after 20:00 */}
-      {showBedtime && todayRecord && (
-        <motion.div variants={staggerItem}>
-          <motion.button
-            whileTap={{ scale: 0.97 }}
-            onClick={onGoToBedtime}
-            className="w-full rounded-3xl p-5 shadow-sm text-left"
-            style={{ background: 'linear-gradient(135deg, #2D2438, #1A1A2E)' }}
-          >
-            <p className="text-sm font-bold text-white mb-1">今晚，慢慢來</p>
-            <p className="text-xs" style={{ color: '#B8A8C8' }}>讓香氛陪你把今天放下</p>
-          </motion.button>
-        </motion.div>
-      )}
-
-      {/* 8. 柔和推薦 + 動手做入口 - after check-in */}
-      {todayRecord && onNavigate && (
-        <motion.div variants={staggerItem}>
-          <CompanionRecommendation emotion={todayRecord.emotion} onNavigate={onNavigate} />
-        </motion.div>
-      )}
-      {todayRecord && onNavigate && (
-        <motion.div variants={staggerItem}>
-          <HandsOnCard onNavigate={onNavigate} />
-        </motion.div>
-      )}
-      {todayRecord && (
-        <motion.div variants={staggerItem} className="space-y-3 rounded-3xl p-5 shadow-sm" style={{ backgroundColor: '#FFFEF9' }}>
-          <motion.button
-            whileTap={{ scale: 0.97 }}
-            onClick={onGoToCustom}
-            className="w-full text-left"
-          >
-            <p className="text-xs font-medium mb-1" style={{ color: '#3D3530' }}>想把今天的香氣帶回家嗎？</p>
-            <p className="text-xs" style={{ color: '#8C7B72' }}>讓香氛師幫你調一瓶更像你的</p>
-          </motion.button>
-        </motion.div>
-      )}
-
-      {/* 9. 最近紀錄摘要 */}
+      {/* Banner */}
       <motion.div
         variants={staggerItem}
-        onClick={onGoToDiary}
-        className="rounded-3xl p-5 shadow-sm cursor-pointer"
-        style={{ backgroundColor: '#FFFEF9' }}
+        className="rounded-2xl p-4"
+        style={{ background: 'linear-gradient(135deg, #6B5F54, #8C7B6E)' }}
       >
-        <p className="text-xs font-medium mb-3" style={{ color: '#3D3530' }}>
-          你已經連續陪伴自己 {streak} 天了 ✦
-        </p>
-        <div className="flex gap-1.5">
-          {records.slice(-7).reverse().map((r, i) => (
-            <div
-              key={i}
-              className="w-4 h-4 rounded-full"
-              style={{ backgroundColor: r ? getEmotionInfo(r.emotion).color : '#E8E3DC' }}
-            />
+        <p className="text-sm font-bold text-white">✨ 新課程上線</p>
+        <p className="text-xs text-white mt-1" style={{ opacity: 0.85 }}>探索最新的療癒課程與香氛體驗</p>
+      </motion.div>
+
+      {/* Feature Grid (3 columns) */}
+      <motion.div variants={staggerItem}>
+        <div className="grid grid-cols-3 gap-3">
+          {HOME_GRID_ITEMS.map((item) => (
+            <motion.button
+              key={item.label}
+              whileTap={{ scale: 0.93 }}
+              onClick={() => onNavigate?.(item.page)}
+              className="p-3 flex flex-col items-center gap-2"
+              style={{ background: 'transparent' }}
+            >
+              <img src={item.icon} alt={item.label} style={{ width: 50, height: 50 }} className="object-contain" />
+              <p className="text-sm font-medium" style={{ color: '#3D3530' }}>{item.label}</p>
+            </motion.button>
           ))}
         </div>
       </motion.div>
@@ -3550,10 +3444,20 @@ function saveCartToStorage(cart: CartItem[]) {
   } catch (e) { /* ignore */ }
 }
 
-function ShopPage({ initialView }: { initialView?: 'products' | 'cart' | 'checkout' } = {}) {
-  const [view, setView] = useState<'products' | 'detail' | 'cart' | 'checkout'>(initialView || 'products');
+function ShopPage({ initialView, initialProductId }: { initialView?: 'products' | 'cart' | 'checkout'; initialProductId?: number } = {}) {
+  const [view, setView] = useState<'products' | 'detail' | 'cart' | 'checkout'>(initialProductId ? 'detail' : (initialView || 'products'));
   const [cart, setCart] = useState<CartItem[]>(() => loadCartFromStorage());
   const [selectedProduct, setSelectedProduct] = useState<WCProduct | null>(null);
+
+  // Fetch product by ID if initialProductId is provided
+  useEffect(() => {
+    if (initialProductId && !selectedProduct) {
+      fetch(`${API_BASE}/api/wc/products/${initialProductId}`)
+        .then(r => r.json())
+        .then(data => { if (data && data.id) { setSelectedProduct(data); setView('detail'); } })
+        .catch(() => setView('products'));
+    }
+  }, [initialProductId]);
   const [selectedRegion, setSelectedRegion] = useState<ShopRegion>('taipei');
   const [selectedCategoryId, setSelectedCategoryId] = useState<number>(128);
 
@@ -8458,17 +8362,12 @@ function HealerPage({ records, userEmail, onNavigate, onTaskComplete, onCheckIn 
 
 // ===================== BOTTOM NAV =====================
 
-const NAV_ITEMS: { key: PageType; icon: string; label: string }[] = [
-  // Row 1
-  { key: 'healer', icon: '🌹', label: '療癒師' },
-  { key: 'journal', icon: '📓', label: '日記' },
-  { key: 'library', icon: '✧', label: '課後照顧' },
-  { key: 'ebook', icon: '📖', label: '電子書' },
-  // Row 2
-  { key: 'sound', icon: '♪', label: '聆聽' },
-  { key: 'collections', icon: '💝', label: '收藏' },
-  { key: 'shop', icon: '🎁', label: '療癒禮物' },
-  { key: 'member', icon: '♡', label: '我的' },
+const NAV_ITEMS: { key: PageType; icon: string; label: string; url?: string }[] = [
+  { key: 'home', icon: '🏠', label: '主頁' },
+  { key: 'card', icon: '🃏', label: '抽卡' },
+  { key: 'home', icon: '🌐', label: '官網', url: 'https://www.xiabenhow.com' },
+  { key: 'explore', icon: '🔍', label: '探索' },
+  { key: 'member', icon: '👤', label: '我的' },
 ];
 
 // ===================== PAGE: 課後照顧中心 (Aftercare Center) =====================
@@ -10057,39 +9956,39 @@ const PERSONALITY_RECOMMENDATIONS: Record<HealingPersonalityType, { category: st
 // Quiz questions for initial personality assessment
 const PERSONALITY_QUIZ = [
   {
-    question: '你最喜歡在什麼時候做手作？',
+    question: '最近有點累的時候，你最想替自己做什麼？',
     options: [
-      { label: '睡前放鬆的時候', scores: { scent: 5, crystal: 1, lifestyle: 2, gift: 0 } },
-      { label: '需要靜心充電的時候', scores: { scent: 2, crystal: 5, lifestyle: 1, gift: 0 } },
-      { label: '週末佈置家裡的時候', scores: { scent: 1, crystal: 0, lifestyle: 5, gift: 2 } },
-      { label: '想準備禮物給朋友的時候', scores: { scent: 0, crystal: 1, lifestyle: 2, gift: 5 } },
+      { label: '點個香，先讓空間安靜下來', scores: { scent: 5, crystal: 1, lifestyle: 2, gift: 0 } },
+      { label: '摸摸常戴的飾品，想讓心穩一點', scores: { scent: 1, crystal: 5, lifestyle: 1, gift: 0 } },
+      { label: '整理房間、澆水，讓生活回到舒服的樣子', scores: { scent: 1, crystal: 0, lifestyle: 5, gift: 1 } },
+      { label: '挑個小東西送人，也讓心裡暖一點', scores: { scent: 0, crystal: 1, lifestyle: 1, gift: 5 } },
     ],
   },
   {
-    question: '如果只能帶一樣東西出門，你會帶？',
+    question: '你最容易在哪一區停下來多看幾眼？',
     options: [
-      { label: '隨身香氛/香水', scores: { scent: 5, crystal: 0, lifestyle: 1, gift: 1 } },
-      { label: '水晶手鍊', scores: { scent: 0, crystal: 5, lifestyle: 1, gift: 1 } },
-      { label: '手帳/相機', scores: { scent: 1, crystal: 0, lifestyle: 5, gift: 1 } },
-      { label: '給朋友的小驚喜', scores: { scent: 1, crystal: 1, lifestyle: 1, gift: 5 } },
+      { label: '香氛、精油、擴香和蠟燭', scores: { scent: 5, crystal: 0, lifestyle: 1, gift: 1 } },
+      { label: '手鍊、水晶、礦石小物', scores: { scent: 0, crystal: 5, lifestyle: 1, gift: 1 } },
+      { label: '植物、花器、家裡的小佈置', scores: { scent: 1, crystal: 0, lifestyle: 5, gift: 1 } },
+      { label: '卡片、禮盒、送禮靈感', scores: { scent: 1, crystal: 1, lifestyle: 1, gift: 5 } },
     ],
   },
   {
-    question: '你覺得最療癒的事情是？',
+    question: '理想的週末午後，比較像哪一種？',
     options: [
-      { label: '在房間點一支蠟燭，慢慢呼吸', scores: { scent: 5, crystal: 2, lifestyle: 1, gift: 0 } },
-      { label: '戴上水晶，感覺被保護著', scores: { scent: 1, crystal: 5, lifestyle: 0, gift: 1 } },
-      { label: '整理桌面，擺上自己種的植物', scores: { scent: 1, crystal: 0, lifestyle: 5, gift: 1 } },
-      { label: '看到朋友收到禮物時的表情', scores: { scent: 0, crystal: 1, lifestyle: 1, gift: 5 } },
+      { label: '房間裡有香氣，安安靜靜待著', scores: { scent: 5, crystal: 1, lifestyle: 2, gift: 0 } },
+      { label: '挑一條今天想戴的手鍊，讓心情有依靠', scores: { scent: 1, crystal: 5, lifestyle: 0, gift: 1 } },
+      { label: '整理桌面、照顧植物，把日子過順一點', scores: { scent: 1, crystal: 0, lifestyle: 5, gift: 1 } },
+      { label: '做點什麼送給重要的人', scores: { scent: 0, crystal: 1, lifestyle: 1, gift: 5 } },
     ],
   },
   {
-    question: '你平常最常逛什麼？',
+    question: '你想把哪一種感覺，留在生活裡久一點？',
     options: [
-      { label: '香氛/精油/芳療品牌', scores: { scent: 5, crystal: 0, lifestyle: 1, gift: 1 } },
-      { label: '水晶/礦石/能量飾品', scores: { scent: 0, crystal: 5, lifestyle: 0, gift: 2 } },
-      { label: '居家佈置/植物/花藝', scores: { scent: 1, crystal: 0, lifestyle: 5, gift: 1 } },
-      { label: '禮物推薦/送禮清單', scores: { scent: 1, crystal: 1, lifestyle: 1, gift: 5 } },
+      { label: '安靜、放鬆、慢慢呼吸', scores: { scent: 5, crystal: 1, lifestyle: 2, gift: 0 } },
+      { label: '安定、被守護、心裡踏實', scores: { scent: 1, crystal: 5, lifestyle: 1, gift: 0 } },
+      { label: '舒服、好看、有自己的節奏', scores: { scent: 1, crystal: 0, lifestyle: 5, gift: 1 } },
+      { label: '溫暖、心意、有被放在心上', scores: { scent: 0, crystal: 1, lifestyle: 1, gift: 5 } },
     ],
   },
 ];
@@ -14839,910 +14738,855 @@ interface HealingTest {
 
 const HEALING_TESTS: HealingTest[] = [
   {
-    id: 1, emoji: '💎', title: '你的水晶陪伴類型是什麼？',
-    subtitle: '水晶不只是石頭，它是一種頻率。你和哪一種頻率最共鳴？',
+    id: 1, emoji: '🌙', title: '你最近是哪一種累？',
+    subtitle: '不是所有疲憊都長一樣。有些是身體的，有些是心裡的。',
     questions: [
-      { question: '你最常在哪個時刻感覺需要支撐？', options: [
-        { key: 'A', text: '跟某些人相處完，感覺能量被抽乾' },
-        { key: 'B', text: '一個人靜下來，才發現心裡很空' },
-        { key: 'C', text: '遇到重要決策，不知道往哪走' },
-        { key: 'D', text: '長期疲憊，身心都需要充電' },
+      { question: '最近最常出現的感覺是？', options: [
+        { key: 'A', text: '一直在回訊息、回事情，腦袋停不下來' },
+        { key: 'B', text: '人沒怎樣，心卻一直悶悶的' },
+        { key: 'C', text: '明明事情很多，卻提不起勁開始' },
+        { key: 'D', text: '想一個人待著，不太想被打擾' },
       ]},
-      { question: '你最害怕的事情是？', options: [
-        { key: 'A', text: '被人背叛，或遇到算計你的人' },
-        { key: 'B', text: '重要的人不再愛你、離你遠去' },
-        { key: 'C', text: '原地踏步，錯過對的時機' },
-        { key: 'D', text: '一直付出卻把自己耗盡' },
+      { question: '下班後你最常是？', options: [
+        { key: 'A', text: '滑手機滑很久，像在發呆' },
+        { key: 'B', text: '會想很多，心裡還沒收工' },
+        { key: 'C', text: '只想躺著，什麼都不想做' },
+        { key: 'D', text: '只想安靜，不太想說話' },
       ]},
-      { question: '朋友眼中的你，最像哪種人？', options: [
-        { key: 'A', text: '看起來很神秘，但超級可靠' },
-        { key: 'B', text: '溫柔體貼，讓人很想靠近' },
-        { key: 'C', text: '有目標感，做事俐落有主見' },
-        { key: 'D', text: '像棵大樹，穩穩的讓人安心' },
+      { question: '如果現在給你一個晚上，你最想要？', options: [
+        { key: 'A', text: '腦袋安靜下來，不要再轉了' },
+        { key: 'B', text: '有人懂你最近為什麼累' },
+        { key: 'C', text: '好好睡一覺，醒來輕一點' },
+        { key: 'D', text: '留一點時間，只和自己待著' },
       ]},
-      { question: '你對「療癒」的想像是？', options: [
-        { key: 'A', text: '一個人待在安全的空間，不被打擾' },
-        { key: 'B', text: '被溫柔對待，感受到愛' },
-        { key: 'C', text: '想通了某件事，豁然開朗' },
-        { key: 'D', text: '身體放鬆，睡一場好覺' },
-      ]},
-      { question: '你覺得自己目前生活中最缺少的是？', options: [
-        { key: 'A', text: '界限感，需要保護自己的結界' },
-        { key: 'B', text: '溫暖，有人懂我就好' },
-        { key: 'C', text: '方向，知道下一步怎麼走' },
-        { key: 'D', text: '元氣，充飽電再出發' },
-      ]},
-      { question: '如果你是一種夜晚，你是？', options: [
-        { key: 'A', text: '月圓之夜，清冷神秘' },
-        { key: 'B', text: '微雨夜，溫柔濕潤' },
-        { key: 'C', text: '晴夜繁星，清晰遼闊' },
-        { key: 'D', text: '霧夜，慵懶而深邃' },
-      ]},
-      { question: '你最喜歡哪種礦石質感？', options: [
-        { key: 'A', text: '深邃、有光澤、像護盾' },
-        { key: 'B', text: '粉嫩、透光、像棉花糖' },
-        { key: 'C', text: '金黃、有紋路、充滿力量感' },
-        { key: 'D', text: '清透、有層次、像森林光線' },
+      { question: '你最需要被補回來的是？', options: [
+        { key: 'A', text: '專注和清晰' },
+        { key: 'B', text: '心裡的鬆動感' },
+        { key: 'C', text: '體力和元氣' },
+        { key: 'D', text: '空間和安靜' },
       ]},
     ],
     results: [
-      { key: 'A', emoji: '💜', title: '守護者型', subtitle: '紫水晶、黑曜石、黑金超七',
-        description: '你是一個能量敏感的人，容易感受到環境和他人情緒的影響。你需要的不只是療癒，更是一道隱形的保護罩。紫水晶幫你沉澱雜亂的思緒，黑曜石為你建立清晰的界限，讓你在保護自己的同時，仍然保有溫柔。',
-        recommendation: '下班隨手飾｜水晶手鍊 DIY', shareQuote: '月亮不需要解釋自己為什麼發光。你也是。' },
-      { key: 'B', emoji: '💗', title: '療癒者型', subtitle: '粉水晶、草莓晶、北投石',
-        description: '你是個感情豐富、容易共情的人。你給了身邊很多愛，但有時候忘了把愛也留給自己。粉水晶喚醒你內心最柔軟的角落，草莓晶為你吸引好的人緣與溫暖，提醒你——你值得被愛。',
-        recommendation: '下班隨手飾｜水晶手鍊 DIY', shareQuote: '你值得被溫柔以待，尤其是被自己。' },
-      { key: 'C', emoji: '💛', title: '引路人型', subtitle: '黃虎眼、金髮晶、超七',
-        description: '你是個目標感強、渴望突破的人。你知道自己想去哪，只是有時候缺一點「那股氣」。黃虎眼給你勇氣和自信，金髮晶為你聚集財富能量，讓你走在對的路上，步步踩實。',
-        recommendation: '下班隨手飾｜水晶手鍊 DIY', shareQuote: '勇氣不是不害怕，是帶著害怕繼續前進。' },
-      { key: 'D', emoji: '💚', title: '滋養者型', subtitle: '螢石、綠幽靈、紅膠花',
-        description: '你是個長期付出、忘了補充自己的人。你像一株一直在開花的植物，但需要有人幫你澆水。螢石帶來深層療癒與靜心，綠幽靈為你注入新生能量，讓你從內而外慢慢恢復。',
-        recommendation: '下班隨手飾｜水晶手鍊 DIY', shareQuote: '照顧自己，才是最深的療癒。' },
+      { key: 'A', emoji: '🌀', title: '腦袋很滿型', subtitle: '你不是不累，是太多事一直沒有真正停下來',
+        description: '最近最累的，是一直停不下來的腦袋。你需要的不是再撐一下，而是先把雜音放低。',
+        recommendation: '精油調香體驗 / 森林系白噪音', shareQuote: '你不是沒用心，你只是太久沒有靜下來。' },
+      { key: 'B', emoji: '☁️', title: '心裡悶住型', subtitle: '表面還好，心裡其實累了一陣子',
+        description: '你不是做不到，只是心裡堆了太多感受。比起逼自己振作，你更需要一個慢慢鬆開的出口。',
+        recommendation: '花藝手作 / 陪伴卡片', shareQuote: '有些累不是看得見的，但它一直都在。' },
+      { key: 'C', emoji: '🔋', title: '電量見底型', subtitle: '最近的你，需要先補回元氣',
+        description: '這種累很真實，連開始都要用力。先別急著恢復效率，先把自己慢慢顧回來。',
+        recommendation: '在家材料包 / 睡前香氣', shareQuote: '現在的你，不需要衝，只需要慢慢回來。' },
+      { key: 'D', emoji: '🌿', title: '想安靜一下型', subtitle: '你不是冷淡，只是最近太需要自己的空間',
+        description: '你最近最需要的，不是熱鬧，而是一點不被打擾的時間，讓心慢慢回到自己身上。',
+        recommendation: '植栽手作 / 安靜陪伴', shareQuote: '這幾天想安靜一點，把時間慢慢還給自己。' },
     ],
   },
   {
-    id: 2, emoji: '🌸', title: '你的香氣人格是什麼？',
-    subtitle: '香氣是最誠實的語言，你的靈魂，散發著什麼味道？',
+    id: 2, emoji: '💬', title: '你在關係裡最常卡住的是什麼？',
+    subtitle: '有些不舒服，不一定是誰不好，可能只是你太常把自己放到後面。',
     questions: [
-      { question: '你喜歡的周末是怎樣的？', options: [
-        { key: 'A', text: '在家插花、佈置空間、看浪漫電影' },
-        { key: 'B', text: '去公園散步、在陽台種植、喝草本茶' },
-        { key: 'C', text: '約朋友出門、吃好料、笑到肚子痛' },
-        { key: 'D', text: '一個人靜靜，看書、泡澡、什麼都不做' },
+      { question: '關係裡最常讓你心裡卡一下的是？', options: [
+        { key: 'A', text: '明明有話，最後還是沒說' },
+        { key: 'B', text: '一直在配合，久了有點累' },
+        { key: 'C', text: '很在意，但又不想表現得太明顯' },
+        { key: 'D', text: '總覺得只有自己比較認真' },
       ]},
-      { question: '你最喜歡哪種蠟燭香氣描述？', options: [
-        { key: 'A', text: '玫瑰、牡丹、茉莉——像走進花園' },
-        { key: 'B', text: '尤加利、茶樹、薄荷——清新醒腦' },
-        { key: 'C', text: '甜橙、葡萄柚、檸檬——充滿活力' },
-        { key: 'D', text: '雪松、廣藿香、麝香——深沉有溫度' },
+      { question: '你比較像哪一種人？', options: [
+        { key: 'A', text: '會先吞下來，之後再自己消化' },
+        { key: 'B', text: '常常先顧別人，再想到自己' },
+        { key: 'C', text: '外表看起來還好，其實很在乎' },
+        { key: 'D', text: '會默默觀察誰比較主動、誰比較冷淡' },
       ]},
-      { question: '你最容易被哪種人吸引？', options: [
-        { key: 'A', text: '溫柔、有藝術氣質、說話很美' },
-        { key: 'B', text: '自然不做作、踏實、有生活感' },
-        { key: 'C', text: '陽光開朗、幽默、充滿活力' },
-        { key: 'D', text: '神秘低調、有深度、氣場很穩' },
+      { question: '你最想被怎麼對待？', options: [
+        { key: 'A', text: '不用猜，能把話說清楚' },
+        { key: 'B', text: '有人也能顧到你的感受' },
+        { key: 'C', text: '有人看得出你沒說出口的在意' },
+        { key: 'D', text: '彼此都願意，不要只靠一邊撐' },
       ]},
-      { question: '你最喜歡的生活場景？', options: [
-        { key: 'A', text: '花市、咖啡廳、飄著淡香的小店' },
-        { key: 'B', text: '市集、農場、充滿植物的空間' },
-        { key: 'C', text: '夜市、海邊、充滿笑聲的地方' },
-        { key: 'D', text: '圖書館、山中小屋、寂靜的深夜' },
-      ]},
-      { question: '你覺得自己的個性比較像？', options: [
-        { key: 'A', text: '感性、浪漫、細膩' },
-        { key: 'B', text: '平靜、真實、接地氣' },
-        { key: 'C', text: '熱情、直接、帶動氣氛' },
-        { key: 'D', text: '內斂、深沉、有自己的世界' },
-      ]},
-      { question: '壓力大的時候你會？', options: [
-        { key: 'A', text: '去買花、佈置房間、讓環境美起來' },
-        { key: 'B', text: '去爬山、摸土、接近大自然' },
-        { key: 'C', text: '找朋友訴說、大笑、轉換心情' },
-        { key: 'D', text: '一個人泡澡、點蠟燭、什麼都不說' },
-      ]},
-      { question: '你的房間最可能有什麼？', options: [
-        { key: 'A', text: '乾燥花、香氛蠟燭、粉色系佈置' },
-        { key: 'B', text: '多肉植物、木質傢俱、天然材質' },
-        { key: 'C', text: '明亮色系、照片牆、充滿生活感' },
-        { key: 'D', text: '暗色系、書堆、氣氛燈' },
+      { question: '現在的你，比較需要的是？', options: [
+        { key: 'A', text: '更坦白一點' },
+        { key: 'B', text: '多照顧自己一點' },
+        { key: 'C', text: '不要一直假裝沒事' },
+        { key: 'D', text: '分清楚誰值得你放進心上' },
       ]},
     ],
     results: [
-      { key: 'A', emoji: '🌸', title: '花香調', subtitle: '浪漫夢幻型',
-        description: '你是個用美感過生活的人，對細節有要求，喜歡把日常變成儀式。你的香氣是盛開的玫瑰與牡丹，帶著一點甜，一點夢。調香關鍵詞：玫瑰、茉莉、桂花、白麝香。',
-        recommendation: '精油調香體驗課 / 花藝課', shareQuote: '我的靈魂散發著花香，因為我選擇活在美的裡面。' },
-      { key: 'B', emoji: '🌿', title: '草木調', subtitle: '自然清醒型',
-        description: '你是個活得很「真」的人，不需要太多包裝，最喜歡的狀態就是自然舒服。你的香氣是雨後的森林，清新又有生命力。調香關鍵詞：尤加利、茶樹、迷迭香、綠葉。',
-        recommendation: '精油調香體驗課 / 多肉植栽課', shareQuote: '最好的香氣，是自然本身的味道。' },
-      { key: 'C', emoji: '🍊', title: '柑橘調', subtitle: '活力陽光型',
-        description: '你是個走進來就讓空氣變亮的人，情緒飽滿、充滿感染力。你的香氣是早晨現切的甜橙，酸甜清爽，讓人精神一振。調香關鍵詞：甜橙、葡萄柚、檸檬、薑。',
-        recommendation: '精油調香體驗課 / 香氛蠟燭課', shareQuote: '陽光是我的味道，走到哪裡都帶著光。' },
-      { key: 'D', emoji: '🌙', title: '木質調', subtitle: '沉穩神秘型',
-        description: '你是個有深度的人，不輕易展示自己，但一旦靠近就讓人著迷。你的香氣是深山裡的老木，溫暖而有力量。調香關鍵詞：雪松、廣藿香、岩蘭草、麝香。',
-        recommendation: '精油調香體驗課 / 香氛蠟燭課', shareQuote: '沉穩是一種香氣，不張揚卻讓人著迷。' },
+      { key: 'A', emoji: '🕊️', title: '把話留在心裡型', subtitle: '你不是沒感受，只是太習慣先收著',
+        description: '很多話你不是沒有，只是一直放著。可感受放久了，心真的會累。你需要的，是慢慢說清楚。',
+        recommendation: '日記頁 / 陪伴卡片', shareQuote: '有些話，說出來會比放著更輕。' },
+      { key: 'B', emoji: '🤲', title: '總在照顧別人型', subtitle: '你很會體貼，卻很少先想到自己',
+        description: '你不是不願意付出，只是太常把自己放到最後。久了會累，因為你也需要被照顧。',
+        recommendation: '香氣放鬆 / 晚間回饋', shareQuote: '有時候先照顧自己，關係才會更長久。' },
+      { key: 'C', emoji: '🌫️', title: '看起來沒事型', subtitle: '你很會撐住表面，但心裡其實很有感',
+        description: '你習慣把在意藏得很好，久了連別人都以為你真的沒事。其實你不是沒感覺，只是不想把場面弄得太難。',
+        recommendation: '調香體驗 / 情緒打卡', shareQuote: '有些在意，不說破，也還是在。' },
+      { key: 'D', emoji: '⚖️', title: '想要對等型', subtitle: '你最在乎的，是彼此都有把這段關係放在心上',
+        description: '你要的不是轟轟烈烈，而是有來有往。當只剩自己在撐，心就會先退一步。你需要更清楚的靠近。',
+        recommendation: '關係小測驗 / 手作雙人體驗', shareQuote: '好的關係，不是靠一個人一直很努力。' },
     ],
   },
   {
-    id: 3, emoji: '🛠️', title: '你適合哪種療癒型手作？',
-    subtitle: '手作是一種冥想，當雙手忙碌，心才真正安靜下來。',
+    id: 3, emoji: '🌧️', title: '壓力大的時候，你會先變成哪一種人？',
+    subtitle: '每個人面對壓力，都有最先出現的樣子。',
     questions: [
-      { question: '你喜歡的手作過程是？', options: [
-        { key: 'A', text: '有構圖、有美感，成品要好看' },
-        { key: 'B', text: '有步驟、有邏輯，做出來有成就感' },
-        { key: 'C', text: '可以挑選、搭配，做出獨一無二的' },
-        { key: 'D', text: '要有耐心、慢慢來，看著它成長' },
+      { question: '當事情一下子很多時，你通常會？', options: [
+        { key: 'A', text: '先開始想很多，停不下來' },
+        { key: 'B', text: '表面正常，身體卻開始很緊' },
+        { key: 'C', text: '先拖一下，什麼都不想碰' },
+        { key: 'D', text: '變得很安靜，不太想解釋' },
       ]},
-      { question: '你希望手作帶給你什麼感受？', options: [
-        { key: 'A', text: '被美麗包圍，生活像電影場景' },
-        { key: 'B', text: '沉澱、安靜，像一場獨處的儀式' },
-        { key: 'C', text: '感受到某種能量或連結' },
-        { key: 'D', text: '有一個生命陪著我，不孤單' },
+      { question: '最容易出現的是哪一種？', options: [
+        { key: 'A', text: '一直反覆想，怕自己漏掉什麼' },
+        { key: 'B', text: '肩膀硬、呼吸淺、睡不好' },
+        { key: 'C', text: '只想躺平，先不要叫我' },
+        { key: 'D', text: '不太想回訊息，也不想說話' },
       ]},
-      { question: '你平常生活中最在意的是？', options: [
-        { key: 'A', text: '空間美不美、有沒有生活感' },
-        { key: 'B', text: '心情好不好、當天的狀態' },
-        { key: 'C', text: '自己戴的東西有沒有意義' },
-        { key: 'D', text: '家裡有沒有生命力、自然感' },
+      { question: '這時候你最怕別人怎麼對你？', options: [
+        { key: 'A', text: '一直催你、一直問你' },
+        { key: 'B', text: '叫你不要想太多' },
+        { key: 'C', text: '說你是不是太懶' },
+        { key: 'D', text: '逼你立刻說清楚現在怎麼了' },
       ]},
-      { question: '你最喜歡哪種成品？', options: [
-        { key: 'A', text: '美麗的花束或乾燥花擺設' },
-        { key: 'B', text: '一罐有自己氣味的香氛蠟燭' },
-        { key: 'C', text: '一條有故事的水晶手鍊' },
-        { key: 'D', text: '一盆自己種的多肉或植物' },
-      ]},
-      { question: '你最容易沉浸在哪種狀態？', options: [
-        { key: 'A', text: '在佈置空間、挑選顏色搭配中' },
-        { key: 'B', text: '在一個人安靜、不被打擾的時刻' },
-        { key: 'C', text: '在挑選有共鳴的東西、搭配時' },
-        { key: 'D', text: '在照顧植物、觀察生長的過程' },
-      ]},
-      { question: '你覺得送給朋友最好的禮物是？', options: [
-        { key: 'A', text: '一束親手做的乾燥花束' },
-        { key: 'B', text: '一罐手工香氛蠟燭' },
-        { key: 'C', text: '一條有寓意的水晶手鍊' },
-        { key: 'D', text: '一盆精心照料的療癒植物' },
+      { question: '你此刻最需要的是？', options: [
+        { key: 'A', text: '先把腦袋安靜下來' },
+        { key: 'B', text: '讓身體鬆一點' },
+        { key: 'C', text: '先休息，不要硬撐' },
+        { key: 'D', text: '留一點空間給自己' },
       ]},
     ],
     results: [
-      { key: 'A', emoji: '💐', title: '花藝', subtitle: '你是個用美感說話的人',
-        description: '你天生有審美眼光，對顏色、空間、構圖都有感知力。花藝讓你用雙手把美具象化，每一個作品都是你內心世界的延伸。當你把花朵一枝一枝排列，修剪、搭色、調整比例，你進入了一種「心流」狀態。',
-        recommendation: '韓式花藝課、花圈課', shareQuote: '用雙手把美做成一朵花的形狀。' },
-      { key: 'B', emoji: '🕯', title: '香氛蠟燭', subtitle: '你是個需要儀式感的人',
-        description: '你不只是做手作，你在為自己的生活創造一個「停頓」。點蠟燭、聞香氣，是你給自己的一個信號：現在，只屬於我。香氛蠟燭最適合你——因為那個「製作的過程」本身就是療癒。',
-        recommendation: '香氛蠟燭課', shareQuote: '做蠟燭是一場給自己的儀式。' },
-      { key: 'C', emoji: '💎', title: '水晶飾品', subtitle: '你是個重視能量連結的人',
-        description: '你相信萬物有靈，你選擇的東西要有「意義」。水晶手鍊對你來說不只是配件，是你每天戴著走的意圖與祝福。親手挑選每一顆珠子的過程，其實也是你在和自己對話。',
-        recommendation: '水晶手鍊 DIY', shareQuote: '每一顆水晶，都是和自己的一次對話。' },
-      { key: 'D', emoji: '🪴', title: '植栽', subtitle: '你是個渴望陪伴的人',
-        description: '你喜歡有生命感的東西，你需要的療癒不只是「做」，而是「一起生活」。植物是最好的陪伴——它不說話，但它每天都在成長，提醒你生命的節奏。',
-        recommendation: '多肉植栽課', shareQuote: '最好的陪伴，是一起安靜地成長。' },
+      { key: 'A', emoji: '🌀', title: '腦內開會型', subtitle: '你的壓力，通常先出現在腦袋裡',
+        description: '你很容易先把每件事想過一輪。可事情一多，腦袋會比身體先累。你需要先把速度降下來。',
+        recommendation: '白噪音 / 呼吸任務', shareQuote: '先讓腦袋安靜一點，答案才會浮上來。' },
+      { key: 'B', emoji: '🫁', title: '身體先緊型', subtitle: '你總說沒事，但身體早就知道了',
+        description: '你可能還沒意識到壓力，肩膀、呼吸、睡眠就先有反應了。與其一直撐，不如先把身體放回來。',
+        recommendation: '呼吸引導 / 睡前香氣', shareQuote: '先讓身體鬆開，心才會慢慢跟上。' },
+      { key: 'C', emoji: '🛋️', title: '先停住型', subtitle: '你不是懶，只是壓力一來會先卡住',
+        description: '事情一多一亂，你不是不想做，而是需要先停一下。適合你的，不是硬衝，而是先從最小的一步開始。',
+        recommendation: '微任務 / 在家手作', shareQuote: '先動一點點，也算往前。' },
+      { key: 'D', emoji: '🌙', title: '先安靜型', subtitle: '壓力大的時候，你會先把心收回來',
+        description: '你不是故意疏遠，只是壓力一來，會先把自己藏好。你需要的不是被追問，而是一點能慢慢回來的空間。',
+        recommendation: '安靜陪伴 / 晚間日記', shareQuote: '有些時候，不說話也是在保護自己。' },
     ],
   },
   {
-    id: 4, emoji: '🌊', title: '你現在最需要哪種療癒？',
-    subtitle: '有時候身體會比大腦更早知道答案。不用想太多，憑直覺選吧。',
+    id: 4, emoji: '🏠', title: '你現在最需要哪一種生活感？',
+    subtitle: '有時候不是情緒太多，只是日子失去了你喜歡的樣子。',
     questions: [
-      { question: '最近你最常有的感受是？', options: [
-        { key: 'A', text: '腦袋轉不停，靜不下來' },
-        { key: 'B', text: '有很多情緒悶在心裡，說不出口' },
-        { key: 'C', text: '疲憊，對很多事都提不起勁' },
-        { key: 'D', text: '卡關，知道想做但不知道怎麼開始' },
+      { question: '最近最想把哪一種東西帶回生活裡？', options: [
+        { key: 'A', text: '香氣，讓空間安靜下來' },
+        { key: 'B', text: '秩序，讓日子不要這麼亂' },
+        { key: 'C', text: '色彩和漂亮的小東西' },
+        { key: 'D', text: '溫度，讓人一回家就鬆一點' },
       ]},
-      { question: '你最近的睡眠狀況？', options: [
-        { key: 'A', text: '很難入睡，思緒太多' },
-        { key: 'B', text: '睡著了但還是很累，夢很多' },
-        { key: 'C', text: '很容易睏但睡再多也沒精神' },
-        { key: 'D', text: '時常因為想事情睡到一半醒來' },
+      { question: '如果今天突然空出兩小時，你想怎麼用？', options: [
+        { key: 'A', text: '在房間待著，點香或聽聲音' },
+        { key: 'B', text: '整理桌面、把空間收順' },
+        { key: 'C', text: '做點手作，讓心有地方放' },
+        { key: 'D', text: '泡杯茶，慢慢過完這段時間' },
       ]},
-      { question: '現在最想做的事是？', options: [
-        { key: 'A', text: '什麼都不做，只想放空' },
-        { key: 'B', text: '大哭一場，或大笑一場' },
-        { key: 'C', text: '被好好照顧，喝熱湯、被擁抱' },
-        { key: 'D', text: '出去走走，做點什麼改變現狀' },
+      { question: '你最想改善的，是生活裡哪一塊？', options: [
+        { key: 'A', text: '一回家腦袋還停不下來' },
+        { key: 'B', text: '最近生活有點散、有點亂' },
+        { key: 'C', text: '日子有點平，想有一點新的感覺' },
+        { key: 'D', text: '每天都在撐，想有一點被安放的感覺' },
       ]},
-      { question: '你覺得自己最缺的是？', options: [
-        { key: 'A', text: '一段清靜，讓心靈重新歸零' },
-        { key: 'B', text: '一個可以說真心話的出口' },
-        { key: 'C', text: '好好補眠、好好吃飯、好好喘息' },
-        { key: 'D', text: '一個推你一把的力量' },
-      ]},
-      { question: '如果可以的話，你最想去哪裡？', options: [
-        { key: 'A', text: '一個安靜的地方，只有自己' },
-        { key: 'B', text: '海邊、山上，可以吼叫或痛哭的地方' },
-        { key: 'C', text: '一個溫暖的地方，有人照顧你' },
-        { key: 'D', text: '一個新的地方，沒去過的、陌生的' },
-      ]},
-      { question: '你最近最難以忍受的事？', options: [
-        { key: 'A', text: '噪音、人群、被打擾' },
-        { key: 'B', text: '假裝沒事、繼續表演正常' },
-        { key: 'C', text: '一直給、一直付出、沒人補充你' },
-        { key: 'D', text: '原地等待、停滯不前' },
+      { question: '你理想中的生活角落，比較像？', options: [
+        { key: 'A', text: '安靜、有味道、有自己的節奏' },
+        { key: 'B', text: '清爽、整齊、看了就舒服' },
+        { key: 'C', text: '有作品、有顏色、有自己的痕跡' },
+        { key: 'D', text: '溫暖、柔和、一坐下來就不想走' },
       ]},
     ],
     results: [
-      { key: 'A', emoji: '🌊', title: '沉澱型療癒', subtitle: '需要安靜與清空',
-        description: '你的內心太滿了。不是因為你不夠好，而是你承接了太多——太多的想法、太多的資訊、太多的他人情緒。你現在需要的不是「做更多」，而是清空。找一個安靜的下午，點一支自己喜歡的香氛蠟燭，讓雙手動起來——做手作是一種主動冥想。',
-        recommendation: '香氛蠟燭課', shareQuote: '清空，才能重新裝進真正重要的東西。' },
-      { key: 'B', emoji: '🔥', title: '釋放型療癒', subtitle: '需要出口與流動',
-        description: '你壓著太多了。情緒沒有出口，就會向內消耗。你不是脆弱，你只是太久沒有好好「讓自己流動」了。做一件讓手忙起來的事，手忙的時候，心才有機會說話。試試調香課，因為氣味是最直接的情緒語言。',
-        recommendation: '精油調香體驗課 / 流體畫課', shareQuote: '情緒不是問題，沒有出口才是。' },
-      { key: 'C', emoji: '🌿', title: '滋養型療癒', subtitle: '需要補充與照顧',
-        description: '你是那種總是照顧別人、最後才想到自己的人。你給了太多，現在輪到你被好好對待了。不是努力，不是成長，就只是好好吃飯、好好休息、做一件讓自己開心的事。',
-        recommendation: '水晶手鍊 DIY / 多肉植栽課', shareQuote: '現在，輪到你被好好照顧了。' },
-      { key: 'D', emoji: '✨', title: '啟動型療癒', subtitle: '需要動力與方向',
-        description: '你不是累，你是卡住了。你知道自己想要什麼，但中間好像有一道牆。你需要的不是休息，而是一個重新啟動的信號。給自己一個「儀式感的開始」——親手做一條水晶手鍊，設定你的意圖，戴上它，出發。',
-        recommendation: '水晶手鍊 DIY / 招財水晶樹課', shareQuote: '有時候只需要一個信號，就能重新出發。' },
+      { key: 'A', emoji: '🌿', title: '需要安靜感', subtitle: '你最近最需要的，是讓空間替你慢下來',
+        description: '不是事情太多，而是你太久沒有待在一個讓心安靜的空間裡。你適合慢慢把生活調回來。',
+        recommendation: '香氛 / 白噪音 / 睡前儀式', shareQuote: '先讓空間慢下來，心也會跟著慢下來。' },
+      { key: 'B', emoji: '🪴', title: '需要秩序感', subtitle: '你不是控制狂，你只是需要日子重新變得清楚',
+        description: '生活一亂，你就容易先失去力氣。你需要的不是更拚，而是找回一點秩序和呼吸感。',
+        recommendation: '植栽 / 整理型手作 / 居家提案', shareQuote: '把日子理順一點，心就有地方落下來。' },
+      { key: 'C', emoji: '🎨', title: '需要新鮮感', subtitle: '你最近缺的，不是努力，是一點新的感覺',
+        description: '有時心悶，不一定是難過，只是太久沒有被新東西碰一下。你適合動手做點什麼，讓生活重新有火花。',
+        recommendation: '畫畫 / 手作飾品 / 花藝', shareQuote: '生活有時只差一點新的光。' },
+      { key: 'D', emoji: '🕯️', title: '需要被安放感', subtitle: '你最近最想要的，其實是一種終於可以放下來的感覺',
+        description: '你撐了很多，也習慣自己消化。現在的你，需要的不只是放鬆，而是終於可以放下來的感覺。',
+        recommendation: '蠟燭 / 晚間陪伴', shareQuote: '今天先到這裡，也很好。' },
     ],
   },
   {
-    id: 5, emoji: '🌙', title: '你是哪種療癒系女生？',
-    subtitle: '每個女生都有屬於自己的療癒頻率，你的，是哪一種？',
+    id: 5, emoji: '✨', title: '最近的你，比較像哪一種正在恢復的人？',
+    subtitle: '恢復不一定很明顯，但你其實已經在路上了。',
     questions: [
-      { question: '你最喜歡哪個時間段？', options: [
-        { key: 'A', text: '深夜，世界安靜下來的時候' },
-        { key: 'B', text: '早晨，陽光灑進來的那一刻' },
-        { key: 'C', text: '黃昏，充滿流動感和橘光' },
-        { key: 'D', text: '午後，慵懶不需要交代的時光' },
+      { question: '最近哪一種小變化，你最有感？', options: [
+        { key: 'A', text: '沒有那麼容易緊張了' },
+        { key: 'B', text: '比較願意把心打開一點' },
+        { key: 'C', text: '開始知道自己要什麼了' },
+        { key: 'D', text: '比較會替自己留時間了' },
       ]},
-      { question: '你理想中的療癒空間？', options: [
-        { key: 'A', text: '昏暗的燈光、精油、水晶和神秘感' },
-        { key: 'B', text: '明亮、溫暖、有人一起、有香氣的廚房' },
-        { key: 'C', text: '開闊的、有風的地方，最好靠近水' },
-        { key: 'D', text: '植物、木質、自然光、可以發呆的角落' },
+      { question: '你最近更常對自己說的是？', options: [
+        { key: 'A', text: '先不要急' },
+        { key: 'B', text: '慢慢來就好' },
+        { key: 'C', text: '這次想照自己的感覺走' },
+        { key: 'D', text: '今天先顧到自己' },
       ]},
-      { question: '你最常用什麼方式放鬆？', options: [
-        { key: 'A', text: '冥想、塔羅、寫日記、獨處儀式' },
-        { key: 'B', text: '煮東西給人吃、陪伴別人、熱熱鬧鬧' },
-        { key: 'C', text: '旅行、探索新地方、做沒做過的事' },
-        { key: 'D', text: '健走、種植、整理空間、慢慢泡茶' },
+      { question: '如果現在回頭看前陣子的自己，你最想說？', options: [
+        { key: 'A', text: '你其實比想像中更穩' },
+        { key: 'B', text: '你沒有白白難過' },
+        { key: 'C', text: '你終於比較清楚了' },
+        { key: 'D', text: '你真的辛苦了，現在可以慢一點' },
       ]},
-      { question: '你的朋友最常來找你做什麼？', options: [
-        { key: 'A', text: '聽你說一些「神奇」的見解或直覺' },
-        { key: 'B', text: '被你照顧、聽你安慰、感受你的溫暖' },
-        { key: 'C', text: '跟你去冒險、跟你一起衝動' },
-        { key: 'D', text: '在你旁邊靜靜待著，感覺很安心' },
-      ]},
-      { question: '你覺得哪句話最像你？', options: [
-        { key: 'A', text: '「我感覺到了，說不清楚，但就是知道」' },
-        { key: 'B', text: '「你還好嗎？有沒有吃飯？」' },
-        { key: 'C', text: '「走吧，說走就走！」' },
-        { key: 'D', text: '「慢慢來，急什麼」' },
-      ]},
-      { question: '你最容易被哪種事物療癒？', options: [
-        { key: 'A', text: '月亮、星座、水晶、神秘能量' },
-        { key: 'B', text: '擁抱、溫熱的食物、熟悉的人' },
-        { key: 'C', text: '海風、音樂、在陌生城市迷路' },
-        { key: 'D', text: '泥土的氣味、植物、雨聲、沉默' },
-      ]},
-      { question: '你對「下班後的時光」的使用方式？', options: [
-        { key: 'A', text: '一個人的儀式感，神聖不可打擾' },
-        { key: 'B', text: '照顧家人朋友，讓身邊的人都好' },
-        { key: 'C', text: '出去走走，不想待在同一個地方' },
-        { key: 'D', text: '慢慢做喜歡的事，不趕時間' },
+      { question: '你現在最想帶著哪一種感覺往前？', options: [
+        { key: 'A', text: '安定' },
+        { key: 'B', text: '柔軟' },
+        { key: 'C', text: '篤定' },
+        { key: 'D', text: '鬆一點' },
       ]},
     ],
     results: [
-      { key: 'A', emoji: '🌙', title: '月亮女神型', subtitle: '神秘直覺派',
-        description: '你是個與生俱來的直覺者。你感受事物的方式比別人更細膩、更深層，你懂得用看不見的事物為自己補充能量。你在夜晚最有力量，你的空間需要儀式感，你的療癒需要「深度」而不是「熱鬧」。',
-        recommendation: '水晶手鍊 DIY + 精油調香 + 香氛蠟燭課', shareQuote: '月亮不需要解釋自己為什麼發光。你也是。🌙' },
-      { key: 'B', emoji: '🌞', title: '太陽暖女型', subtitle: '溫暖給予派',
-        description: '你是那個讓所有人都覺得「有你真好」的人。你的存在本身就是療癒——但你有沒有想過，誰來療癒你？你習慣給予，偶爾要記得讓自己也被照顧。',
-        recommendation: '水晶手鍊 DIY + 花藝課', shareQuote: '太陽也需要雲朵偶爾遮住，讓自己休息一下。☀️' },
-      { key: 'C', emoji: '🌊', title: '海浪自由型', subtitle: '率性流動派',
-        description: '你是個充滿生命力、永遠在流動的人。你害怕固定，你喜歡變化，你需要的療癒是「讓自己繼續動起來」。不要壓抑你的衝動，你的直覺力和行動力是你最大的禮物。',
-        recommendation: '挑一個從來沒試過的課程', shareQuote: '海浪從不問海岸能不能接住它，它只管繼續湧來。🌊' },
-      { key: 'D', emoji: '🌿', title: '森林靜謐型', subtitle: '自然沉澱派',
-        description: '你是個把「慢」活成一種哲學的人。你不趕流行，你有自己的節奏，你的存在像深山裡的老樹，不顯眼但根很深。你的療癒需要「靜」和「長」——不是一次性的爆發，而是每天一點點的滋養。',
-        recommendation: '多肉植栽課 + 精油調香', shareQuote: '森林不急著長大，它只是每天都在。🌿' },
+      { key: 'A', emoji: '🌤️', title: '慢慢穩下來型', subtitle: '你不一定變得很快，但真的比以前更穩了',
+        description: '你的恢復不是一下子變好，而是那些容易晃動的地方，現在慢慢站穩了。',
+        recommendation: '穩定香氣 / 白噪音', shareQuote: '不是一下子變好，是慢慢站穩。' },
+      { key: 'B', emoji: '💗', title: '心慢慢打開型', subtitle: '你開始願意再相信一點、再靠近一點',
+        description: '你不是忘了那些難，而是開始願意重新感受。那是一種很溫柔的勇敢。',
+        recommendation: '陪伴卡 / 柔和香氣', shareQuote: '心願意再打開一點，本身就是一種前進。' },
+      { key: 'C', emoji: '🧭', title: '方向慢慢清楚型', subtitle: '你最近的改變，是開始知道什麼適合自己',
+        description: '你不一定什麼都想清楚了，但開始分得出，什麼是你要的，什麼不是。這就是方向感。',
+        recommendation: '情緒打卡 / 日記', shareQuote: '有些清楚，不是一下子想通，是慢慢分出來的。' },
+      { key: 'D', emoji: '🍵', title: '終於比較會照顧自己型', subtitle: '你開始不再一直透支自己了',
+        description: '這不只是休息，而是你終於開始把自己放進生活裡。能走到這一步，很不容易。',
+        recommendation: '晚間回饋 / 微任務 / 居家陪伴', shareQuote: '先把自己放回來，很多事就不一樣了。' },
     ],
   },
   {
-    id: 6, emoji: '⚡', title: '你的生活缺哪一種能量？',
-    subtitle: '生活像一首曲子，有時某個音符悄悄地不見了。聽聽內心的聲音，找回屬於你的那個頻率。',
+    id: 6, emoji: '🎁', title: '別人會想把哪一種溫度留在你身邊？',
+    subtitle: '有些人一出現，就讓人覺得世界柔了一點。',
     questions: [
-      { question: '最近你最常有哪種感受？', options: [
-        { key: 'A', text: '覺得自己很孤單，想被人好好陪著' },
-        { key: 'B', text: '總是不安，擔心一切隨時會失控' },
-        { key: 'C', text: '腦袋一片空白，好久沒有想做什麼了' },
-        { key: 'D', text: '每天都很疲倦，提不起勁做任何事' },
+      { question: '朋友最常因為什麼想起你？', options: [
+        { key: 'A', text: '你很會聽，也很會陪' },
+        { key: 'B', text: '你有自己的品味和節奏' },
+        { key: 'C', text: '你做事很穩，讓人放心' },
+        { key: 'D', text: '你總會記得一些小細節' },
       ]},
-      { question: '看到朋友的生活動態，你第一個念頭是？', options: [
-        { key: 'A', text: '好羨慕，他們看起來好被愛' },
-        { key: 'B', text: '希望我的生活也能這麼穩定踏實' },
-        { key: 'C', text: '他們怎麼這麼有創意，我怎麼都沒有靈感' },
-        { key: 'D', text: '他們好有動力，我好像原地踏步' },
+      { question: '如果要用一種感覺形容你，比較像？', options: [
+        { key: 'A', text: '安靜的溫柔' },
+        { key: 'B', text: '好看的生活感' },
+        { key: 'C', text: '穩穩的安心' },
+        { key: 'D', text: '被放在心上的感覺' },
       ]},
-      { question: '週末最不想做的事是？', options: [
-        { key: 'A', text: '一個人宅在家，沒有人可以說話' },
-        { key: 'B', text: '做很多計畫外的事，感覺什麼都不確定' },
-        { key: 'C', text: '一直重複相同的事，沒有任何新鮮感' },
-        { key: 'D', text: '坐著不動，什麼都不想做' },
+      { question: '你最自然會做的是？', options: [
+        { key: 'A', text: '陪對方把話說完' },
+        { key: 'B', text: '把普通日子過得有一點美' },
+        { key: 'C', text: '事情來了先穩住場面' },
+        { key: 'D', text: '記得別人喜歡什麼、在意什麼' },
       ]},
-      { question: '你的包包裡最缺哪樣東西？', options: [
-        { key: 'A', text: '一張你最在乎的人寫給你的小紙條' },
-        { key: 'B', text: '一本讓你安心的記事本，把事情都記清楚' },
-        { key: 'C', text: '一本靈感筆記，可以隨時寫下新想法' },
-        { key: 'D', text: '一瓶提振精神的精油或咖啡因補給' },
-      ]},
-      { question: '如果可以許一個願望，你最想要？', options: [
-        { key: 'A', text: '有人無條件地愛你、陪著你' },
-        { key: 'B', text: '一個不會改變的溫暖角落，永遠屬於你' },
-        { key: 'C', text: '突然蹦出一個讓你眼睛發亮的好點子' },
-        { key: 'D', text: '重新找回那個對什麼都充滿熱血的自己' },
-      ]},
-      { question: '哪種植物最像你現在的狀態？', options: [
-        { key: 'A', text: '盆栽裡的玫瑰，需要人細心澆水才會開花' },
-        { key: 'B', text: '被移植的多肉，根還沒扎穩，有點飄' },
-        { key: 'C', text: '乾燥花，曾經美麗，但失去了水分和色彩' },
-        { key: 'D', text: '休眠期的球根，埋在土裡，等待一個發芽的契機' },
-      ]},
-      { question: '最近你最需要的一句話是？', options: [
-        { key: 'A', text: '「我在這裡，你不是一個人。」' },
-        { key: 'B', text: '「一切都會沒事的，你很安全。」' },
-        { key: 'C', text: '「你本來就很有創造力，靈感只是暫時躲起來了。」' },
-        { key: 'D', text: '「你可以的，那個熱情還在你心裡。」' },
+      { question: '如果有人想送你一份禮物，最像會送？', options: [
+        { key: 'A', text: '一張寫了很多話的卡片' },
+        { key: 'B', text: '一個有質感的小物' },
+        { key: 'C', text: '一個很實用、每天都能用的東西' },
+        { key: 'D', text: '一份看得出有特別準備過的心意' },
       ]},
     ],
     results: [
-      { key: 'A', emoji: '🌸', title: '愛與連結', subtitle: '你的心正在渴望一個溫暖的懷抱',
-        description: '不是軟弱，是你太久沒有讓人好好靠近你了。你習慣獨自承擔，習慣說「我沒事」，但其實那顆心已經悄悄乾渴。療癒從連結開始，用雙手串起一串有意義的水晶，讓它陪著你。',
-        recommendation: '水晶手鍊 DIY 體驗', shareQuote: '我不是不需要愛，我只是太久沒有開口說需要了。' },
-      { key: 'B', emoji: '🏔', title: '穩定與安全感', subtitle: '你的內心正在尋找一個定點',
-        description: '一個不管外面世界怎麼晃動，都能讓你踩穩腳步的地方。也許是一個熟悉的氣味，也許是一雙自己親手做出來的東西。香氛蠟燭是一種儀式，點燃它的那一刻，你在對自己說——此刻，我允許自己停下來。',
-        recommendation: '香氛蠟燭手作課', shareQuote: '不是世界先穩定，是我先讓自己安定下來。' },
-      { key: 'C', emoji: '💡', title: '創意與靈感', subtitle: '你的靈魂裡有一把火，只是最近被風吹得有點小',
-        description: '你不是失去創意，你是太久沒有玩了。生活的重量把那個會胡思亂想、隨手塗鴉的你壓在底下，但它從來沒有消失。讓你的手先動起來，靈感不是等來的，是在「做」的過程中悄悄出現的。',
-        recommendation: '流體畫／皮革手作體驗', shareQuote: '我不是沒有靈感，我只是太久沒有給自己玩耍的空間。' },
-      { key: 'D', emoji: '⚡', title: '熱情與行動力', subtitle: '你還記得上一次眼睛發亮是什麼時候嗎',
-        description: '那個會為一件事熬夜、會衝動報名課程的你，還在嗎？熱情有時候只是在充電，不是消失了。試著做一件「只為了好玩」的事，不帶目的，不求結果。調一瓶屬於現在這個你的香氣。',
-        recommendation: '精油調香體驗課', shareQuote: '熱情不是消失了，它只是在等你給它一個出口。' },
-    ],
-  },
-  {
-    id: 7, emoji: '🧸', title: '你的內在小孩，現在想要什麼？',
-    subtitle: '在所有長大的樣子底下，住著一個還沒被好好照顧的孩子。',
-    questions: [
-      { question: '小時候最怕的事情是？', options: [
-        { key: 'A', text: '被忽略，沒有人在意你' },
-        { key: 'B', text: '被規定，什麼都不能自由做' },
-        { key: 'C', text: '太吵太亂，沒有可以安靜的角落' },
-        { key: 'D', text: '做了很多努力，卻沒有人說「你做得很好」' },
-      ]},
-      { question: '你最懷念的童年時光是？', options: [
-        { key: 'A', text: '被大人抱著、不用想任何事的時候' },
-        { key: 'B', text: '在地上爬來爬去、隨便畫畫的午後' },
-        { key: 'C', text: '一個人在房間裡，安安靜靜看書或發呆' },
-        { key: 'D', text: '上台表演或被老師點名稱讚的那一刻' },
-      ]},
-      { question: '最近你最想逃去哪裡？', options: [
-        { key: 'A', text: '一個有人陪著你、會說「我在這裡」的地方' },
-        { key: 'B', text: '沒有規定、沒有時間表，可以做任何事的空間' },
-        { key: 'C', text: '安靜的山上或海邊，只有風和自己' },
-        { key: 'D', text: '一個能讓人看見你、記住你的舞台' },
-      ]},
-      { question: '哪句話讓你最觸動？', options: [
-        { key: 'A', text: '「你不用一個人扛，我陪你。」' },
-        { key: 'B', text: '「你想做什麼就做什麼，沒關係的。」' },
-        { key: 'C', text: '「先休息，一切等你好了再說。」' },
-        { key: 'D', text: '「你做的事，真的很了不起。」' },
-      ]},
-      { question: '如果內在小孩可以說話，她最可能說？', options: [
-        { key: 'A', text: '「我好累，我只想被好好抱著。」' },
-        { key: 'B', text: '「我想要玩！不想管那麼多！」' },
-        { key: 'C', text: '「我只想一個人靜一靜，不要打擾我。」' },
-        { key: 'D', text: '「我想讓你們都看到我，看到我的努力。」' },
-      ]},
-      { question: '你最近有沒有為自己做過什麼「小小的寵愛」？', options: [
-        { key: 'A', text: '沒有，一直在照顧別人，忘了照顧自己' },
-        { key: 'B', text: '偶爾，但總覺得不夠盡興，有點放不開' },
-        { key: 'C', text: '很少，因為太累了，什麼都不想做' },
-        { key: 'D', text: '幾乎沒有，因為怕別人覺得我太愛出風頭' },
-      ]},
-      { question: '你覺得自己現在最需要的一種顏色是？', options: [
-        { key: 'A', text: '柔和的粉色，溫暖而安全' },
-        { key: 'B', text: '繽紛的彩虹色，每一種都想試試' },
-        { key: 'C', text: '霧藍或深灰，安靜而沉穩' },
-        { key: 'D', text: '閃閃發光的金色，耀眼而自信' },
-      ]},
-      { question: '此刻你最想做的事是？', options: [
-        { key: 'A', text: '找一個人，靜靜依偎在一起' },
-        { key: 'B', text: '隨便拿什麼材料，開始做一件沒有目的的東西' },
-        { key: 'C', text: '關掉手機，窩在某個角落什麼都不做' },
-        { key: 'D', text: '做一件讓人眼睛一亮的作品，然後大聲說「這是我做的！」' },
-      ]},
-    ],
-    results: [
-      { key: 'A', emoji: '🤗', title: '被擁抱', subtitle: '你的內在小孩正在等一個擁抱',
-        description: '不是隨便的那種，是那種讓你感覺「你不用假裝沒事」的擁抱。你太習慣堅強了，堅強到忘了自己也可以脆弱。水晶有一種很安靜的陪伴能量，讓自己選一顆，感受它放在手心的重量。',
-        recommendation: '水晶手鍊 DIY 體驗', shareQuote: '我允許自己脆弱，因為被擁抱從來不是弱點。' },
-      { key: 'B', emoji: '🎨', title: '自由玩耍', subtitle: '你的內在小孩想要出來玩了',
-        description: '那個會因為顏料混在一起變出新顏色而開心尖叫、不怕把手弄髒的你，還在。只是長大之後，你開始覺得「玩」是一件需要理由的事。不需要理由，讓內在小孩出來主導一次。',
-        recommendation: '流體畫／手工皂體驗', shareQuote: '長大不代表要停止玩耍，玩耍才是靈魂的呼吸。' },
-      { key: 'C', emoji: '🌙', title: '安靜休息', subtitle: '你的內在小孩太累了',
-        description: '她需要的不是更多的事情，不是更多的人，只是一個什麼都不用做的角落，可以安靜地坐著，讓時間慢下來。點燃一根蠟燭，讓香氣輕輕填滿空間。你已經足夠了。',
-        recommendation: '香氛蠟燭手作課', shareQuote: '休息不是放棄，是讓自己有力氣再愛這個世界。' },
-      { key: 'D', emoji: '🌟', title: '被看見', subtitle: '你的內在小孩想要站在光裡',
-        description: '她做了很多、努力了很久，只是想要有人說：「我看見你了，你真的很棒。」這不是虛榮，是每個人心底最真實的渴望。做一件只屬於你的作品，讓那件作品成為你被自己看見的第一步。',
-        recommendation: '精油調香體驗課', shareQuote: '被看見，從先看見自己開始。' },
-    ],
-  },
-  {
-    id: 8, emoji: '😤', title: '你的壓力長什麼樣子？',
-    subtitle: '壓力不是敵人，它只是一個還沒被理解的情緒。認識它，才能溫柔地和它說再見。',
-    questions: [
-      { question: '壓力累積的時候，你通常怎麼辦？', options: [
-        { key: 'A', text: '悶在心裡，繼續撐，等它自己過去' },
-        { key: 'B', text: '忽然有一天，什麼小事就讓你情緒崩潰' },
-        { key: 'C', text: '完全不知道怎麼辦，腦子空白，什麼都動不了' },
-        { key: 'D', text: '去找事情填滿自己，讓自己沒空去想那些壓力' },
-      ]},
-      { question: '別人問你「你還好嗎」的時候，你的第一反應是？', options: [
-        { key: 'A', text: '「還好，沒事。」（但心裡不是這樣）' },
-        { key: 'B', text: '「說不定我真的快不好了……」' },
-        { key: 'C', text: '「我……我不知道。」' },
-        { key: 'D', text: '「好啊好啊，我去買個東西就好了。」' },
-      ]},
-      { question: '有人惹你不開心，你會怎麼做？', options: [
-        { key: 'A', text: '說「算了」，把不滿往肚子裡吞' },
-        { key: 'B', text: '一開始忍，但到某個點可能突然爆發' },
-        { key: 'C', text: '愣住，不知道該說什麼，結果什麼都沒說' },
-        { key: 'D', text: '趕快找別的事情轉移注意力' },
-      ]},
-      { question: '壓力大的夜晚，你最可能？', options: [
-        { key: 'A', text: '躺在床上睡不著，但不想打擾任何人' },
-        { key: 'B', text: '翻來覆去，偶爾把枕頭打一下，或在心裡罵人' },
-        { key: 'C', text: '發呆，腦袋一片空白，不知道時間怎麼過的' },
-        { key: 'D', text: '滑手機滑到凌晨，或出門亂買東西' },
-      ]},
-      { question: '你身邊的人可能不知道，其實你正在？', options: [
-        { key: 'A', text: '默默承受很多，但表面看起來沒事' },
-        { key: 'B', text: '快要爆炸了，只差一個引爆點' },
-        { key: 'C', text: '整個人卡住，什麼都處理不了' },
-        { key: 'D', text: '不停地找事情逃避，但越逃壓力越大' },
-      ]},
-      { question: '當一切都太多的時候，你最需要？', options: [
-        { key: 'A', text: '一個可以安靜地說出「我其實很累」的出口' },
-        { key: 'B', text: '一個讓情緒有地方去、不傷人也不傷己的方式' },
-        { key: 'C', text: '有人陪你一起坐著，不用說話，只是在' },
-        { key: 'D', text: '一件讓雙手忙碌起來的事，讓腦子可以暫時空下來' },
-      ]},
-    ],
-    results: [
-      { key: 'A', emoji: '🌀', title: '悶燒型', subtitle: '壓力像炭火，藏在灰燼底下',
-        description: '看起來沒事，其實一直在燒。你太會照顧別人了，所以你把自己的情緒練習得看不出來。說「沒事」的次數太多，久了連自己都快信了。找一個出口，讓雙手的動作代替你表達那些你還說不出口的感受。',
-        recommendation: '樹脂／皮革手作體驗', shareQuote: '我不是沒有情緒，我只是還不知道怎麼讓它們說話。' },
-      { key: 'B', emoji: '💥', title: '爆炸型', subtitle: '壓力像高壓鍋，蓋得越緊遲早要衝出來',
-        description: '你不是情緒化，你只是壓了太久。那些沒有說出口的委屈、沒有被接住的感受，都在等一個安全的地方流出來。流體畫是一種很好的釋放方式，顏料在畫布上流動蔓延，沒有規則。',
-        recommendation: '流體畫體驗課', shareQuote: '情緒不是問題，沒有出口才是。' },
-      { key: 'C', emoji: '🧊', title: '凍結型', subtitle: '壓力把你凍住了',
-        description: '不是不想動，是整個人像被按了暫停鍵。這不是懶，這是身心在用最後的力氣保護你。多肉不需要你做很多，它只需要你在旁邊，偶爾看它一眼。讓自己跟著植物的節奏，慢慢解凍。',
-        recommendation: '多肉植栽體驗', shareQuote: '凍住不是終點，是身體在說：先停下來，好好喘口氣。' },
-      { key: 'D', emoji: '🏃', title: '逃跑型', subtitle: '你一直在跑，但你知道跑不掉的',
-        description: '不是你不勇敢，是面對它太難了。忙完了、滑完了、買完了，那個東西還在那裡。試試調香，在過程裡讓自己慢下來，一瓶一瓶地聞，那是一種很溫柔的方式，讓你從「逃」慢慢回到「在」。',
-        recommendation: '精油調香體驗課', shareQuote: '跑不是解法，但停下來也不用一下子就面對全部。' },
-    ],
-  },
-  {
-    id: 9, emoji: '🌃', title: '今晚你需要哪種儀式感？',
-    subtitle: '每一個夜晚，都值得一個小小的儀式。不為誰，只為把今天好好地收尾。',
-    questions: [
-      { question: '今天的你，最需要的是？', options: [
-        { key: 'A', text: '和所有人斷線，只跟自己在一起' },
-        { key: 'B', text: '用手做一件事，讓腦子安靜下來' },
-        { key: 'C', text: '走出去，換一個空間，換一種呼吸' },
-        { key: 'D', text: '用一種感官的體驗，讓自己回到當下' },
-      ]},
-      { question: '理想的今晚，你最希望？', options: [
-        { key: 'A', text: '燈光暗一點，香氣淡一點，世界小一點' },
-        { key: 'B', text: '把手弄髒，做一件有生命的事' },
-        { key: 'C', text: '穿上一件喜歡的衣服，帶著好能量出門' },
-        { key: 'D', text: '在一排小瓶子前面，一個個打開來聞' },
-      ]},
-      { question: '今天讓你最累的是？', options: [
-        { key: 'A', text: '太多人、太多聲音、太多要回應的事' },
-        { key: 'B', text: '坐著不動，腦子轉個不停，身體沒有出口' },
-        { key: 'C', text: '一直困在同一個空間，呼吸都覺得悶' },
-        { key: 'D', text: '感覺和自己的身體失聯了' },
-      ]},
-      { question: '你的今晚，最不需要的是？', options: [
-        { key: 'A', text: '任何人的打擾或訊息通知' },
-        { key: 'B', text: '繼續看螢幕，繼續動腦' },
-        { key: 'C', text: '繼續待在家裡，繼續原地' },
-        { key: 'D', text: '味道太複雜的空間' },
-      ]},
-      { question: '什麼樣的夜晚，會讓你覺得「今天值了」？', options: [
-        { key: 'A', text: '獨處，什麼事都不做，什麼人都不見' },
-        { key: 'B', text: '親手完成一件小事，看著它在那裡' },
-        { key: 'C', text: '帶著好心情出門，吹到風，看到星星' },
-        { key: 'D', text: '調出一種只屬於今晚的氣味' },
-      ]},
-      { question: '如果今晚是一首歌，你希望它是？', options: [
-        { key: 'A', text: '低沉、緩慢、只有樂器，沒有人聲' },
-        { key: 'B', text: '自然的聲音，雨聲、蟲鳴、葉子的聲音' },
-        { key: 'C', text: '輕快有節奏，讓你想走路的那種' },
-        { key: 'D', text: '帶一點夢幻感，像是香水廣告的配樂' },
-      ]},
-      { question: '你最想用哪個字形容今晚你想要的狀態？', options: [
-        { key: 'A', text: '靜' },
-        { key: 'B', text: '踏實' },
-        { key: 'C', text: '自由' },
-        { key: 'D', text: '沉浸' },
-      ]},
-    ],
-    results: [
-      { key: 'A', emoji: '🕯', title: '點燃蠟燭獨處', subtitle: '今晚你需要的只有自己和一點點光',
-        description: '不需要解釋，不需要陪伴，只需要一根蠟燭，把房間的邊界縮小到只剩你的呼吸範圍。這種獨處不是寂寞，是充電。點燃一根自己做的香氛蠟燭，讓它陪你把今天的喧囂一起燃完。',
-        recommendation: '香氛蠟燭手作課', shareQuote: '今晚，我把所有的門關上，只開一盞給自己的燈。' },
-      { key: 'B', emoji: '🪴', title: '動手種植靜心', subtitle: '今晚讓手代替腦子說話',
-        description: '種一株植物、整理一個盆栽，讓指尖碰到土的那一刻，你就從「腦袋裡的世界」落回「真實的世界」。這是一種非常古老的療癒方式，踏實而有效。',
-        recommendation: '多肉植栽體驗', shareQuote: '把手放進土裡的那一刻，所有浮躁都沉下去了。' },
-      { key: 'C', emoji: '💎', title: '戴上水晶走出去', subtitle: '今晚你需要換一口空氣',
-        description: '不是要去哪裡，不是要見誰，只是換一個空間，讓身體知道：我不是被困住的。帶上一串有能量的水晶手鍊，讓它成為你今晚的護身符。',
-        recommendation: '水晶手鍊 DIY 體驗', shareQuote: '有時候最好的療癒，是換一個地方站著呼吸。' },
-      { key: 'D', emoji: '🌸', title: '調一瓶屬於自己的香', subtitle: '今晚用嗅覺找回自己',
-        description: '香氣是一種直達情緒的語言，它不繞過大腦，直接和你的感受說話。調一瓶只屬於「今天的你」的香，讓它停留在皮膚上，陪你度過今晚。',
-        recommendation: '精油調香體驗課', shareQuote: '調香是一種自白，告訴今晚的自己：我在，我值得被好好對待。' },
-    ],
-  },
-  {
-    id: 10, emoji: '🎨', title: '你的療癒色彩是什麼？',
-    subtitle: '顏色是情緒的另一種語言，它不需要翻譯，直接說話。',
-    questions: [
-      { question: '你最喜歡的室內燈光是？', options: [
-        { key: 'A', text: '溫暖的粉色調，像黃昏的光' },
-        { key: 'B', text: '自然的白光，像窗邊透進來的陽光' },
-        { key: 'C', text: '冷白光，讓你清醒、專注' },
-        { key: 'D', text: '暖黃燈，有點閃爍的那種，像蠟燭' },
-      ]},
-      { question: '你的手機桌布最可能是？', options: [
-        { key: 'A', text: '花朵、漸層、夢幻感的照片' },
-        { key: 'B', text: '自然風景，森林、苔蘚、多肉植物' },
-        { key: 'C', text: '簡潔的幾何、純色、留白設計' },
-        { key: 'D', text: '充滿色彩和活力的圖案或藝術畫' },
-      ]},
-      { question: '你最喜歡穿的衣服顏色？', options: [
-        { key: 'A', text: '粉色、薰衣草紫、玫瑰色' },
-        { key: 'B', text: '大地色系——卡其、棕、橄欖綠' },
-        { key: 'C', text: '白、灰、深藍，乾淨俐落' },
-        { key: 'D', text: '橘、紅、芥末黃，有點搶眼的' },
-      ]},
-      { question: '你理想的假日早晨，空間是什麼感覺？', options: [
-        { key: 'A', text: '柔和、花香、有點夢幻的' },
-        { key: 'B', text: '清新、有植物、窗外有鳥聲的' },
-        { key: 'C', text: '整齊、安靜、一杯咖啡的溫度' },
-        { key: 'D', text: '陽光充足、有點活潑、準備去做點什麼的' },
-      ]},
-      { question: '你最喜歡哪種香氣？', options: [
-        { key: 'A', text: '玫瑰、牡丹、甜美花香' },
-        { key: 'B', text: '雪松、廣藿香、泥土後的雨香' },
-        { key: 'C', text: '薄荷、尤加利、清爽草本' },
-        { key: 'D', text: '柑橘、薑、肉桂，溫暖又有活力' },
-      ]},
-      { question: '看到哪個場景，你最想停下來拍一張？', options: [
-        { key: 'A', text: '一束粉色花，放在窗邊，陽光打下來的樣子' },
-        { key: 'B', text: '苔蘚上的露水，或是多肉們排排坐的樣子' },
-        { key: 'C', text: '留白的白牆，一個影子，構圖很完美' },
-        { key: 'D', text: '市場裡的橘色燈光，或夕陽把天空燒成橘紅色' },
-      ]},
-    ],
-    results: [
-      { key: 'A', emoji: '🌸', title: '粉紫', subtitle: '溫柔感性',
-        description: '你的世界是粉紫色的，像春天最後一場雨後的花園。你對美有很細膩的感受，容易被一首歌、一個顏色、一個眼神打動。這種敏感是你的天賦，不是弱點。花藝課是屬於你的療癒。',
-        recommendation: '花藝手作課', shareQuote: '我的世界是粉色的，因為我選擇溫柔地感受一切。' },
-      { key: 'B', emoji: '🍃', title: '綠棕', subtitle: '自然踏實',
-        description: '你的能量來自大地，你是那種讓人覺得「靠近你很安心」的人。不喜歡浮誇，不追求表面，你相信真實的東西。多肉植栽是最適合你的課程。',
-        recommendation: '多肉植栽體驗', shareQuote: '我不追求最亮眼的，我追求最真實的。' },
-      { key: 'C', emoji: '🔷', title: '藍白', subtitle: '清醒理性',
-        description: '你的美學是留白和清醒，你知道「少即是多」的道理。你欣賞有條理的美，喜歡乾淨的線條。皮革手作的精工細節，正適合你。',
-        recommendation: '皮革手作體驗', shareQuote: '留白不是空洞，是我給自己最清醒的溫柔。' },
-      { key: 'D', emoji: '🔥', title: '橘金', subtitle: '熱烈行動',
-        description: '你的顏色是太陽的顏色，溫暖、有能量、讓人想靠近。你走進一個空間，空氣都會跟著熱起來。流體畫是你的舞台，讓顏色在畫布上碰撞、創造意外的美麗。',
-        recommendation: '流體畫體驗課', shareQuote: '我的顏色是橘金色，因為我選擇用熱烈的方式活著。' },
-    ],
-  },
-  {
-    id: 11, emoji: '🌱', title: '你是哪種植物靈魂？',
-    subtitle: '每個人心裡都住著一株植物，它的樣子，就是你現在靈魂的形狀。',
-    questions: [
-      { question: '朋友說你最像哪種人？', options: [
-        { key: 'A', text: '獨立、不太需要別人、自己可以撐起一片天' },
-        { key: 'B', text: '療癒系的，靠近你就覺得很放鬆' },
-        { key: 'C', text: '感情豐富，對美的事物很敏感，有點浪漫主義' },
-        { key: 'D', text: '活力充沛，走到哪裡都帶來好氣氛' },
-      ]},
-      { question: '你的生存哲學是？', options: [
-        { key: 'A', text: '不管環境多惡劣，我都能活下去' },
-        { key: 'B', text: '小小的幸福就夠了，不需要太多' },
-        { key: 'C', text: '寧願把事情做得很美，也不要妥協將就' },
-        { key: 'D', text: '生命就是要動，停下來才是最可怕的' },
-      ]},
-      { question: '你最需要哪種環境？', options: [
-        { key: 'A', text: '不需要太多照顧，給我空間就好' },
-        { key: 'B', text: '穩定、不太變動，讓我慢慢長' },
-        { key: 'C', text: '有人愛護我、細心對待我，我才能開花' },
-        { key: 'D', text: '新鮮的空氣和流動的環境，讓我充滿生機' },
-      ]},
-      { question: '你如何面對困境？', options: [
-        { key: 'A', text: '把自己縮起來，用刺保護自己，等到安全再出來' },
-        { key: 'B', text: '把水分存起來，慢慢地度過難關' },
-        { key: 'C', text: '也許會受傷，但還是選擇繼續開花' },
-        { key: 'D', text: '換一個方向繼續長，找到縫隙就繼續' },
-      ]},
-      { question: '你最享受的獨處方式是？', options: [
-        { key: 'A', text: '什麼都不做，靜靜地曬太陽' },
-        { key: 'B', text: '做一些小手作，讓心情慢慢沉澱' },
-        { key: 'C', text: '聽音樂、寫日記、沉浸在自己的感受裡' },
-        { key: 'D', text: '出去走走，讓身體動起來' },
-      ]},
-      { question: '你最害怕的事是？', options: [
-        { key: 'A', text: '太依賴別人，失去自己的獨立' },
-        { key: 'B', text: '被要求太多，壓力超過自己能承受的' },
-        { key: 'C', text: '不被珍視，或愛到最後什麼都沒有' },
-        { key: 'D', text: '原地不動，停滯、無聊、沒有改變' },
-      ]},
-      { question: '哪句話最像你？', options: [
-        { key: 'A', text: '「我不需要很多，但我一定要夠強壯。」' },
-        { key: 'B', text: '「一杯奶茶、一個下午，就是好日子。」' },
-        { key: 'C', text: '「帶刺也要開花，因為美是值得的。」' },
-        { key: 'D', text: '「我的能量就是我最好的禮物。」' },
-      ]},
-    ],
-    results: [
-      { key: 'A', emoji: '🌵', title: '仙人掌', subtitle: '獨立堅韌',
-        description: '你是那種不需要太多水也能活得很好的人。你的強大來自你的獨立，你不依賴，你不抱怨。那些刺不是攻擊，是你對自己的保護。但偶爾，仙人掌也需要一點水。',
-        recommendation: '水晶手鍊 DIY 體驗', shareQuote: '我在最乾燥的地方長大，所以我知道生命有多頑強。' },
-      { key: 'B', emoji: '🌿', title: '多肉', subtitle: '療癒小確幸',
-        description: '你是那種讓身邊的人覺得「靠近你很安心」的存在。不張揚，不複雜，你的美藏在細節裡。多肉不需要很多，但它把那一點點好好地儲存著，就像你。',
-        recommendation: '多肉植栽體驗', shareQuote: '不需要轟轟烈烈，把每一個小幸福存起來，就是豐盛。' },
-      { key: 'C', emoji: '🌹', title: '玫瑰', subtitle: '感性浪漫',
-        description: '你是帶刺的花，美麗而真實。你知道開花是有代價的，但你還是選擇盛開。你對美有很深的嚮往，對情感有很強烈的感受。花藝是為你而生的課程。',
-        recommendation: '花藝手作課', shareQuote: '帶刺，是因為我知道自己值得被珍惜。' },
-      { key: 'D', emoji: '🍀', title: '薄荷', subtitle: '清新活力',
-        description: '你是那種走進一個房間，空氣都會被你帶活的人。你的能量是清新的，你不是表演出來的開朗，是真的覺得生命有很多值得期待的地方。薄荷越剪越旺，就像你。',
-        recommendation: '精油調香體驗課', shareQuote: '我的出現，是為了讓這個空間更清新一點。' },
-    ],
-  },
-  {
-    id: 12, emoji: '🤝', title: '你的人際能量是哪種類型？',
-    subtitle: '每段關係都是一種能量的流動，而你，是那條河的哪一段？',
-    questions: [
-      { question: '朋友遇到困難，你的第一反應是？', options: [
-        { key: 'A', text: '馬上想辦法幫他，先把他的事解決再說' },
-        { key: 'B', text: '靜靜地聽，讓他說完，你需要一點時間消化' },
-        { key: 'C', text: '先了解狀況，再看看你能做什麼' },
-        { key: 'D', text: '幫他找出解決方向，然後鼓勵他去行動' },
-      ]},
-      { question: '你在一個聚會裡，你通常是？', options: [
-        { key: 'A', text: '照顧大家情緒的那個人' },
-        { key: 'B', text: '認真聽別人說話，默默吸收' },
-        { key: 'C', text: '配合現場氣氛，有時說話有時聆聽' },
-        { key: 'D', text: '帶動話題，讓氛圍熱起來' },
-      ]},
-      { question: '親密關係裡，你最常扮演的角色是？', options: [
-        { key: 'A', text: '給予者，照顧對方的需求，常忘了自己' },
-        { key: 'B', text: '接收者，需要對方給你很多安全感和陪伴' },
-        { key: 'C', text: '互相照顧，你需要對等的愛' },
-        { key: 'D', text: '引導者，帶著對方往前' },
-      ]},
-      { question: '人際關係裡，什麼最讓你疲憊？', options: [
-        { key: 'A', text: '一直付出卻沒有人問你還好不好' },
-        { key: 'B', text: '要主動聯繫、主動表現，感覺好累' },
-        { key: 'C', text: '不對等，一個人付出太多或太少' },
-        { key: 'D', text: '被動的人，讓你一個人帶著整個關係走' },
-      ]},
-      { question: '你最享受的關係是？', options: [
-        { key: 'A', text: '對方需要你，你能幫上忙的感覺' },
-        { key: 'B', text: '和對方在一起，你感到充實、被滋養' },
-        { key: 'C', text: '你們彼此需要彼此，沒有誰多誰少' },
-        { key: 'D', text: '你帶著對方成長，看到他變好的樣子' },
-      ]},
-      { question: '朋友說你最讓他們欣賞的地方是？', options: [
-        { key: 'A', text: '你的體貼，你總是想到別人' },
-        { key: 'B', text: '你的深度，你願意認真感受和思考' },
-        { key: 'C', text: '你的穩定，讓人覺得跟你在一起很有安全感' },
-        { key: 'D', text: '你的能量，你讓大家都變得更有活力' },
-      ]},
-    ],
-    results: [
-      { key: 'A', emoji: '🌊', title: '給予型', subtitle: '你像一條河，一直往外流',
-        description: '你的愛是真實的，你的給予是天性。但河流也需要源頭，你也需要被補充。做一件只為自己的手作，不為誰，不送給誰，就是為你自己。',
-        recommendation: '香氛蠟燭手作課', shareQuote: '給予的人，也需要一個人好好地被裝滿。' },
-      { key: 'B', emoji: '🌙', title: '吸收型', subtitle: '你像月亮，默默地接收',
-        description: '你不是依賴，你是深度感受者。你需要充足的能量才能好好運作。水晶的能量適合你，帶上一顆讓你感到安穩的石頭，讓它成為你的能量補給站。',
-        recommendation: '水晶手鍊 DIY 體驗', shareQuote: '我需要先被好好填滿，才能把光好好地反映給你。' },
-      { key: 'C', emoji: '⚖️', title: '平衡型', subtitle: '你的存在本身就是平衡力',
-        description: '你有很清楚的邊界感，你知道什麼是你能給的，什麼是你需要的。這種清醒是一種很成熟的力量。皮革手作的精準感，和你的性格很像。',
-        recommendation: '皮革手作體驗', shareQuote: '真正好的關係，不是誰付出比較多，是我們都在這裡。' },
-      { key: 'D', emoji: '🔥', title: '帶動型', subtitle: '你是關係裡的引擎',
-        description: '你不是強勢，你是充滿熱情。你帶著大家往前，你給的不只是陪伴，是方向、是勇氣。流體畫很適合你，讓色彩跟著你的能量流動。',
-        recommendation: '流體畫體驗課', shareQuote: '我燃燒的時候，他們都跟著溫暖了。' },
-    ],
-  },
-  {
-    id: 13, emoji: '🦊', title: '你的生活節奏是哪種動物？',
-    subtitle: '快的，慢的，靈活的，勇猛的，哪一種最像你現在走路的樣子？',
-    questions: [
-      { question: '你通常怎麼做決定？', options: [
-        { key: 'A', text: '憑感覺，當下覺得對就去做' },
-        { key: 'B', text: '想很久，從各個角度分析，確定了才動' },
-        { key: 'C', text: '快速評估，但保留彈性，看狀況再調整' },
-        { key: 'D', text: '很快，我知道我要什麼，就直接衝' },
-      ]},
-      { question: '你的待辦清單長什麼樣子？', options: [
-        { key: 'A', text: '沒有清單，你的計畫一直在變' },
-        { key: 'B', text: '非常詳細，每件事都寫得很清楚' },
-        { key: 'C', text: '有一個大方向，但細節保持彈性' },
-        { key: 'D', text: '很短，你只記最重要的' },
-      ]},
-      { question: '朋友說你什麼時候最讓他們意外？', options: [
-        { key: 'A', text: '你突然改變主意、或突然有新計畫的時候' },
-        { key: 'B', text: '你做出一個很深思熟慮的決定' },
-        { key: 'C', text: '你在棘手的情況下想出一個意想不到的辦法' },
-        { key: 'D', text: '你直接開口說出別人不敢說的話' },
-      ]},
-      { question: '你最享受哪種工作狀態？', options: [
-        { key: 'A', text: '多線並進，一直切換，保持新鮮感' },
-        { key: 'B', text: '慢慢深入一件事，把它做得非常好' },
-        { key: 'C', text: '隨時可以調整方向，不被固定框架綁住' },
-        { key: 'D', text: '主導、帶領，自己決定方向' },
-      ]},
-      { question: '你覺得人生最怕的是？', options: [
-        { key: 'A', text: '一成不變，沒有變化，太無聊了' },
-        { key: 'B', text: '被催促，被要求快' },
-        { key: 'C', text: '太死板，不能隨機應變' },
-        { key: 'D', text: '被別人牽著走，失去主導權' },
-      ]},
-      { question: '假日你最可能在做什麼？', options: [
-        { key: 'A', text: '突然決定去一個沒有計畫的地方' },
-        { key: 'B', text: '在家做一件需要時間和專注的事' },
-        { key: 'C', text: '根據當天心情決定，什麼都有可能' },
-        { key: 'D', text: '約齊朋友，帶頭去做一件大家都沒做過的事' },
-      ]},
-      { question: '最能描述你的一句話是？', options: [
-        { key: 'A', text: '「我的下一步，連我自己都不知道。」' },
-        { key: 'B', text: '「慢，是為了走得更深、更遠。」' },
-        { key: 'C', text: '「我可以是任何形狀，因為我夠靈活。」' },
-        { key: 'D', text: '「我決定的事，沒有什麼能讓我回頭。」' },
-      ]},
-    ],
-    results: [
-      { key: 'A', emoji: '🦋', title: '蝴蝶', subtitle: '變化快速',
-        description: '你的人生是一連串美麗的變形記。你不害怕改變，甚至有時候是你主動尋找改變。每一段旅程、每一個新嘗試，都是你翅膀上的一個新花紋。但蝴蝶也需要短暫停靠的花朵。',
-        recommendation: '流體畫體驗課', shareQuote: '我的每一次改變，都是一次更美麗的蛻變。' },
-      { key: 'B', emoji: '🐢', title: '烏龜', subtitle: '深思慢活',
-        description: '慢，是你最深的智慧。你不急，因為你知道真正重要的事不需要趕。你在別人跑過去的地方，看到了他們錯過的風景。多肉植栽是你的靈魂課程。',
-        recommendation: '多肉植栽體驗', shareQuote: '慢下來，不是因為我跟不上，而是因為我知道什麼值得停留。' },
-      { key: 'C', emoji: '🦊', title: '狐狸', subtitle: '靈活應變',
-        description: '你是那種在任何情況都能找到出路的人。你不執著於一種方式，你看情況、你調整、你轉彎。皮革手作需要靈活的判斷，每一刀都要依照材料的性格來決定，就像你。',
-        recommendation: '皮革手作體驗', shareQuote: '我不走直線，但我一定到得了目的地。' },
-      { key: 'D', emoji: '🦁', title: '獅子', subtitle: '主導衝鋒',
-        description: '你知道自己要什麼，然後你去拿。你的主導力來自你的清醒——你很清楚目標，很清楚方向。你天生是領導者，不是因為你最強，而是因為你最不怕。',
-        recommendation: '水晶手鍊 DIY 體驗', shareQuote: '我不是最快的，但我知道要去哪裡，這就夠了。' },
-    ],
-  },
-  {
-    id: 14, emoji: '🕯️', title: '你的香氛蠟燭是哪種類型？',
-    subtitle: '每一根蠟燭都有它的靈魂，你的那根，正在為什麼樣的時刻等著你？',
-    questions: [
-      { question: '你最喜歡點蠟燭的時機是？', options: [
-        { key: 'A', text: '一個人在家，什麼都不做，只是想靜靜待著' },
-        { key: 'B', text: '朋友來了，大家圍在一起吃飯聊天' },
-        { key: 'C', text: '約會前，或者想製造一個浪漫的氛圍' },
-        { key: 'D', text: '早上開始工作前，或晚上清理完家裡之後' },
-      ]},
-      { question: '你選蠟燭香味的標準是？', options: [
-        { key: 'A', text: '能讓我平靜、讓腦袋放空的氣味' },
-        { key: 'B', text: '好聞、讓人開心、聞到就想笑的那種' },
-        { key: 'C', text: '迷人、溫柔、讓人靠近你的氣味' },
-        { key: 'D', text: '清新、乾淨、讓空間感覺剛被整理過' },
-      ]},
-      { question: '你覺得蠟燭最重要的功能是？', options: [
-        { key: 'A', text: '提供一個讓自己沉靜下來的儀式' },
-        { key: 'B', text: '增添歡聚的溫度和記憶' },
-        { key: 'C', text: '創造一種讓人心動的空間氣氛' },
-        { key: 'D', text: '讓空間清新、讓心情重置' },
-      ]},
-      { question: '如果你的蠟燭是一首歌，它是？', options: [
-        { key: 'A', text: '輕柔的古典樂或冥想音樂' },
-        { key: 'B', text: '開心的爵士樂或派對歌曲' },
-        { key: 'C', text: '浪漫的法文香頌或慢板情歌' },
-        { key: 'D', text: '清晨的自然聲音，流水、鳥鳴' },
-      ]},
-      { question: '你最常在哪個空間點蠟燭？', options: [
-        { key: 'A', text: '浴室、臥室，最私密的角落' },
-        { key: 'B', text: '客廳、餐桌，大家聚在一起的地方' },
-        { key: 'C', text: '臥室，或任何和對方在一起的地方' },
-        { key: 'D', text: '書桌、工作區，或廁所' },
-      ]},
-      { question: '你送蠟燭給朋友，最希望它帶給他什麼？', options: [
-        { key: 'A', text: '一個可以好好放鬆、和自己相處的機會' },
-        { key: 'B', text: '打開就笑，聞到就想到你們在一起的美好' },
-        { key: 'C', text: '讓他感受到被你用心對待的溫度' },
-        { key: 'D', text: '讓他的家或辦公室更清爽、更有活力' },
-      ]},
-    ],
-    results: [
-      { key: 'A', emoji: '🕯', title: '獨處冥想型', subtitle: '為了「只有你」的時光而燃燒',
-        description: '它不需要觀眾，不需要分享，只為你一個人的安靜而存在。點燃它的那一刻，你在告訴世界：現在是我的時間。乳香、雪松、廣藿香——深沉的氣味讓你的思緒慢下來。',
-        recommendation: '香氛蠟燭手作課', shareQuote: '這根蠟燭的光，只照亮我一個人，那就夠了。' },
-      { key: 'B', emoji: '🥂', title: '歡聚慶典型', subtitle: '你的蠟燭是派對的靈魂',
-        description: '點燃它，不是為了儀式，是為了讓這個空間裡的每個人都感覺到：今晚很特別。佛手柑、葡萄柚、香草——明亮又溫暖的香氣，讓歡聚的記憶更深刻。',
-        recommendation: '香氛蠟燭手作課', shareQuote: '最好的蠟燭，不是燒完就沒了，而是讓記憶一直留著。' },
-      { key: 'C', emoji: '💌', title: '戀愛氛圍型', subtitle: '你的蠟燭是一封情書',
-        description: '它不用說話，只用氣味、光和溫度，告訴對方：你對我來說，是特別的。玫瑰、茉莉、檀香——讓愛情有了氣味，有了記憶。',
-        recommendation: '香氛蠟燭手作課', shareQuote: '最浪漫的事，是用一種氣味，讓你記住那個夜晚。' },
-      { key: 'D', emoji: '🌿', title: '日常淨化型', subtitle: '你的蠟燭是生活的重置鍵',
-        description: '不特別為了什麼，就是為了讓今天能好好結束，明天能好好開始。薄荷、尤加利、茶樹、綠茶——清爽的香氣像一次深呼吸，把昨天的一切清掉。',
-        recommendation: '香氛蠟燭手作課', shareQuote: '每天點燃它，是我給自己的一個小小重啟。' },
-    ],
-  },
-  {
-    id: 15, emoji: '🏠', title: '你的療癒空間長什麼樣？',
-    subtitle: '如果你可以有一個完全屬於自己的空間，那個空間，是什麼顏色，什麼氣味？',
-    questions: [
-      { question: '你最嚮往的度假方式是？', options: [
-        { key: 'A', text: '租一間溫馨的民宿，窩在裡面什麼都不做' },
-        { key: 'B', text: '去山上或海邊，讓自己完全沉浸在自然裡' },
-        { key: 'C', text: '找一個有神秘感的地方，像廟宇、古宅或森林深處' },
-        { key: 'D', text: '找一間精緻的茶館或咖啡廳，靜靜坐一個下午' },
-      ]},
-      { question: '你理想的療癒空間裡，一定有的東西是？', options: [
-        { key: 'A', text: '一張柔軟的沙發，幾個抱枕，和讓你完全放鬆的燈光' },
-        { key: 'B', text: '植物、木頭、石頭，還有透進來的自然光' },
-        { key: 'C', text: '蠟燭、水晶、薰香，還有某種神聖感' },
-        { key: 'D', text: '一個茶几、精緻的茶具，和讓你沉澱下來的音樂' },
-      ]},
-      { question: '你覺得療癒最重要的元素是？', options: [
-        { key: 'A', text: '安全感，讓你可以完全放鬆、不需要武裝' },
-        { key: 'B', text: '自然，讓你感覺回到最原始的自己' },
-        { key: 'C', text: '儀式感，讓這個當下變得神聖而不尋常' },
-        { key: 'D', text: '美感，讓你的感官都得到照顧' },
-      ]},
-      { question: '你最喜歡的室內香氣是？', options: [
-        { key: 'A', text: '家的氣味——木頭、棉被、麵包烤過的香' },
-        { key: 'B', text: '泥土、草、雨後森林的氣味' },
-        { key: 'C', text: '薰香、乳香、神秘的東方香氣' },
-        { key: 'D', text: '淡雅的茶香、花香，或輕盈的日式調香' },
-      ]},
-      { question: '你的療癒空間裡，背景音樂是？', options: [
-        { key: 'A', text: '輕柔的家居電台，或根本沒有，只有安靜' },
-        { key: 'B', text: '自然聲音——雨聲、蟲鳴、流水、風吹樹葉' },
-        { key: 'C', text: '頌缽、冥想音樂，或某種古老的神秘旋律' },
-        { key: 'D', text: '古典音樂、日式琴聲，或輕柔的爵士' },
-      ]},
-      { question: '如果這個療癒空間有一個主色調，它是？', options: [
-        { key: 'A', text: '奶白、米色、溫暖的黃——讓人感覺像被擁抱' },
-        { key: 'B', text: '深綠、棕色、石灰色——大地和森林的顏色' },
-        { key: 'C', text: '深紫、藏青、金——神秘而有深度' },
-        { key: 'D', text: '粉白、淡金、薰衣草紫——優雅而細膩' },
-      ]},
-      { question: '走進你的療癒空間，你第一件想做的事是？', options: [
-        { key: 'A', text: '脫鞋、換上最舒服的衣服，然後整個人倒在沙發上' },
-        { key: 'B', text: '打開窗、深呼吸一口自然的空氣' },
-        { key: 'C', text: '點燃蠟燭或薰香，讓空間充滿那種特別的氣息' },
-        { key: 'D', text: '坐下來，泡一杯茶，讓時間慢下來' },
-      ]},
-    ],
-    results: [
-      { key: 'A', emoji: '🏡', title: '溫暖家居型', subtitle: '你的療癒是那種把鞋脫掉鑽進毛毯裡的感覺',
-        description: '你不需要特別的地方，你只需要「家」的溫度——安全的、熟悉的、不需要表演的。手工皂是你的療癒語言，每天洗澡的時候讓它的香氣提醒你：現在是我的時間。',
-        recommendation: '手工皂體驗課', shareQuote: '最好的療癒，是回到一個讓你不需要假裝的地方。' },
-      { key: 'B', emoji: '🌲', title: '自然野境型', subtitle: '你的療癒需要泥土、風和看得見天空的地方',
-        description: '室內太小了，你的靈魂需要更大的呼吸空間。你在自然裡才是真正的自己。多肉植栽把一點點自然帶進你的日常，提醒你：你也是自然的一部分。',
-        recommendation: '多肉植栽體驗', shareQuote: '我的療癒在樹梢間的風裡，在泥土裡，在每一口乾淨的空氣裡。' },
-      { key: 'C', emoji: '✨', title: '神秘儀式型', subtitle: '你的療癒需要一點神聖感',
-        description: '不是迷信，是你需要一個「這個時刻不一樣」的感覺。水晶、蠟燭、薰香——每一樣都是你儀式的一部分。水晶手鍊是你的護身符，也是你和自己深層連結的錨點。',
-        recommendation: '水晶手鍊 DIY 體驗', shareQuote: '我選擇把每一個當下都活得神聖。' },
-      { key: 'D', emoji: '🌸', title: '優雅茶室型', subtitle: '你的療癒在一杯茶的時間裡',
-        description: '你喜歡細緻的美，喜歡每個細節都被好好對待——茶杯的弧度、香氣的層次。調香是你的療癒語言，有前調、中調、後調，有層次、有餘韻。',
-        recommendation: '精油調香體驗課', shareQuote: '一杯茶的時間，是我給自己最奢侈也最簡單的禮物。' },
+      { key: 'A', emoji: '🤍', title: '安靜陪伴型', subtitle: '你給人的感覺，是不用多說也會安心',
+        description: '你不是最熱鬧的那種人，但你在的時候，氣氛會慢慢安定下來。很多人喜歡你，因為你在旁邊就夠了。',
+        recommendation: '陪伴卡 / 晚安語錄 / 柔和香氣', shareQuote: '有些人不用做很多，就已經很讓人安心。' },
+      { key: 'B', emoji: '🌸', title: '生活感很美型', subtitle: '你會把普通的日子，過得有一點好看',
+        description: '你給人的感覺不是浮誇，而是有自己的審美和節奏。你總能替生活放進一點剛剛好的美。',
+        recommendation: '花藝 / 居家手作 / 風格選物', shareQuote: '把日子過得有一點美，本身就是一種能力。' },
+      { key: 'C', emoji: '🪵', title: '穩穩讓人放心型', subtitle: '你身上有一種很難得的安定感',
+        description: '你未必最搶眼，但別人遇到事情時，會想起你。你給人的感覺，是踏實，也是可靠。',
+        recommendation: '木質調香氣 / 實用型手作', shareQuote: '穩穩地在，本身就是一種溫度。' },
+      { key: 'D', emoji: '💌', title: '很有心型', subtitle: '你給人的感覺，是被放在心上的那種暖',
+        description: '你會記得很多小事，也總能讓人感覺自己不是被隨便對待的。這份細膩，很珍貴。',
+        recommendation: '小卡 / 客製手作', shareQuote: '真正的溫柔，常常藏在小地方。' },
     ],
   },
 ];
 
+// ===================== PAGE: AI CUSTOMER SERVICE =====================
+
+const CS_LINE_URL = 'https://page.line.me/296yrpvh?openQrModal=true';
+
+interface CSCta {
+  label: string;
+  type: 'line' | 'shop' | 'shop-category' | 'product';
+  categoryId?: number;
+  productId?: number;
+}
+
+interface CSKnowledgeItem {
+  id: string;
+  category: string;
+  keywords: string[];
+  question: string;
+  answer: string;
+  priority: number;
+  ctas?: CSCta[];
+}
+
+// 18. 智能客服知識庫 (CS_KNOWLEDGE_BASE)
+const CS_KNOWLEDGE_BASE: CSKnowledgeItem[] = [
+  { id: 'crystal-bracelet-intro', category: '水晶手鍊', keywords: ['水晶', '手鍊', '手鏈', '手環', '串珠', '礦石', '串水晶', '手串'], question: '水晶手鍊課程是什麼？', answer: '我們提供水晶手鍊 DIY 體驗！您可以在店內挑選喜歡的天然水晶礦石，我們有兩種模式，一種是看說明書製作，有分成一般899 和高階水晶1599，不過有問題現場老師都在唷，每天從下午1點到7點都有場次。另一種是老師教學，會依照老師的開課場次，可以進到商城選擇喔。全程約 1～1.5 小時，完成後可直接帶走還有包裝唷！', priority: 10, ctas: [{ label: '🔮 自己做一般水晶', type: 'product', productId: 48980 }, { label: '💎 自己做高階水晶', type: 'product', productId: 105051 }, { label: '👩‍🏫 老師教學', type: 'product', productId: 22659 }] },
+  { id: 'crystal-booking', category: '水晶手鍊', keywords: ['預約', '怎麼預約', '如何預約', '要預約', '報名', '怎麼報名', '預訂', '怎麼訂'], question: '水晶手鍊怎麼預約？', answer: '您可以直接到我們的商城選擇「水晶手鍊自己做」進行線上預約，選擇日期與時間後完成付款即可。', priority: 10, ctas: [{ label: '🔮 自己做一般水晶', type: 'product', productId: 48980 }, { label: '💎 自己做高階水晶', type: 'product', productId: 105051 }] },
+  { id: 'crystal-price', category: '水晶手鍊', keywords: ['多少錢', '價格', '費用', '價位', '收費', '水晶.*錢', '水晶.*費', '590', '899', '1599'], question: '水晶手鍊多少錢？', answer: '我們提供水晶手鍊 DIY 體驗！我們有兩種版本，一種是看說明書製作，有分成一般899 和高階水晶1599，不過有問題現場老師都在唷！每天從下午1點到7點都有場次。全程約 1～1.5 小時，完成後可直接帶走還有包裝唷！', priority: 9, ctas: [{ label: '🔮 自己做一般水晶', type: 'shop-category', categoryId: 200 }, { label: '💎 自己做高階水晶', type: 'shop-category', categoryId: 200 }] },
+  { id: 'crystal-own-material', category: '水晶手鍊', keywords: ['自備', '自己帶', '自己的水晶', '加進去', '自帶'], question: '可以自備水晶嗎？', answer: '可以唷！如果您有自己的水晶想加進手鍊裡，歡迎帶來，在串製的時候直接加進去就好～', priority: 7 },
+  { id: 'crystal-material', category: '水晶手鍊', keywords: ['材料', '有哪些', '什麼水晶', '選擇', '種類', '紅瑪瑙', '黃水晶', '青金石', '紫水晶'], question: '有什麼水晶材料可以選？', answer: '我們店內提供多種天然水晶礦石可以挑選，包含紫水晶、粉水晶、白水晶、黃水晶、紅瑪瑙、虎眼石、青金石等破百種。實際品項以現場庫存為準，歡迎到店挑選您喜歡的！', priority: 7 },
+  { id: 'crystal-tablet-vs-teacher', category: '水晶手鍊', keywords: ['平板', '差異', '差別', '不同', '真人', '自己做', '老師教'], question: '平板教學跟真人老師教學有什麼不同？', answer: '平板教學是看平板上的說明自己操作完成，費用較低（590 元起）。真人老師教學會有專業講師手把手帶您製作，體驗更深入，適合團體包班或想深度學習的朋友。但即使是選擇平板教學也可以很輕鬆的完成喔，有不懂的也可以隨時問現場的工作人員。', priority: 8 },
+  { id: 'booking-flow', category: '預約流程', keywords: ['預約', '怎麼預約', '如何預約', '預約流程', '步驟', '報名', '怎麼報名'], question: '要怎麼預約體驗課程？', answer: '預約方式有兩種：\n1️⃣ 線上預約：到頁面裡的療癒商城或是到官網 www.xiabenhow.com 選擇課程 → 選日期時間 → 填寫資料 → 完成付款\n2️⃣ 企業包班預約：直接在 LINE 官方帳號告訴我們想要的課程、日期、人數，小編會協助您安排！\n\n請問您要哪一種？', priority: 10, ctas: [{ label: '🛒 前往療癒商城', type: 'shop' }, { label: '💬 企業包班 LINE 諮詢', type: 'line' }] },
+  { id: 'booking-need', category: '預約流程', keywords: ['需要預約', '要預約嗎', '可以直接去', '現場', 'walk in'], question: '需要預約嗎？可以直接去嗎？', answer: '建議先預約唷！這樣可以確保您到店時有座位和材料。如果想直接來，也可以先透過 LINE 確認當天是否還有空位～', priority: 8 },
+  { id: 'booking-confirm', category: '預約流程', keywords: ['預約完成', '成功', '確認', '這樣就預約', '有預約到'], question: '怎麼確認預約成功？', answer: '完成線上預約並付款後，系統會發送確認通知到您的信箱。有不確定的話也可以 Line 詢問我們', priority: 7 },
+  { id: 'price-general', category: '價格費用', keywords: ['多少錢', '價格', '費用', '價位', '收費', '優惠', '折扣', '便宜'], question: '課程費用大概多少？', answer: '不同課程費用不同，以下是參考：\n🔮 （平板自助）：590 元起\n🕯️ 蠟燭 / 擴香課程：依項目而定\n🌿 多肉植物 / 水晶手鍊 / 花藝：依項目而定\n\n可以進到商城看不同課程喔\n團體包班另有優惠方案，歡迎透過 LINE 詢問詳細報價！', priority: 9, ctas: [{ label: '🛒 前往商城看課程', type: 'shop' }] },
+  { id: 'price-deposit', category: '價格費用', keywords: ['訂金', '定金', '先付', '預付'], question: '需要先付訂金嗎？', answer: '個人預約通常在線上預約時直接付全額。企業包班或團體預約需先支付 50% 訂金，尾款在活動當天支付即可。', priority: 7 },
+  { id: 'culture-coin', category: '價格費用', keywords: ['文化幣', '文化', '青年文化'], question: '可以使用文化幣嗎？', answer: '可以使用文化幣唷，不過會需要您先預約付款完後，到時候到現場掃碼退現金喔。', priority: 8 },
+  { id: 'payment-methods', category: '付款方式', keywords: ['付款', '怎麼付', '付費', '信用卡', 'line pay', '匯款', '轉帳', '帳號', '現金'], question: '有哪些付款方式？', answer: '我們接受以下付款方式：\n💳 線上刷卡（官網預約時付款）\n🏦 銀行轉帳 / 匯款 / 💚 LINE Pay / 🏪 超商條碼\n💵 現場現金付款\n\n企業包班如需匯款，預約確認後會提供匯款帳號資訊。匯款完成請提供帳號後五碼方便財務核對～', priority: 8 },
+  { id: 'payment-invoice', category: '付款方式', keywords: ['發票', '統編', '抬頭', '公司發票', '三聯', '電子發票'], question: '可以開發票嗎？', answer: '可以的！我們提供電子發票，開立後會直接寄送到您提供的電子信箱。如果需要開立公司抬頭的發票，請在預約時提供公司名稱和統一編號唷～', priority: 7 },
+  { id: 'business-hours', category: '時間地點', keywords: ['營業', '幾點', '開門', '幾點到幾點', '週幾', '星期', '休息', '時間'], question: '營業時間是？', answer: '我們每天早上10點到晚上9點，不過水晶手鍊會是下午1點開始喔，您可以先在商城裡預約完成，有任何問題也可以點擊 Line 跟我們說。', priority: 8, ctas: [{ label: '🛒 前往商城預約', type: 'shop' }, { label: '💬 LINE 詢問', type: 'line' }] },
+  { id: 'location', category: '時間地點', keywords: ['地址', '在哪', '地點', '怎麼去', '位置', '門市'], question: '店在哪裡？', answer: '我們在台北台中高雄皆有據點，台北門市在萬華區漢口街2段121號喔，可以在 Google Map 搜尋「下班隨手做」', priority: 8 },
+  { id: 'parking', category: '時間地點', keywords: ['停車', '車位', '停車場', '開車'], question: '附近好停車嗎？', answer: '台北門市旁邊有西門町洛陽停車場。', priority: 5 },
+  { id: 'duration', category: '時間地點', keywords: ['多久', '多長', '幾個小時', '多少時間', '要多久', '時間長度'], question: '課程大約要多久？', answer: '各課程時長不同：\n🔮 水晶手鍊：約 1～1.5 小時\n🕯️ 蠟燭 / 擴香：約 1～2 小時\n🌿 多肉 / 花藝：約 1.5～2 小時\n\n企業包班可依需求調整，含講解與製作通常安排 1.5～2 小時為佳。', priority: 8 },
+  { id: 'cancel-policy', category: '取消退款', keywords: ['取消', '退款', '退費', '不去', '不能去'], question: '預約後可以取消嗎？', answer: '可以取消，但依據取消時間有不同的退款比例。一般來說，提前通知可退 80% 的費用。建議盡早告知我們以便安排，不過課程當天沒辦法改期或取消喔，詳細退款政策請透過 LINE 與小編確認。', priority: 8 },
+  { id: 'reschedule', category: '取消退款', keywords: ['改期', '更改', '換時間', '延期', '改日期', '改時間'], question: '可以改期嗎？', answer: '可以的！請提前透過 LINE 告知想更改的新日期與時間，小編會幫您確認是否還有名額並協助調整。不過當天課程沒辦法改期，建議您至少提前 1-2 天通知唷～', priority: 8 },
+  { id: 'enterprise-intro', category: '企業活動', keywords: ['企業', '公司', '團體', 'team', '包場', '包班', '員工', 'team building', '團建', '公司活動'], question: '有提供企業包班嗎？', answer: '有的！我們提供企業手作活動與包班服務。可選擇水晶手鍊、蠟燭、擴香、多肉植物等多種手作項目。我們可以到貴公司場地授課，也可以在我們的教室進行。歡迎透過 LINE 告知您的需求，我們會提供專屬報價！', priority: 9 },
+  { id: 'enterprise-onsite', category: '企業活動', keywords: ['到公司', '到場', '外派', '上門', '到府', '出差', '場地'], question: '老師可以到公司教學嗎？', answer: '可以的！我們提供到府教學服務，老師會帶齊所有材料到貴公司場地授課。外派教學會有車馬費（依距離而定），詳細費用會在報價單中說明。', priority: 8 },
+  { id: 'enterprise-headcount', category: '企業活動', keywords: ['最少', '最多', '幾人', '人數', '幾個人', '最低', '起跳'], question: '企業包班最少要幾個人？', answer: '如果是在門市，6人以上可以包班，如果人數不足，也可以參考我們的個人預約體驗，如果到公司行號上課，會有最低預約人數，您可以透過 Line 跟我們聯繫', priority: 7, ctas: [{ label: '💬 LINE 聯繫包班', type: 'line' }] },
+  { id: 'enterprise-quote', category: '企業活動', keywords: ['報價', '怎麼算', '費用怎麼算', '報價單', '估價'], question: '企業活動費用怎麼算？', answer: '企業活動費用會依據以下因素報價：\n📋 課程項目（水晶、蠟燭、擴香等）\n👥 參加人數\n📍 上課地點（店內或外派）\n⏰ 活動時長\n\n請透過 LINE 提供以上資訊，我們會盡快開立報價單給您！通常需先支付 50% 訂金確認檔期。', priority: 8, ctas: [{ label: '💬 LINE 索取報價單', type: 'line' }] },
+  { id: 'course-types', category: '課程種類', keywords: ['有什麼課', '哪些課', '什麼可以做', '課程', '項目', '種類', '體驗', '可以做什麼', '手作'], question: '有哪些課程可以體驗？', answer: '我們提供多種療癒手作體驗：\n🔮 水晶手鍊 DIY\n🕯️ 香氛蠟燭製作\n🌸 擴香石 / 擴香花泥盤\n🌿 多肉植物組盆\n💐 乾燥花 / 永生花\n🎨 流體畫\n💎 水晶飾品\n🧴 香水調製 皮革 藍染\n\n各項目詳細內容與價格請到商城頁面或是官網 www.xiabenhow.com 查看！', priority: 9, ctas: [{ label: '🛒 前往商城看課程', type: 'shop' }] },
+  { id: 'candle-course', category: '課程種類', keywords: ['蠟燭', '香氛蠟燭', '蠟燭課'], question: '蠟燭課程怎麼預約？', answer: '蠟燭課程可以到商城頁面或在官網 www.xiabenhow.com 上搜尋「蠟燭」找到相關課程並線上預約。也可以透過 LINE 告訴我們您想體驗的蠟燭類型（容器蠟燭、柱狀蠟燭等），小編會協助您預約唷！', priority: 7 },
+  { id: 'succulent-course', category: '課程種類', keywords: ['多肉', '植物', '組盆', '盆栽'], question: '多肉植物課程有嗎？', answer: '有的！我們有多肉植物組盆體驗課程，可以挑選喜歡的多肉品種和花盆，在老師指導下完成屬於自己的小盆栽。適合個人或團體包班，歡迎到官網或 LINE 查詢預約～', priority: 7 },
+  { id: 'diffuser-course', category: '課程種類', keywords: ['擴香', '擴香石', '泥盤', '花泥盤', '擴香座'], question: '擴香課程有什麼？', answer: '我們有擴香石、水泥六角擴香花泥盤等多種擴香手作課程。製作完成後可以搭配精油使用，讓您的空間充滿香氣！詳情請到官網查看或 LINE 詢問～', priority: 6 },
+  { id: 'perfume-course', category: '課程種類', keywords: ['香水', '調香', '調製', '香味'], question: '有香水調製課程嗎？', answer: '有的！我們有提供香水 / 調香體驗課程，可以在專業指導下調製出屬於自己獨特氣味的香水。歡迎到官網查看「調香」相關課程或透過 LINE 詢問最新場次！', priority: 6 },
+  { id: 'kids-age', category: '小孩年齡', keywords: ['小孩', '兒童', '幾歲', '年齡', '小朋友', '孩子', '親子', '小孩可以', '帶小孩'], question: '小孩可以參加嗎？幾歲可以做？', answer: '大部分課程適合 10 歲以上的小朋友參加。10 歲以下的小朋友建議由家長陪同一起製作。部分精細課程可能不太適合太小的孩子，可以透過 LINE 跟我們確認適合的年齡範圍唷！', priority: 8 },
+  { id: 'customization', category: '客製化', keywords: ['客製', '訂製', '特別', '設計', 'logo', '文字', '刻字'], question: '可以客製化嗎？', answer: '部分產品支持客製化（如企業活動加 logo 等），但一般個人課程使用的是固定模具，文字或圖案的客製化比較有限。如果有特殊需求，歡迎透過 LINE 告訴我們，我們會評估是否能達成您的想法！', priority: 7 },
+  { id: 'take-home', category: '其他', keywords: ['帶回', '帶走', '回家', '提袋', '袋子', '打包'], question: '作品可以帶回家嗎？', answer: '當然可以！手作完成後就是您的作品，可以直接帶走。部分需要等待乾燥的作品（如蠟燭），老師會教您如何安全攜帶。我們也會提供提袋方便您帶回～', priority: 6 },
+  { id: 'not-finished', category: '其他', keywords: ['做不完', '來不及', '半成品', '沒做完'], question: '時間內做不完怎麼辦？', answer: '不用擔心！老師會依進度彈性調整，大部分的人都能在時間內完成。如果真的來不及，老師也會協助您喔', priority: 5 },
+  { id: 'greeting', category: '問候', keywords: ['你好', '哈囉', '嗨', 'hi', 'hello', '安安', '午安', '早安', '晚安'], question: '你好', answer: '您好！歡迎來到下班隨手作 🌿 我是智能客服小助手，可以幫您解答課程、預約、價格等常見問題。請問有什麼我可以幫您的呢？', priority: 3 },
+  { id: 'thanks', category: '問候', keywords: ['謝謝', '感謝', '感恩', '3q', 'thanks', 'thx'], question: '謝謝', answer: '不客氣～很高興能幫到您！如果還有其他問題，隨時都可以問我唷 😊', priority: 2 },
+  { id: 'contact-human', category: '聯繫客服', keywords: ['真人', '客服', '小編', '打電話', '聯繫', '聯絡', '通話', '電話'], question: '想找真人客服', answer: '沒問題！如果需要更詳細的協助，歡迎透過以下方式聯繫我們的真人客服：\n📱 LINE 官方帳號：搜尋「下班隨手作」\n🌐 官網：www.xiabenhow.com\n\n小編會在上班時間盡快回覆您！', priority: 8, ctas: [{ label: '💬 LINE 聯繫真人客服', type: 'line' }] },
+  { id: 'teacher-nationwide', category: '全台教學', keywords: ['全台', '老師', '哪裡有', '其他城市', '台中', '台南', '高雄', '新竹'], question: '其他縣市也有老師可以教學嗎？', answer: '有的！我們在全台各地都有合作老師可以提供教學服務。無論您在台北、台中、台南、高雄或其他地區，都歡迎透過 LINE 跟我們詢問您所在區域的老師檔期與課程安排！', priority: 7 },
+  { id: 'buy-material-only', category: '其他', keywords: ['買材料', '只要材料', '材料包', '不上課', '回家做'], question: '可以只買材料不上課嗎？', answer: '可以的！我們有提供材料包販售。您可以在官網上選購材料包回家自己 DIY，也可以到店裡挑選材料。詳情可到療癒商城選購或官網 www.xiabenhow.com 查看商品區，或 LINE 詢問。', priority: 6, ctas: [{ label: '📦 前往 DIY 材料包', type: 'shop-category', categoryId: 75 }] },
+];
+
+const CS_QUICK_QUESTIONS = [
+  { emoji: '🔮', label: '水晶手鍊', query: '水晶手鍊課程是什麼' },
+  { emoji: '📅', label: '怎麼預約', query: '怎麼預約' },
+  { emoji: '💰', label: '價格費用', query: '課程費用' },
+  { emoji: '🏢', label: '企業包班', query: '企業包班' },
+  { emoji: '📍', label: '地點時間', query: '營業時間在哪裡' },
+  { emoji: '🔄', label: '取消改期', query: '取消改期' },
+  { emoji: '💳', label: '付款方式', query: '付款方式' },
+  { emoji: '👶', label: '小孩可以嗎', query: '小孩可以參加嗎' },
+  { emoji: '⏱️', label: '要多久', query: '課程多久' },
+  { emoji: '📋', label: '課程種類', query: '有哪些課程' },
+];
+
+function matchCSAnswer(input: string): CSKnowledgeItem[] {
+  const q = input.toLowerCase().trim();
+  if (!q) return [];
+  const scored: { item: CSKnowledgeItem; score: number }[] = [];
+  for (const item of CS_KNOWLEDGE_BASE) {
+    let score = 0;
+    for (const kw of item.keywords) {
+      if (kw.includes('.*')) { try { if (new RegExp(kw, 'i').test(q)) score += 5; } catch { /* skip */ } }
+      else if (q.includes(kw)) { score += 4 + kw.length; }
+    }
+    if (q.includes(item.category)) score += 3;
+    const qChars = [...new Set(q.split(''))];
+    const questionChars = [...new Set(item.question.split(''))];
+    const overlap = qChars.filter(c => questionChars.includes(c) && c.trim()).length;
+    if (overlap > 3) score += overlap * 0.3;
+    score += item.priority * 0.2;
+    if (score > 2) scored.push({ item, score });
+  }
+  scored.sort((a, b) => b.score - a.score);
+  return scored.slice(0, 3).map(s => s.item);
+}
+
+interface CSMessage { id: string; role: 'user' | 'bot'; text: string; time: string; ctas?: CSCta[]; }
+
+function CustomerServicePage({ onNavigate, onOpenProduct }: { onNavigate: (page: PageType) => void; onOpenProduct?: (productId: number) => void }) {
+  const [messages, setMessages] = useState<CSMessage[]>([{ id: 'welcome', role: 'bot', text: '您好！歡迎來到下班隨手作 🌿\n我是智能客服小助手，可以幫您解答課程、預約、價格等常見問題。\n\n請直接輸入您的問題，或點選下方常見問題快速查詢！', time: new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }) }]);
+  const [inputText, setInputText] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = useCallback(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, []);
+  useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
+
+  const handleCtaClick = useCallback((cta: CSCta) => {
+    if (cta.type === 'line') window.open(CS_LINE_URL, '_blank');
+    else if (cta.type === 'product' && cta.productId && onOpenProduct) onOpenProduct(cta.productId);
+    else onNavigate('shop');
+  }, [onNavigate, onOpenProduct]);
+
+  const handleSend = useCallback((text?: string) => {
+    const msg = (text || inputText).trim();
+    if (!msg) return;
+    const now = new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
+    setMessages(prev => [...prev, { id: `user-${Date.now()}`, role: 'user', text: msg, time: now }]);
+    setInputText('');
+    setIsTyping(true);
+    setTimeout(() => {
+      const matches = matchCSAnswer(msg);
+      let botText: string; let botCtas: CSCta[] | undefined;
+      if (matches.length > 0) {
+        botText = matches[0].answer; botCtas = matches[0].ctas;
+        if (matches.length > 1) botText += '\n\n💡 您可能也想知道：\n' + matches.slice(1).map(m => `• ${m.question}`).join('\n');
+      } else {
+        botText = '抱歉，我暫時無法回答這個問題 😅\n\n建議您透過 LINE 聯繫真人客服，小編會在上班時間盡快回覆您！';
+        botCtas = [{ label: '💬 LINE 聯繫真人客服', type: 'line' }];
+      }
+      setMessages(prev => [...prev, { id: `bot-${Date.now()}`, role: 'bot', text: botText, time: new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }), ctas: botCtas }]);
+      setIsTyping(false);
+    }, 600 + Math.random() * 400);
+  }, [inputText]);
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-screen flex flex-col pt-10" style={{ backgroundColor: '#FFFEF9' }}>
+      <div className="px-4 py-3 text-center" style={{ backgroundColor: '#F0EDE8' }}>
+        <h1 className="text-lg font-bold" style={{ color: '#3D3530' }}>🤖 智能客服</h1>
+        <p className="text-xs mt-0.5" style={{ color: '#8C7B72' }}>下班隨手作 ｜ 常見問題即時回覆</p>
+      </div>
+      <div className="px-3 py-2 overflow-x-auto flex gap-2 flex-nowrap" style={{ backgroundColor: '#F8F5F0' }}>
+        {CS_QUICK_QUESTIONS.map((q) => (
+          <button key={q.label} onClick={() => handleSend(q.query)} className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all active:scale-95" style={{ backgroundColor: '#FFFEF9', color: '#3D3530', border: '1px solid #D2B4A1' }}>{q.emoji} {q.label}</button>
+        ))}
+      </div>
+      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3" style={{ minHeight: 0 }}>
+        {messages.map((msg) => (
+          <div key={msg.id}>
+            <div className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              {msg.role === 'bot' && <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mr-2 mt-1" style={{ backgroundColor: '#D2B4A1' }}><span className="text-sm">🌿</span></div>}
+              <div className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 ${msg.role === 'user' ? 'rounded-tr-sm' : 'rounded-tl-sm'}`} style={{ backgroundColor: msg.role === 'user' ? '#D2B4A1' : '#F0EDE8', color: msg.role === 'user' ? '#FFFEF9' : '#3D3530' }}>
+                <p className="text-sm whitespace-pre-line leading-relaxed">{msg.text}</p>
+                <p className="text-[10px] mt-1 text-right opacity-50">{msg.time}</p>
+              </div>
+            </div>
+            {msg.ctas && msg.ctas.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2 ml-10">
+                {msg.ctas.map((cta, idx) => (
+                  <button key={idx} onClick={() => handleCtaClick(cta)} className="px-3.5 py-2 rounded-xl text-xs font-medium transition-all active:scale-95 shadow-sm" style={{ backgroundColor: cta.type === 'line' ? '#06C755' : '#D2B4A1', color: '#FFFFFF' }}>{cta.label}</button>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+        {isTyping && (
+          <div className="flex justify-start">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mr-2 mt-1" style={{ backgroundColor: '#D2B4A1' }}><span className="text-sm">🌿</span></div>
+            <div className="rounded-2xl rounded-tl-sm px-4 py-3" style={{ backgroundColor: '#F0EDE8' }}>
+              <div className="flex gap-1.5">
+                <span className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: '#8C7B72', animationDelay: '0ms' }} />
+                <span className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: '#8C7B72', animationDelay: '150ms' }} />
+                <span className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: '#8C7B72', animationDelay: '300ms' }} />
+              </div>
+            </div>
+          </div>
+        )}
+        <div ref={messagesEndRef} />
+      </div>
+      <div className="px-3 py-3 border-t" style={{ borderColor: '#E8E4DF', backgroundColor: '#FFFEF9' }}>
+        <div className="flex gap-2 items-center">
+          <input type="text" value={inputText} onChange={(e) => setInputText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleSend(); }} placeholder="輸入您的問題..." className="flex-1 rounded-full px-4 py-2.5 text-sm outline-none" style={{ backgroundColor: '#F0EDE8', color: '#3D3530', border: '1px solid transparent' }} />
+          <button onClick={() => handleSend()} disabled={!inputText.trim()} className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-90" style={{ backgroundColor: inputText.trim() ? '#D2B4A1' : '#E8E4DF', color: '#FFFEF9' }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
+          </button>
+        </div>
+        <div className="mt-2.5 flex justify-center">
+          <a href={CS_LINE_URL} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-5 py-2 rounded-full text-xs font-semibold transition-all active:scale-95 shadow-sm" style={{ backgroundColor: '#06C755', color: '#FFFFFF' }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.346 0 .627.285.627.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.282.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314"/></svg>
+            找不到答案？LINE 聯繫真人客服
+          </a>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+// ===================== MAIN COMPONENT =====================
+
+export default function HealingApp() {
+  const [page, _setPage] = useState<PageType>('home');
+  const pageHistoryRef = useRef<PageType[]>(['home']);
+
+  // Wrapped setPage that maintains history
+  const setPage = useCallback((newPage: PageType) => {
+    _setPage(prev => {
+      // Don't push if same page
+      if (prev !== newPage) {
+        pageHistoryRef.current.push(newPage);
+        // Push browser history state so back button works
+        window.history.pushState({ page: newPage }, '', '');
+      }
+      // Reset shop initial view when leaving shop
+      if (newPage !== 'shop') { setShopInitialView(undefined); setShopInitialProductId(undefined); }
+      return newPage;
+    });
+  }, []);
+
+  // Go back to previous page
+  const goBack = useCallback(() => {
+    const history = pageHistoryRef.current;
+    if (history.length > 1) {
+      history.pop(); // remove current
+      const prevPage = history[history.length - 1];
+      _setPage(prevPage);
+    }
+  }, []);
+  // PWA 安裝提示
+  const { canInstall, isIOS, isInstalled, isOffline, triggerInstall } = usePWA();
+  const [showInstallBanner, setShowInstallBanner] = useState(true);
+
+  const [user, setUser] = useState<User | null>(null);
+  const [records, setRecords] = useState<HealingRecord[]>(() => {
+    // 不再塞假資料，新用戶從空白開始
+    return loadRecords();
+  });
+
+  // --- SHOP INITIAL VIEW STATE ---
+  const [shopInitialView, setShopInitialView] = useState<'products' | 'cart' | 'checkout' | undefined>(undefined);
+  const [shopInitialProductId, setShopInitialProductId] = useState<number | undefined>(undefined);
+
+  const handleOpenProduct = useCallback((productId: number) => {
+    setShopInitialProductId(productId);
+    setShopInitialView(undefined);
+    setPage('shop');
+  }, []);
+
+  // --- NEW STATE ---
+  const [showMorningFlow, setShowMorningFlow] = useState(false);
+  const [morningFlowEmotion, setMorningFlowEmotion] = useState<EmotionKey | null>(null);
+  const [morningFlowLevel, setMorningFlowLevel] = useState<EmotionLevel>('L1');
+  const [showMilestone, setShowMilestone] = useState<number | null>(null);
+  const [isBedtimeFullscreen, setIsBedtimeFullscreen] = useState(false);
+
+  // Initialize native app features (StatusBar, SplashScreen)
+  useEffect(() => {
+    initNativeApp();
+  }, []);
+
+  // Browser back button → navigate within app instead of leaving
+  useEffect(() => {
+    // Push initial state
+    window.history.replaceState({ page: 'healer' }, '', '');
+
+    const handlePopState = () => {
+      const history = pageHistoryRef.current;
+      if (history.length > 1) {
+        history.pop();
+        const prevPage = history[history.length - 1];
+        _setPage(prevPage);
+      } else {
+        // At root — push state again to prevent leaving app
+        window.history.pushState({ page: 'healer' }, '', '');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  // Listen for auth changes and load Firestore records if logged in
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        console.log('[Auth] User logged in:', currentUser.uid, currentUser.email);
+
+        // ★ 重要：先把 localStorage 資料同步到 Firestore（防止之前寫入失敗的資料遺失）
+        await syncAllLocalStorageToFirestore(currentUser.uid);
+
+        // Load from Firestore if logged in
+        const firestoreRecords = await loadRecordsFromFirestore(currentUser.uid);
+        if (firestoreRecords.length > 0) {
+          setRecords(firestoreRecords);
+        }
+        // Sync saved cards & wishlist from Firestore
+        loadSavedCardsFromFirestore(currentUser.uid).catch(e => console.error('[Firestore] loadSavedCards:', e));
+        loadWishlistFromFirestore(currentUser.uid).catch(e => console.error('[Firestore] loadWishlist:', e));
+        // Load energy from Firestore
+        loadEnergyFromFirestore(currentUser.uid).catch(e => console.error('[Firestore] loadEnergy:', e));
+        // Load milestones from Firestore
+        loadMilestonesFromFirestore(currentUser.uid).catch(e => console.error('[Firestore] loadMilestones:', e));
+        // Load personality from Firestore
+        loadPersonalityFromFirestore(currentUser.uid).catch(e => console.error('[Firestore] loadPersonality:', e));
+        // Load test results from Firestore
+        loadTestResultsFromFirestore(currentUser.uid).catch(e => console.error('[Firestore] loadTestResults:', e));
+        // Load journal PIN from Firestore
+        loadJournalPinFromFirestore(currentUser.uid).catch(e => console.error('[Firestore] loadJournalPin:', e));
+        // Load aftercare from Firestore
+        loadAftercareFromFirestore(currentUser.uid).catch(e => console.error('[Firestore] loadAftercare:', e));
+        // Load app PIN from Firestore
+        getDoc(doc(db, 'user_data', currentUser.uid)).then(snap => {
+          if (snap.exists() && snap.data().appPin) localStorage.setItem('healing_app_pin', snap.data().appPin);
+        }).catch(e => console.error('[Firestore] loadAppPin:', e));
+      }
+    });
+    return unsubscribe;
+  }, []);
+
+  const completeTask = useCallback((_key: TaskKey) => {
+    // 任務完成回調（保留以供其他頁面使用）
+    // Task completion callback (kept for other pages)
+  }, []);
+
+  const handleCheckIn = useCallback((emotion: EmotionKey, level?: EmotionLevel, subEmotion?: string) => {
+    const today = getToday();
+    const lv = level || 'L1';
+    const record: HealingRecord = { date: today, emotion, level: lv, subEmotion };
+    setRecords(prev => {
+      const filtered = prev.filter(r => r.date !== today);
+      const updated = [...filtered, record];
+      saveRecords(updated);
+      if (user) {
+        saveRecordToFirestore(user.uid, record);
+      }
+      return updated;
+    });
+    completeTask('checkin');
+    // earnEnergy('checkin'); // 暫時隱藏
+    setMorningFlowEmotion(emotion);
+    setMorningFlowLevel(lv);
+    setShowMorningFlow(true);
+  }, [completeTask, user]);
+
+  const handleMorningFlowDone = useCallback(() => {
+    setShowMorningFlow(false);
+    // Check for milestone
+    const streak = getStreak(records);
+    const shown = loadShownMilestones();
+    for (const m of MILESTONE_DAYS) {
+      if (streak >= m && !shown.includes(m)) {
+        addShownMilestone(m);
+        setTimeout(() => setShowMilestone(m), 400);
+        break;
+      }
+    }
+  }, [records]);
+
+  const goToHealing = useCallback(() => setPage('healing'), []);
+  const goToBedtime = useCallback(() => {
+    setIsBedtimeFullscreen(true);
+    setPage('bedtime');
+  }, []);
+  const goToSound = useCallback(() => setPage('sound'), []);
+
+  return (
+    <div className="min-h-screen" style={{ backgroundColor: '#FAF8F5', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+      {/* 離線提示 */}
+      {isOffline && (
+        <div className="fixed top-0 left-0 right-0 z-50 text-center py-1 text-xs font-medium" style={{ backgroundColor: '#FFE0B2', color: '#E65100', paddingTop: 'calc(env(safe-area-inset-top) + 4px)' }}>
+          目前離線中，部分功能可能受限
+        </div>
+      )}
+
+      {/* PWA 安裝提示（僅在網頁瀏覽器中且未安裝時顯示） */}
+      {!isNative() && !isInstalled && showInstallBanner && (canInstall || isIOS) && (
+        <motion.div
+          initial={{ y: -60, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          className="fixed top-0 left-0 right-0 z-40"
+          style={{ paddingTop: 'env(safe-area-inset-top)' }}
+        >
+          <div className="max-w-md mx-auto px-3 py-2">
+            <div className="rounded-2xl px-4 py-3 shadow-lg" style={{ backgroundColor: '#FFFEF9', border: '1px solid #E8E0D8' }}>
+              <div className="flex items-center gap-3">
+                <span className="text-xl">📲</span>
+                <div className="flex-1">
+                  <p className="text-xs font-bold" style={{ color: '#3D3530' }}>
+                    把「隨手作」加到主畫面
+                  </p>
+                  <p className="text-[10px]" style={{ color: '#8C7B72' }}>
+                    {isIOS ? '像 App 一樣使用' : '像 App 一樣使用，隨時打開'}
+                  </p>
+                </div>
+                {canInstall && (
+                  <button
+                    onClick={triggerInstall}
+                    className="px-3 py-1.5 rounded-full text-xs font-bold"
+                    style={{ backgroundColor: '#8FA886', color: 'white' }}
+                  >
+                    安裝
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowInstallBanner(false)}
+                  className="text-xs px-1"
+                  style={{ color: '#8C7B72' }}
+                >
+                  ✕
+                </button>
+              </div>
+              {/* iOS 專用安裝步驟引導 */}
+              {isIOS && (
+                <div className="mt-3 pt-3 space-y-2" style={{ borderTop: '1px solid #F0EDE8' }}>
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold" style={{ backgroundColor: '#8FA88620', color: '#8FA886' }}>1</span>
+                    <p className="text-[11px]" style={{ color: '#3D3530' }}>點 Safari 底部的 <span style={{ fontSize: '14px', verticalAlign: 'middle' }}>⬆</span> 分享按鈕</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold" style={{ backgroundColor: '#8FA88620', color: '#8FA886' }}>2</span>
+                    <p className="text-[11px]" style={{ color: '#3D3530' }}>往下滑，找到「加入主畫面」</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold" style={{ backgroundColor: '#8FA88620', color: '#8FA886' }}>3</span>
+                    <p className="text-[11px]" style={{ color: '#3D3530' }}>點「新增」就完成了！</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </motion.div>
+      )}
+
+      {!isBedtimeFullscreen && <BottomNav active={page} onChange={setPage} />}
+
+      {/* Global Back Button — top left (hidden on main tab pages) */}
+      {!isBedtimeFullscreen && pageHistoryRef.current.length > 1 && !NAV_ITEMS.some(item => item.key === page) && (
+        <div className="fixed top-0 left-0 right-0 z-30 pointer-events-none" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+          <div className="max-w-md mx-auto px-3 py-2">
+            <motion.button
+              whileTap={{ scale: 0.85 }}
+              onClick={() => window.history.back()}
+              className="w-9 h-9 rounded-full flex items-center justify-center pointer-events-auto"
+              style={{ backgroundColor: 'rgba(255,254,249,0.9)', backdropFilter: 'blur(8px)', border: '1px solid #F0EDE8', color: '#3D3530' }}
+            >
+              <span className="text-sm">←</span>
+            </motion.button>
+          </div>
+        </div>
+      )}
+
+      <div className="max-w-md mx-auto px-4 pt-4 pb-32">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={page}
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.25 }}
+          >
+            {page === 'home' && (
+              <HomePage
+                records={records}
+                onCheckIn={handleCheckIn}
+                onGoToHealing={goToHealing}
+                onGoToBedtime={goToBedtime}
+                onGoToDiary={() => setPage('diary')}
+                onGoToCustom={() => setPage('custom')}
+                onGoToSound={goToSound}
+                onNavigate={(p) => setPage(p)}
+                user={user}
+              />
+            )}
+            {page === 'diary' && <DiaryPage records={records} onCheckIn={handleCheckIn} onUpdateRecord={(rec) => {
+                  setRecords(prev => {
+                    const filtered = prev.filter(r => r.date !== rec.date);
+                    const updated = [...filtered, rec];
+                    saveRecords(updated);
+                    if (user) saveRecordToFirestore(user.uid, rec);
+                    return updated;
+                  });
+                }} />}
+            {page === 'sound' && <SoundPage recommendedEmotion={records.find(r => r.date === getToday())?.emotion} />}
+            {page === 'healing' && (
+              <HomePage
+                records={records}
+                onCheckIn={handleCheckIn}
+                onGoToHealing={goToHealing}
+                onGoToBedtime={goToBedtime}
+                onGoToDiary={() => setPage('diary')}
+                onGoToCustom={() => setPage('custom')}
+                onNavigate={(p) => setPage(p)}
+                user={user}
+              />
+            )}
+            {page === 'bedtime' && <BedtimeRitualPage records={records} onClose={() => {
+                  setIsBedtimeFullscreen(false);
+                  setPage('home');
+                }} />}
+            {page === 'recipe' && (
+              <RecipePage
+                records={records}
+                onCheckIn={handleCheckIn}
+                onTaskComplete={completeTask}
+                user={user}
+                onNavigate={(p) => setPage(p)}
+              />
+            )}
+            {page === 'card' && <CardPage onTaskComplete={completeTask} records={records} />}
+            {page === 'healer' && <HealerPage records={records} userEmail={user?.email || null} onNavigate={(p) => setPage(p)} onTaskComplete={() => completeTask('checkin')} onCheckIn={(emotion) => handleCheckIn(emotion)} />}
+            {page === 'journal' && <JournalPage user={user} />}
+            {page === 'shop' && <ShopPage initialView={shopInitialView} initialProductId={shopInitialProductId} />}
+            {page === 'library' && <HealingLibraryPage userEmail={user?.email || null} onNavigate={(p) => setPage(p)} />}
+            {page === 'community' && <CommunityPage userEmail={user?.email || null} />}
+            {page === 'explore' && <ExplorePage records={records} userEmail={user?.email || null} onNavigate={(p) => setPage(p)} />}
+            {page === 'calendar' && <FragranceCalendarPage />}
+            {page === 'ebook' && <EbookShelfPage userEmail={user?.email || null} onNavigate={(p) => setPage(p)} onPurchaseBook={(book) => {
+              // Add ebook to cart (same localStorage as ShopPage) then navigate to shop cart
+              const cartItem: CartItem = {
+                id: `ebook-${book.id}`,
+                productId: book.wcProductId,
+                name: `📖 ${book.title}`,
+                specs: '電子書',
+                price: book.price,
+                quantity: 1,
+                isVirtual: true,
+                image: book.coverUrl,
+              };
+              const currentCart = loadCartFromStorage();
+              const exists = currentCart.find(c => c.id === cartItem.id);
+              if (!exists) {
+                currentCart.push(cartItem);
+                saveCartToStorage(currentCart);
+              }
+              setShopInitialView('cart');
+              setPage('shop');
+            }} />}
+            {page === 'member' && <MemberPage records={records} onNavigate={(p) => setPage(p)} />}
+            {page === 'custom' && <CustomOilPage user={user} records={records} />}
+            {page === 'service' && <ServiceHallPage onNavigate={(p) => setPage(p)} />}
+            {page === 'wishlist' && <WishlistPage onNavigate={(p) => setPage(p)} />}
+            {page === 'my-works' && <MyWorksWallPage userEmail={user?.email || null} onNavigate={(p) => setPage(p)} />}
+            {page === 'collections' && <CollectionCenterPage userEmail={user?.email || null} onNavigate={(p) => setPage(p)} />}
+            {page === 'course-journey' && <CourseJourneyPage userEmail={user?.email || null} />}
+            {page === 'exclusive-content' && <ExclusiveContentPage userEmail={user?.email || null} />}
+            {page === 'admin-dashboard' && <AdminDashboardPage onBack={() => setPage('member')} />}
+            {page === 'xia-tasks' && <XiaTasksPage records={records} onNavigate={(p) => setPage(p)} />}
+            {page === 'crystal-energy' && <CrystalEnergyPage />}
+            {page === 'plant-care' && <PlantCarePage />}
+            {page === 'oil-wiki' && <OilWikiPage />}
+            {page === 'ai-cs' && <CustomerServicePage onNavigate={(p) => setPage(p)} onOpenProduct={handleOpenProduct} />}
+          </motion.div>
+        </AnimatePresence>
+      </div>
+      {/* TopNav 已移到頂部 */}
+
+      {/* Morning Flow Modal */}
+      <AnimatePresence>
+        {showMorningFlow && morningFlowEmotion && (
+          <MorningFlowModal
+            emotion={morningFlowEmotion}
+            level={morningFlowLevel}
+            onDone={handleMorningFlowDone}
+            onViewHealing={() => { handleMorningFlowDone(); setPage('healing'); }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Milestone Modal */}
+      <AnimatePresence>
+        {showMilestone && (
+          <MilestoneModal
+            days={showMilestone}
+            onClose={() => setShowMilestone(null)}
+          />
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
 
 
-// ===== 心理測驗 UI Components =====
 function PsychTestListView({ onSelectTest }: { onSelectTest: (test: HealingTest) => void }) {
   const completedTests = JSON.parse(localStorage.getItem('healing_test_results') || '{}');
   const completedCount = Object.keys(completedTests).length;
@@ -16420,19 +16264,6 @@ function CommunityBoardStandalone({ userEmail, onPost }: { userEmail: string | n
 }
 
 function BottomNav({ active, onChange }: { active: PageType; onChange: (p: PageType) => void }) {
-  const cellStyle: React.CSSProperties = {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 0,
-    position: 'relative',
-    padding: '4px 0',
-  };
-
-  const row1 = NAV_ITEMS.slice(0, 4);
-  const row2 = NAV_ITEMS.slice(4);
-
   return (
     <div
       className="fixed bottom-0 left-0 right-0 z-40"
@@ -16442,35 +16273,32 @@ function BottomNav({ active, onChange }: { active: PageType; onChange: (p: PageT
         paddingBottom: 'env(safe-area-inset-bottom)',
       }}
     >
-      <div className="max-w-md mx-auto">
-        {[row1, row2].map((row, rowIdx) => (
-          <div key={rowIdx} style={{ display: 'grid', gridTemplateColumns: `repeat(${row.length}, 1fr)`, height: 48 }}>
-            {row.map(item => (
-              <button
-                key={item.key}
-                onClick={() => onChange(item.key)}
-                style={cellStyle}
-              >
-                <span className="text-base" style={{
-                  filter: active === item.key ? 'none' : 'grayscale(100%) opacity(0.5)',
-                  transition: 'filter 0.2s',
-                }}>{item.icon}</span>
-                <span
-                  className="text-[10px] font-medium"
-                  style={{ color: active === item.key ? '#8FA886' : '#8C7B72' }}
-                >
-                  {item.label}
-                </span>
-                {active === item.key && (
-                  <motion.div
-                    layoutId="bottom-nav-indicator"
-                    className="absolute bottom-0.5 w-1.5 h-1.5 rounded-full"
-                    style={{ backgroundColor: '#8FA886' }}
-                  />
-                )}
-              </button>
-            ))}
-          </div>
+      <div className="max-w-md mx-auto" style={{ display: 'grid', gridTemplateColumns: `repeat(${NAV_ITEMS.length}, 1fr)`, height: 56 }}>
+        {NAV_ITEMS.map(item => (
+          <button
+            key={item.label}
+            onClick={() => item.url ? window.open(item.url, '_blank') : onChange(item.key)}
+            className="flex flex-col items-center justify-center gap-0 relative"
+            style={{ padding: '4px 0' }}
+          >
+            <span className="text-xl" style={{
+              filter: active === item.key && !item.url ? 'none' : 'grayscale(100%) opacity(0.5)',
+              transition: 'filter 0.2s',
+            }}>{item.icon}</span>
+            <span
+              className="text-[10px] font-medium"
+              style={{ color: active === item.key && !item.url ? '#D2B4A1' : '#8C7B72' }}
+            >
+              {item.label}
+            </span>
+            {active === item.key && (
+              <motion.div
+                layoutId="bottom-nav-indicator"
+                className="absolute bottom-0.5 w-1.5 h-1.5 rounded-full"
+                style={{ backgroundColor: '#D2B4A1' }}
+              />
+            )}
+          </button>
         ))}
       </div>
     </div>
@@ -17335,575 +17163,4 @@ function OilWikiPage() {
   );
 }
 
-// ===================== PAGE: AI CUSTOMER SERVICE =====================
 
-const CS_LINE_URL = 'https://page.line.me/296yrpvh?openQrModal=true';
-
-interface CSCta {
-  label: string;
-  type: 'line' | 'shop' | 'shop-category';
-  categoryId?: number;
-}
-
-interface CSKnowledgeItem {
-  id: string;
-  category: string;
-  keywords: string[];
-  question: string;
-  answer: string;
-  priority: number;
-  ctas?: CSCta[];
-}
-
-const CS_KNOWLEDGE_BASE: CSKnowledgeItem[] = [
-  { id: 'crystal-bracelet-intro', category: '水晶手鍊', keywords: ['水晶', '手鍊', '手鏈', '手環', '串珠', '礦石', '串水晶', '手串'], question: '水晶手鍊課程是什麼？', answer: '我們提供水晶手鍊 DIY 體驗！您可以在店內挑選喜歡的天然水晶礦石，我們有兩種模式，一種是看說明書製作，有分成一般899 和高階水晶1599，不過有問題現場老師都在唷，每天從下午1點到7點都有場次。另一種是老師教學，會依照老師的開課場次，可以進到商城選擇喔。全程約 1～1.5 小時，完成後可直接帶走還有包裝唷！', priority: 10, ctas: [{ label: '🔮 自己做一般水晶', type: 'shop-category', categoryId: 200 }, { label: '💎 自己做高階水晶', type: 'shop-category', categoryId: 200 }, { label: '👩‍🏫 老師教學', type: 'shop' }] },
-  { id: 'crystal-booking', category: '水晶手鍊', keywords: ['預約', '怎麼預約', '如何預約', '要預約', '報名', '怎麼報名', '預訂', '怎麼訂'], question: '水晶手鍊怎麼預約？', answer: '您可以直接到我們的商城選擇「水晶手鍊自己做」進行線上預約，選擇日期與時間後完成付款即可。', priority: 10, ctas: [{ label: '🔮 前往商城預約', type: 'shop-category', categoryId: 200 }] },
-  { id: 'crystal-price', category: '水晶手鍊', keywords: ['多少錢', '價格', '費用', '價位', '收費', '水晶.*錢', '水晶.*費', '590', '899', '1599'], question: '水晶手鍊多少錢？', answer: '我們提供水晶手鍊 DIY 體驗！我們有兩種版本，一種是看說明書製作，有分成一般899 和高階水晶1599，不過有問題現場老師都在唷！每天從下午1點到7點都有場次。全程約 1～1.5 小時，完成後可直接帶走還有包裝唷！', priority: 9, ctas: [{ label: '🔮 自己做一般水晶', type: 'shop-category', categoryId: 200 }, { label: '💎 自己做高階水晶', type: 'shop-category', categoryId: 200 }] },
-  { id: 'crystal-own-material', category: '水晶手鍊', keywords: ['自備', '自己帶', '自己的水晶', '加進去', '自帶'], question: '可以自備水晶嗎？', answer: '可以唷！如果您有自己的水晶想加進手鍊裡，歡迎帶來，在串製的時候直接加進去就好～', priority: 7 },
-  { id: 'crystal-material', category: '水晶手鍊', keywords: ['材料', '有哪些', '什麼水晶', '選擇', '種類', '紅瑪瑙', '黃水晶', '青金石', '紫水晶'], question: '有什麼水晶材料可以選？', answer: '我們店內提供多種天然水晶礦石可以挑選，包含紫水晶、粉水晶、白水晶、黃水晶、紅瑪瑙、虎眼石、青金石等破百種。實際品項以現場庫存為準，歡迎到店挑選您喜歡的！', priority: 7 },
-  { id: 'crystal-tablet-vs-teacher', category: '水晶手鍊', keywords: ['平板', '差異', '差別', '不同', '真人', '自己做', '老師教'], question: '平板教學跟真人老師教學有什麼不同？', answer: '平板教學是看平板上的說明自己操作完成，費用較低（590 元起）。真人老師教學會有專業講師手把手帶您製作，體驗更深入，適合團體包班或想深度學習的朋友。但即使是選擇平板教學也可以很輕鬆的完成喔，有不懂的也可以隨時問現場的工作人員。', priority: 8 },
-  { id: 'booking-flow', category: '預約流程', keywords: ['預約', '怎麼預約', '如何預約', '預約流程', '步驟', '報名', '怎麼報名'], question: '要怎麼預約體驗課程？', answer: '預約方式有兩種：\n1️⃣ 線上預約：到頁面裡的療癒商城或是到官網 www.xiabenhow.com 選擇課程 → 選日期時間 → 填寫資料 → 完成付款\n2️⃣ 企業包班預約：直接在 LINE 官方帳號告訴我們想要的課程、日期、人數，小編會協助您安排！\n\n請問您要哪一種？', priority: 10, ctas: [{ label: '🛒 前往療癒商城', type: 'shop' }, { label: '💬 企業包班 LINE 諮詢', type: 'line' }] },
-  { id: 'booking-need', category: '預約流程', keywords: ['需要預約', '要預約嗎', '可以直接去', '現場', 'walk in'], question: '需要預約嗎？可以直接去嗎？', answer: '建議先預約唷！這樣可以確保您到店時有座位和材料。如果想直接來，也可以先透過 LINE 確認當天是否還有空位～', priority: 8 },
-  { id: 'booking-confirm', category: '預約流程', keywords: ['預約完成', '成功', '確認', '這樣就預約', '有預約到'], question: '怎麼確認預約成功？', answer: '完成線上預約並付款後，系統會發送確認通知到您的信箱。有不確定的話也可以 Line 詢問我們', priority: 7 },
-  { id: 'price-general', category: '價格費用', keywords: ['多少錢', '價格', '費用', '價位', '收費', '優惠', '折扣', '便宜'], question: '課程費用大概多少？', answer: '不同課程費用不同，以下是參考：\n🔮 （平板自助）：590 元起\n🕯️ 蠟燭 / 擴香課程：依項目而定\n🌿 多肉植物 / 水晶手鍊 / 花藝：依項目而定\n\n可以進到商城看不同課程喔\n團體包班另有優惠方案，歡迎透過 LINE 詢問詳細報價！', priority: 9, ctas: [{ label: '🛒 前往商城看課程', type: 'shop' }] },
-  { id: 'price-deposit', category: '價格費用', keywords: ['訂金', '定金', '先付', '預付'], question: '需要先付訂金嗎？', answer: '個人預約通常在線上預約時直接付全額。企業包班或團體預約需先支付 50% 訂金，尾款在活動當天支付即可。', priority: 7 },
-  { id: 'culture-coin', category: '價格費用', keywords: ['文化幣', '文化', '青年文化'], question: '可以使用文化幣嗎？', answer: '可以使用文化幣唷，不過會需要您先預約付款完後，到時候到現場掃碼退現金喔。', priority: 8 },
-  { id: 'payment-methods', category: '付款方式', keywords: ['付款', '怎麼付', '付費', '信用卡', 'line pay', '匯款', '轉帳', '帳號', '現金'], question: '有哪些付款方式？', answer: '我們接受以下付款方式：\n💳 線上刷卡（官網預約時付款）\n🏦 銀行轉帳 / 匯款 / 💚 LINE Pay / 🏪 超商條碼\n💵 現場現金付款\n\n企業包班如需匯款，預約確認後會提供匯款帳號資訊。匯款完成請提供帳號後五碼方便財務核對～', priority: 8 },
-  { id: 'payment-invoice', category: '付款方式', keywords: ['發票', '統編', '抬頭', '公司發票', '三聯', '電子發票'], question: '可以開發票嗎？', answer: '可以的！我們提供電子發票，開立後會直接寄送到您提供的電子信箱。如果需要開立公司抬頭的發票，請在預約時提供公司名稱和統一編號唷～', priority: 7 },
-  { id: 'business-hours', category: '時間地點', keywords: ['營業', '幾點', '開門', '幾點到幾點', '週幾', '星期', '休息', '時間'], question: '營業時間是？', answer: '我們每天早上10點到晚上9點，不過水晶手鍊會是下午1點開始喔，您可以先在商城裡預約完成，有任何問題也可以點擊 Line 跟我們說。', priority: 8, ctas: [{ label: '🛒 前往商城預約', type: 'shop' }, { label: '💬 LINE 詢問', type: 'line' }] },
-  { id: 'location', category: '時間地點', keywords: ['地址', '在哪', '地點', '怎麼去', '位置', '門市'], question: '店在哪裡？', answer: '我們在台北台中高雄皆有據點，台北門市在萬華區漢口街2段121號喔，可以在 Google Map 搜尋「下班隨手做」', priority: 8 },
-  { id: 'parking', category: '時間地點', keywords: ['停車', '車位', '停車場', '開車'], question: '附近好停車嗎？', answer: '台北門市旁邊有西門町洛陽停車場。', priority: 5 },
-  { id: 'duration', category: '時間地點', keywords: ['多久', '多長', '幾個小時', '多少時間', '要多久', '時間長度'], question: '課程大約要多久？', answer: '各課程時長不同：\n🔮 水晶手鍊：約 1～1.5 小時\n🕯️ 蠟燭 / 擴香：約 1～2 小時\n🌿 多肉 / 花藝：約 1.5～2 小時\n\n企業包班可依需求調整，含講解與製作通常安排 1.5～2 小時為佳。', priority: 8 },
-  { id: 'cancel-policy', category: '取消退款', keywords: ['取消', '退款', '退費', '不去', '不能去'], question: '預約後可以取消嗎？', answer: '可以取消，但依據取消時間有不同的退款比例。一般來說，提前通知可退 80% 的費用。建議盡早告知我們以便安排，不過課程當天沒辦法改期或取消喔，詳細退款政策請透過 LINE 與小編確認。', priority: 8 },
-  { id: 'reschedule', category: '取消退款', keywords: ['改期', '更改', '換時間', '延期', '改日期', '改時間'], question: '可以改期嗎？', answer: '可以的！請提前透過 LINE 告知想更改的新日期與時間，小編會幫您確認是否還有名額並協助調整。不過當天課程沒辦法改期，建議您至少提前 1-2 天通知唷～', priority: 8 },
-  { id: 'enterprise-intro', category: '企業活動', keywords: ['企業', '公司', '團體', 'team', '包場', '包班', '員工', 'team building', '團建', '公司活動'], question: '有提供企業包班嗎？', answer: '有的！我們提供企業手作活動與包班服務。可選擇水晶手鍊、蠟燭、擴香、多肉植物等多種手作項目。我們可以到貴公司場地授課，也可以在我們的教室進行。歡迎透過 LINE 告知您的需求，我們會提供專屬報價！', priority: 9 },
-  { id: 'enterprise-onsite', category: '企業活動', keywords: ['到公司', '到場', '外派', '上門', '到府', '出差', '場地'], question: '老師可以到公司教學嗎？', answer: '可以的！我們提供到府教學服務，老師會帶齊所有材料到貴公司場地授課。外派教學會有車馬費（依距離而定），詳細費用會在報價單中說明。', priority: 8 },
-  { id: 'enterprise-headcount', category: '企業活動', keywords: ['最少', '最多', '幾人', '人數', '幾個人', '最低', '起跳'], question: '企業包班最少要幾個人？', answer: '如果是在門市，6人以上可以包班，如果人數不足，也可以參考我們的個人預約體驗，如果到公司行號上課，會有最低預約人數，您可以透過 Line 跟我們聯繫', priority: 7, ctas: [{ label: '💬 LINE 聯繫包班', type: 'line' }] },
-  { id: 'enterprise-quote', category: '企業活動', keywords: ['報價', '怎麼算', '費用怎麼算', '報價單', '估價'], question: '企業活動費用怎麼算？', answer: '企業活動費用會依據以下因素報價：\n📋 課程項目（水晶、蠟燭、擴香等）\n👥 參加人數\n📍 上課地點（店內或外派）\n⏰ 活動時長\n\n請透過 LINE 提供以上資訊，我們會盡快開立報價單給您！通常需先支付 50% 訂金確認檔期。', priority: 8, ctas: [{ label: '💬 LINE 索取報價單', type: 'line' }] },
-  { id: 'course-types', category: '課程種類', keywords: ['有什麼課', '哪些課', '什麼可以做', '課程', '項目', '種類', '體驗', '可以做什麼', '手作'], question: '有哪些課程可以體驗？', answer: '我們提供多種療癒手作體驗：\n🔮 水晶手鍊 DIY\n🕯️ 香氛蠟燭製作\n🌸 擴香石 / 擴香花泥盤\n🌿 多肉植物組盆\n💐 乾燥花 / 永生花\n🎨 流體畫\n💎 水晶飾品\n🧴 香水調製 皮革 藍染\n\n各項目詳細內容與價格請到商城頁面或是官網 www.xiabenhow.com 查看！', priority: 9, ctas: [{ label: '🛒 前往商城看課程', type: 'shop' }] },
-  { id: 'candle-course', category: '課程種類', keywords: ['蠟燭', '香氛蠟燭', '蠟燭課'], question: '蠟燭課程怎麼預約？', answer: '蠟燭課程可以到商城頁面或在官網 www.xiabenhow.com 上搜尋「蠟燭」找到相關課程並線上預約。也可以透過 LINE 告訴我們您想體驗的蠟燭類型（容器蠟燭、柱狀蠟燭等），小編會協助您預約唷！', priority: 7 },
-  { id: 'succulent-course', category: '課程種類', keywords: ['多肉', '植物', '組盆', '盆栽'], question: '多肉植物課程有嗎？', answer: '有的！我們有多肉植物組盆體驗課程，可以挑選喜歡的多肉品種和花盆，在老師指導下完成屬於自己的小盆栽。適合個人或團體包班，歡迎到官網或 LINE 查詢預約～', priority: 7 },
-  { id: 'diffuser-course', category: '課程種類', keywords: ['擴香', '擴香石', '泥盤', '花泥盤', '擴香座'], question: '擴香課程有什麼？', answer: '我們有擴香石、水泥六角擴香花泥盤等多種擴香手作課程。製作完成後可以搭配精油使用，讓您的空間充滿香氣！詳情請到官網查看或 LINE 詢問～', priority: 6 },
-  { id: 'perfume-course', category: '課程種類', keywords: ['香水', '調香', '調製', '香味'], question: '有香水調製課程嗎？', answer: '有的！我們有提供香水 / 調香體驗課程，可以在專業指導下調製出屬於自己獨特氣味的香水。歡迎到官網查看「調香」相關課程或透過 LINE 詢問最新場次！', priority: 6 },
-  { id: 'kids-age', category: '小孩年齡', keywords: ['小孩', '兒童', '幾歲', '年齡', '小朋友', '孩子', '親子', '小孩可以', '帶小孩'], question: '小孩可以參加嗎？幾歲可以做？', answer: '大部分課程適合 10 歲以上的小朋友參加。10 歲以下的小朋友建議由家長陪同一起製作。部分精細課程可能不太適合太小的孩子，可以透過 LINE 跟我們確認適合的年齡範圍唷！', priority: 8 },
-  { id: 'customization', category: '客製化', keywords: ['客製', '訂製', '特別', '設計', 'logo', '文字', '刻字'], question: '可以客製化嗎？', answer: '部分產品支持客製化（如企業活動加 logo 等），但一般個人課程使用的是固定模具，文字或圖案的客製化比較有限。如果有特殊需求，歡迎透過 LINE 告訴我們，我們會評估是否能達成您的想法！', priority: 7 },
-  { id: 'take-home', category: '其他', keywords: ['帶回', '帶走', '回家', '提袋', '袋子', '打包'], question: '作品可以帶回家嗎？', answer: '當然可以！手作完成後就是您的作品，可以直接帶走。部分需要等待乾燥的作品（如蠟燭），老師會教您如何安全攜帶。我們也會提供提袋方便您帶回～', priority: 6 },
-  { id: 'not-finished', category: '其他', keywords: ['做不完', '來不及', '半成品', '沒做完'], question: '時間內做不完怎麼辦？', answer: '不用擔心！老師會依進度彈性調整，大部分的人都能在時間內完成。如果真的來不及，老師也會協助您喔', priority: 5 },
-  { id: 'greeting', category: '問候', keywords: ['你好', '哈囉', '嗨', 'hi', 'hello', '安安', '午安', '早安', '晚安'], question: '你好', answer: '您好！歡迎來到下班隨手作 🌿 我是智能客服小助手，可以幫您解答課程、預約、價格等常見問題。請問有什麼我可以幫您的呢？', priority: 3 },
-  { id: 'thanks', category: '問候', keywords: ['謝謝', '感謝', '感恩', '3q', 'thanks', 'thx'], question: '謝謝', answer: '不客氣～很高興能幫到您！如果還有其他問題，隨時都可以問我唷 😊', priority: 2 },
-  { id: 'contact-human', category: '聯繫客服', keywords: ['真人', '客服', '小編', '打電話', '聯繫', '聯絡', '通話', '電話'], question: '想找真人客服', answer: '沒問題！如果需要更詳細的協助，歡迎透過以下方式聯繫我們的真人客服：\n📱 LINE 官方帳號：搜尋「下班隨手作」\n🌐 官網：www.xiabenhow.com\n\n小編會在上班時間盡快回覆您！', priority: 8, ctas: [{ label: '💬 LINE 聯繫真人客服', type: 'line' }] },
-  { id: 'teacher-nationwide', category: '全台教學', keywords: ['全台', '老師', '哪裡有', '其他城市', '台中', '台南', '高雄', '新竹'], question: '其他縣市也有老師可以教學嗎？', answer: '有的！我們在全台各地都有合作老師可以提供教學服務。無論您在台北、台中、台南、高雄或其他地區，都歡迎透過 LINE 跟我們詢問您所在區域的老師檔期與課程安排！', priority: 7 },
-  { id: 'buy-material-only', category: '其他', keywords: ['買材料', '只要材料', '材料包', '不上課', '回家做'], question: '可以只買材料不上課嗎？', answer: '可以的！我們有提供材料包販售。您可以在官網上選購材料包回家自己 DIY，也可以到店裡挑選材料。詳情可到療癒商城選購或官網 www.xiabenhow.com 查看商品區，或 LINE 詢問。', priority: 6, ctas: [{ label: '📦 前往 DIY 材料包', type: 'shop-category', categoryId: 75 }] },
-];
-
-const CS_QUICK_QUESTIONS = [
-  { emoji: '🔮', label: '水晶手鍊', query: '水晶手鍊課程是什麼' },
-  { emoji: '📅', label: '怎麼預約', query: '怎麼預約' },
-  { emoji: '💰', label: '價格費用', query: '課程費用' },
-  { emoji: '🏢', label: '企業包班', query: '企業包班' },
-  { emoji: '📍', label: '地點時間', query: '營業時間在哪裡' },
-  { emoji: '🔄', label: '取消改期', query: '取消改期' },
-  { emoji: '💳', label: '付款方式', query: '付款方式' },
-  { emoji: '👶', label: '小孩可以嗎', query: '小孩可以參加嗎' },
-  { emoji: '⏱️', label: '要多久', query: '課程多久' },
-  { emoji: '📋', label: '課程種類', query: '有哪些課程' },
-];
-
-function matchCSAnswer(input: string): CSKnowledgeItem[] {
-  const q = input.toLowerCase().trim();
-  if (!q) return [];
-  const scored: { item: CSKnowledgeItem; score: number }[] = [];
-  for (const item of CS_KNOWLEDGE_BASE) {
-    let score = 0;
-    for (const kw of item.keywords) {
-      if (kw.includes('.*')) { try { if (new RegExp(kw, 'i').test(q)) score += 5; } catch { /* skip */ } }
-      else if (q.includes(kw)) { score += 4 + kw.length; }
-    }
-    if (q.includes(item.category)) score += 3;
-    const qChars = [...new Set(q.split(''))];
-    const questionChars = [...new Set(item.question.split(''))];
-    const overlap = qChars.filter(c => questionChars.includes(c) && c.trim()).length;
-    if (overlap > 3) score += overlap * 0.3;
-    score += item.priority * 0.2;
-    if (score > 2) scored.push({ item, score });
-  }
-  scored.sort((a, b) => b.score - a.score);
-  return scored.slice(0, 3).map(s => s.item);
-}
-
-interface CSMessage { id: string; role: 'user' | 'bot'; text: string; time: string; ctas?: CSCta[]; }
-
-function CustomerServicePage({ onNavigate }: { onNavigate: (page: PageType) => void }) {
-  const [messages, setMessages] = useState<CSMessage[]>([{ id: 'welcome', role: 'bot', text: '您好！歡迎來到下班隨手作 🌿\n我是智能客服小助手，可以幫您解答課程、預約、價格等常見問題。\n\n請直接輸入您的問題，或點選下方常見問題快速查詢！', time: new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }) }]);
-  const [inputText, setInputText] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  const scrollToBottom = useCallback(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, []);
-  useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
-
-  const handleCtaClick = useCallback((cta: CSCta) => {
-    if (cta.type === 'line') window.open(CS_LINE_URL, '_blank');
-    else onNavigate('shop');
-  }, [onNavigate]);
-
-  const handleSend = useCallback((text?: string) => {
-    const msg = (text || inputText).trim();
-    if (!msg) return;
-    const now = new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
-    setMessages(prev => [...prev, { id: `user-${Date.now()}`, role: 'user', text: msg, time: now }]);
-    setInputText('');
-    setIsTyping(true);
-    setTimeout(() => {
-      const matches = matchCSAnswer(msg);
-      let botText: string; let botCtas: CSCta[] | undefined;
-      if (matches.length > 0) {
-        botText = matches[0].answer; botCtas = matches[0].ctas;
-        if (matches.length > 1) botText += '\n\n💡 您可能也想知道：\n' + matches.slice(1).map(m => `• ${m.question}`).join('\n');
-      } else {
-        botText = '抱歉，我暫時無法回答這個問題 😅\n\n建議您透過 LINE 聯繫真人客服，小編會在上班時間盡快回覆您！';
-        botCtas = [{ label: '💬 LINE 聯繫真人客服', type: 'line' }];
-      }
-      setMessages(prev => [...prev, { id: `bot-${Date.now()}`, role: 'bot', text: botText, time: new Date().toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' }), ctas: botCtas }]);
-      setIsTyping(false);
-    }, 600 + Math.random() * 400);
-  }, [inputText]);
-
-  return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="min-h-screen flex flex-col pt-10" style={{ backgroundColor: '#FFFEF9' }}>
-      <div className="px-4 py-3 text-center" style={{ backgroundColor: '#F0EDE8' }}>
-        <h1 className="text-lg font-bold" style={{ color: '#3D3530' }}>🤖 智能客服</h1>
-        <p className="text-xs mt-0.5" style={{ color: '#8C7B72' }}>下班隨手作 ｜ 常見問題即時回覆</p>
-      </div>
-      <div className="px-3 py-2 overflow-x-auto flex gap-2 flex-nowrap" style={{ backgroundColor: '#F8F5F0' }}>
-        {CS_QUICK_QUESTIONS.map((q) => (
-          <button key={q.label} onClick={() => handleSend(q.query)} className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all active:scale-95" style={{ backgroundColor: '#FFFEF9', color: '#3D3530', border: '1px solid #D2B4A1' }}>{q.emoji} {q.label}</button>
-        ))}
-      </div>
-      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-3" style={{ minHeight: 0 }}>
-        {messages.map((msg) => (
-          <div key={msg.id}>
-            <div className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              {msg.role === 'bot' && <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mr-2 mt-1" style={{ backgroundColor: '#D2B4A1' }}><span className="text-sm">🌿</span></div>}
-              <div className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 ${msg.role === 'user' ? 'rounded-tr-sm' : 'rounded-tl-sm'}`} style={{ backgroundColor: msg.role === 'user' ? '#D2B4A1' : '#F0EDE8', color: msg.role === 'user' ? '#FFFEF9' : '#3D3530' }}>
-                <p className="text-sm whitespace-pre-line leading-relaxed">{msg.text}</p>
-                <p className="text-[10px] mt-1 text-right opacity-50">{msg.time}</p>
-              </div>
-            </div>
-            {msg.ctas && msg.ctas.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-2 ml-10">
-                {msg.ctas.map((cta, idx) => (
-                  <button key={idx} onClick={() => handleCtaClick(cta)} className="px-3.5 py-2 rounded-xl text-xs font-medium transition-all active:scale-95 shadow-sm" style={{ backgroundColor: cta.type === 'line' ? '#06C755' : '#D2B4A1', color: '#FFFFFF' }}>{cta.label}</button>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
-        {isTyping && (
-          <div className="flex justify-start">
-            <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mr-2 mt-1" style={{ backgroundColor: '#D2B4A1' }}><span className="text-sm">🌿</span></div>
-            <div className="rounded-2xl rounded-tl-sm px-4 py-3" style={{ backgroundColor: '#F0EDE8' }}>
-              <div className="flex gap-1.5">
-                <span className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: '#8C7B72', animationDelay: '0ms' }} />
-                <span className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: '#8C7B72', animationDelay: '150ms' }} />
-                <span className="w-2 h-2 rounded-full animate-bounce" style={{ backgroundColor: '#8C7B72', animationDelay: '300ms' }} />
-              </div>
-            </div>
-          </div>
-        )}
-        <div ref={messagesEndRef} />
-      </div>
-      <div className="px-3 py-3 border-t" style={{ borderColor: '#E8E4DF', backgroundColor: '#FFFEF9' }}>
-        <div className="flex gap-2 items-center">
-          <input type="text" value={inputText} onChange={(e) => setInputText(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.nativeEvent.isComposing) handleSend(); }} placeholder="輸入您的問題..." className="flex-1 rounded-full px-4 py-2.5 text-sm outline-none" style={{ backgroundColor: '#F0EDE8', color: '#3D3530', border: '1px solid transparent' }} />
-          <button onClick={() => handleSend()} disabled={!inputText.trim()} className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all active:scale-90" style={{ backgroundColor: inputText.trim() ? '#D2B4A1' : '#E8E4DF', color: '#FFFEF9' }}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
-          </button>
-        </div>
-        <div className="mt-2.5 flex justify-center">
-          <a href={CS_LINE_URL} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 px-5 py-2 rounded-full text-xs font-semibold transition-all active:scale-95 shadow-sm" style={{ backgroundColor: '#06C755', color: '#FFFFFF' }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.346 0 .627.285.627.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.282.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314"/></svg>
-            找不到答案？LINE 聯繫真人客服
-          </a>
-        </div>
-      </div>
-    </motion.div>
-  );
-}
-
-// ===================== MAIN COMPONENT =====================
-
-export default function HealingApp() {
-  const [page, _setPage] = useState<PageType>('healer');
-  const pageHistoryRef = useRef<PageType[]>(['healer']);
-
-  // Wrapped setPage that maintains history
-  const setPage = useCallback((newPage: PageType) => {
-    _setPage(prev => {
-      // Don't push if same page
-      if (prev !== newPage) {
-        pageHistoryRef.current.push(newPage);
-        // Push browser history state so back button works
-        window.history.pushState({ page: newPage }, '', '');
-      }
-      // Reset shop initial view when leaving shop
-      if (newPage !== 'shop') setShopInitialView(undefined);
-      return newPage;
-    });
-  }, []);
-
-  // Go back to previous page
-  const goBack = useCallback(() => {
-    const history = pageHistoryRef.current;
-    if (history.length > 1) {
-      history.pop(); // remove current
-      const prevPage = history[history.length - 1];
-      _setPage(prevPage);
-    }
-  }, []);
-  // PWA 安裝提示
-  const { canInstall, isIOS, isInstalled, isOffline, triggerInstall } = usePWA();
-  const [showInstallBanner, setShowInstallBanner] = useState(true);
-
-  const [user, setUser] = useState<User | null>(null);
-  const [records, setRecords] = useState<HealingRecord[]>(() => {
-    // 不再塞假資料，新用戶從空白開始
-    return loadRecords();
-  });
-
-  // --- SHOP INITIAL VIEW STATE ---
-  const [shopInitialView, setShopInitialView] = useState<'products' | 'cart' | 'checkout' | undefined>(undefined);
-
-  // --- NEW STATE ---
-  const [showMorningFlow, setShowMorningFlow] = useState(false);
-  const [morningFlowEmotion, setMorningFlowEmotion] = useState<EmotionKey | null>(null);
-  const [morningFlowLevel, setMorningFlowLevel] = useState<EmotionLevel>('L1');
-  const [showMilestone, setShowMilestone] = useState<number | null>(null);
-  const [isBedtimeFullscreen, setIsBedtimeFullscreen] = useState(false);
-
-  // Initialize native app features (StatusBar, SplashScreen)
-  useEffect(() => {
-    initNativeApp();
-  }, []);
-
-  // Browser back button → navigate within app instead of leaving
-  useEffect(() => {
-    // Push initial state
-    window.history.replaceState({ page: 'healer' }, '', '');
-
-    const handlePopState = () => {
-      const history = pageHistoryRef.current;
-      if (history.length > 1) {
-        history.pop();
-        const prevPage = history[history.length - 1];
-        _setPage(prevPage);
-      } else {
-        // At root — push state again to prevent leaving app
-        window.history.pushState({ page: 'healer' }, '', '');
-      }
-    };
-
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, []);
-
-  // Listen for auth changes and load Firestore records if logged in
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
-      setUser(currentUser);
-      if (currentUser) {
-        console.log('[Auth] User logged in:', currentUser.uid, currentUser.email);
-
-        // ★ 重要：先把 localStorage 資料同步到 Firestore（防止之前寫入失敗的資料遺失）
-        await syncAllLocalStorageToFirestore(currentUser.uid);
-
-        // Load from Firestore if logged in
-        const firestoreRecords = await loadRecordsFromFirestore(currentUser.uid);
-        if (firestoreRecords.length > 0) {
-          setRecords(firestoreRecords);
-        }
-        // Sync saved cards & wishlist from Firestore
-        loadSavedCardsFromFirestore(currentUser.uid).catch(e => console.error('[Firestore] loadSavedCards:', e));
-        loadWishlistFromFirestore(currentUser.uid).catch(e => console.error('[Firestore] loadWishlist:', e));
-        // Load energy from Firestore
-        loadEnergyFromFirestore(currentUser.uid).catch(e => console.error('[Firestore] loadEnergy:', e));
-        // Load milestones from Firestore
-        loadMilestonesFromFirestore(currentUser.uid).catch(e => console.error('[Firestore] loadMilestones:', e));
-        // Load personality from Firestore
-        loadPersonalityFromFirestore(currentUser.uid).catch(e => console.error('[Firestore] loadPersonality:', e));
-        // Load test results from Firestore
-        loadTestResultsFromFirestore(currentUser.uid).catch(e => console.error('[Firestore] loadTestResults:', e));
-        // Load journal PIN from Firestore
-        loadJournalPinFromFirestore(currentUser.uid).catch(e => console.error('[Firestore] loadJournalPin:', e));
-        // Load aftercare from Firestore
-        loadAftercareFromFirestore(currentUser.uid).catch(e => console.error('[Firestore] loadAftercare:', e));
-        // Load app PIN from Firestore
-        getDoc(doc(db, 'user_data', currentUser.uid)).then(snap => {
-          if (snap.exists() && snap.data().appPin) localStorage.setItem('healing_app_pin', snap.data().appPin);
-        }).catch(e => console.error('[Firestore] loadAppPin:', e));
-      }
-    });
-    return unsubscribe;
-  }, []);
-
-  const completeTask = useCallback((_key: TaskKey) => {
-    // 任務完成回調（保留以供其他頁面使用）
-    // Task completion callback (kept for other pages)
-  }, []);
-
-  const handleCheckIn = useCallback((emotion: EmotionKey, level?: EmotionLevel, subEmotion?: string) => {
-    const today = getToday();
-    const lv = level || 'L1';
-    const record: HealingRecord = { date: today, emotion, level: lv, subEmotion };
-    setRecords(prev => {
-      const filtered = prev.filter(r => r.date !== today);
-      const updated = [...filtered, record];
-      saveRecords(updated);
-      if (user) {
-        saveRecordToFirestore(user.uid, record);
-      }
-      return updated;
-    });
-    completeTask('checkin');
-    // earnEnergy('checkin'); // 暫時隱藏
-    setMorningFlowEmotion(emotion);
-    setMorningFlowLevel(lv);
-    setShowMorningFlow(true);
-  }, [completeTask, user]);
-
-  const handleMorningFlowDone = useCallback(() => {
-    setShowMorningFlow(false);
-    // Check for milestone
-    const streak = getStreak(records);
-    const shown = loadShownMilestones();
-    for (const m of MILESTONE_DAYS) {
-      if (streak >= m && !shown.includes(m)) {
-        addShownMilestone(m);
-        setTimeout(() => setShowMilestone(m), 400);
-        break;
-      }
-    }
-  }, [records]);
-
-  const goToHealing = useCallback(() => setPage('healing'), []);
-  const goToBedtime = useCallback(() => {
-    setIsBedtimeFullscreen(true);
-    setPage('bedtime');
-  }, []);
-  const goToSound = useCallback(() => setPage('sound'), []);
-
-  return (
-    <div className="min-h-screen" style={{ backgroundColor: '#FAF8F5', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
-      {/* 離線提示 */}
-      {isOffline && (
-        <div className="fixed top-0 left-0 right-0 z-50 text-center py-1 text-xs font-medium" style={{ backgroundColor: '#FFE0B2', color: '#E65100', paddingTop: 'calc(env(safe-area-inset-top) + 4px)' }}>
-          目前離線中，部分功能可能受限
-        </div>
-      )}
-
-      {/* PWA 安裝提示（僅在網頁瀏覽器中且未安裝時顯示） */}
-      {!isNative() && !isInstalled && showInstallBanner && (canInstall || isIOS) && (
-        <motion.div
-          initial={{ y: -60, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          className="fixed top-0 left-0 right-0 z-40"
-          style={{ paddingTop: 'env(safe-area-inset-top)' }}
-        >
-          <div className="max-w-md mx-auto px-3 py-2">
-            <div className="rounded-2xl px-4 py-3 shadow-lg" style={{ backgroundColor: '#FFFEF9', border: '1px solid #E8E0D8' }}>
-              <div className="flex items-center gap-3">
-                <span className="text-xl">📲</span>
-                <div className="flex-1">
-                  <p className="text-xs font-bold" style={{ color: '#3D3530' }}>
-                    把「隨手作」加到主畫面
-                  </p>
-                  <p className="text-[10px]" style={{ color: '#8C7B72' }}>
-                    {isIOS ? '像 App 一樣使用' : '像 App 一樣使用，隨時打開'}
-                  </p>
-                </div>
-                {canInstall && (
-                  <button
-                    onClick={triggerInstall}
-                    className="px-3 py-1.5 rounded-full text-xs font-bold"
-                    style={{ backgroundColor: '#8FA886', color: 'white' }}
-                  >
-                    安裝
-                  </button>
-                )}
-                <button
-                  onClick={() => setShowInstallBanner(false)}
-                  className="text-xs px-1"
-                  style={{ color: '#8C7B72' }}
-                >
-                  ✕
-                </button>
-              </div>
-              {/* iOS 專用安裝步驟引導 */}
-              {isIOS && (
-                <div className="mt-3 pt-3 space-y-2" style={{ borderTop: '1px solid #F0EDE8' }}>
-                  <div className="flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold" style={{ backgroundColor: '#8FA88620', color: '#8FA886' }}>1</span>
-                    <p className="text-[11px]" style={{ color: '#3D3530' }}>點 Safari 底部的 <span style={{ fontSize: '14px', verticalAlign: 'middle' }}>⬆</span> 分享按鈕</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold" style={{ backgroundColor: '#8FA88620', color: '#8FA886' }}>2</span>
-                    <p className="text-[11px]" style={{ color: '#3D3530' }}>往下滑，找到「加入主畫面」</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold" style={{ backgroundColor: '#8FA88620', color: '#8FA886' }}>3</span>
-                    <p className="text-[11px]" style={{ color: '#3D3530' }}>點「新增」就完成了！</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </motion.div>
-      )}
-
-      {!isBedtimeFullscreen && <BottomNav active={page} onChange={setPage} />}
-
-      {/* Global Back Button — top left (hidden on main tab pages) */}
-      {!isBedtimeFullscreen && pageHistoryRef.current.length > 1 && !NAV_ITEMS.some(item => item.key === page) && (
-        <div className="fixed top-0 left-0 right-0 z-30 pointer-events-none" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
-          <div className="max-w-md mx-auto px-3 py-2">
-            <motion.button
-              whileTap={{ scale: 0.85 }}
-              onClick={() => window.history.back()}
-              className="w-9 h-9 rounded-full flex items-center justify-center pointer-events-auto"
-              style={{ backgroundColor: 'rgba(255,254,249,0.9)', backdropFilter: 'blur(8px)', border: '1px solid #F0EDE8', color: '#3D3530' }}
-            >
-              <span className="text-sm">←</span>
-            </motion.button>
-          </div>
-        </div>
-      )}
-
-      <div className="max-w-md mx-auto px-4 pt-4 pb-32">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={page}
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -10 }}
-            transition={{ duration: 0.25 }}
-          >
-            {page === 'home' && (
-              <HomePage
-                records={records}
-                onCheckIn={handleCheckIn}
-                onGoToHealing={goToHealing}
-                onGoToBedtime={goToBedtime}
-                onGoToDiary={() => setPage('diary')}
-                onGoToCustom={() => setPage('custom')}
-                onGoToSound={goToSound}
-                onNavigate={(p) => setPage(p)}
-                user={user}
-              />
-            )}
-            {page === 'diary' && <DiaryPage records={records} onCheckIn={handleCheckIn} onUpdateRecord={(rec) => {
-                  setRecords(prev => {
-                    const filtered = prev.filter(r => r.date !== rec.date);
-                    const updated = [...filtered, rec];
-                    saveRecords(updated);
-                    if (user) saveRecordToFirestore(user.uid, rec);
-                    return updated;
-                  });
-                }} />}
-            {page === 'sound' && <SoundPage recommendedEmotion={records.find(r => r.date === getToday())?.emotion} />}
-            {page === 'healing' && (
-              <HomePage
-                records={records}
-                onCheckIn={handleCheckIn}
-                onGoToHealing={goToHealing}
-                onGoToBedtime={goToBedtime}
-                onGoToDiary={() => setPage('diary')}
-                onGoToCustom={() => setPage('custom')}
-                onNavigate={(p) => setPage(p)}
-                user={user}
-              />
-            )}
-            {page === 'bedtime' && <BedtimeRitualPage records={records} onClose={() => {
-                  setIsBedtimeFullscreen(false);
-                  setPage('home');
-                }} />}
-            {page === 'recipe' && (
-              <RecipePage
-                records={records}
-                onCheckIn={handleCheckIn}
-                onTaskComplete={completeTask}
-                user={user}
-                onNavigate={(p) => setPage(p)}
-              />
-            )}
-            {page === 'card' && <CardPage onTaskComplete={completeTask} records={records} />}
-            {page === 'healer' && <HealerPage records={records} userEmail={user?.email || null} onNavigate={(p) => setPage(p)} onTaskComplete={() => completeTask('checkin')} onCheckIn={(emotion) => handleCheckIn(emotion)} />}
-            {page === 'journal' && <JournalPage user={user} />}
-            {page === 'shop' && <ShopPage initialView={shopInitialView} />}
-            {page === 'library' && <HealingLibraryPage userEmail={user?.email || null} onNavigate={(p) => setPage(p)} />}
-            {page === 'community' && <CommunityPage userEmail={user?.email || null} />}
-            {page === 'explore' && <ExplorePage records={records} userEmail={user?.email || null} onNavigate={(p) => setPage(p)} />}
-            {page === 'calendar' && <FragranceCalendarPage />}
-            {page === 'ebook' && <EbookShelfPage userEmail={user?.email || null} onNavigate={(p) => setPage(p)} onPurchaseBook={(book) => {
-              // Add ebook to cart (same localStorage as ShopPage) then navigate to shop cart
-              const cartItem: CartItem = {
-                id: `ebook-${book.id}`,
-                productId: book.wcProductId,
-                name: `📖 ${book.title}`,
-                specs: '電子書',
-                price: book.price,
-                quantity: 1,
-                isVirtual: true,
-                image: book.coverUrl,
-              };
-              const currentCart = loadCartFromStorage();
-              const exists = currentCart.find(c => c.id === cartItem.id);
-              if (!exists) {
-                currentCart.push(cartItem);
-                saveCartToStorage(currentCart);
-              }
-              setShopInitialView('cart');
-              setPage('shop');
-            }} />}
-            {page === 'member' && <MemberPage records={records} onNavigate={(p) => setPage(p)} />}
-            {page === 'custom' && <CustomOilPage user={user} records={records} />}
-            {page === 'service' && <ServiceHallPage onNavigate={(p) => setPage(p)} />}
-            {page === 'wishlist' && <WishlistPage onNavigate={(p) => setPage(p)} />}
-            {page === 'my-works' && <MyWorksWallPage userEmail={user?.email || null} onNavigate={(p) => setPage(p)} />}
-            {page === 'collections' && <CollectionCenterPage userEmail={user?.email || null} onNavigate={(p) => setPage(p)} />}
-            {page === 'course-journey' && <CourseJourneyPage userEmail={user?.email || null} />}
-            {page === 'exclusive-content' && <ExclusiveContentPage userEmail={user?.email || null} />}
-            {page === 'admin-dashboard' && <AdminDashboardPage onBack={() => setPage('member')} />}
-            {page === 'xia-tasks' && <XiaTasksPage records={records} onNavigate={(p) => setPage(p)} />}
-            {page === 'crystal-energy' && <CrystalEnergyPage />}
-            {page === 'plant-care' && <PlantCarePage />}
-            {page === 'oil-wiki' && <OilWikiPage />}
-            {page === 'ai-cs' && <CustomerServicePage onNavigate={(p) => setPage(p)} />}
-          </motion.div>
-        </AnimatePresence>
-      </div>
-      {/* TopNav 已移到頂部 */}
-
-      {/* Morning Flow Modal */}
-      <AnimatePresence>
-        {showMorningFlow && morningFlowEmotion && (
-          <MorningFlowModal
-            emotion={morningFlowEmotion}
-            level={morningFlowLevel}
-            onDone={handleMorningFlowDone}
-            onViewHealing={() => { handleMorningFlowDone(); setPage('healing'); }}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* Milestone Modal */}
-      <AnimatePresence>
-        {showMilestone && (
-          <MilestoneModal
-            days={showMilestone}
-            onClose={() => setShowMilestone(null)}
-          />
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}

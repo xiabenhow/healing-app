@@ -162,6 +162,56 @@ router.get("/products/:id/booking-slots", async (req, res) => {
     const startDate = fixedFrom ? new Date(fixedFrom) : today;
     if (startDate < today) startDate.setTime(today.getTime());
 
+    // Fetch existing orders to calculate real remaining capacity
+    const bookingCounts: Record<string, number> = {}; // key: "YYYY-MM-DD|HH:MM"
+    try {
+      const endDate = new Date(today);
+      endDate.setDate(endDate.getDate() + 60);
+      const afterStr = today.toISOString();
+      const beforeStr = endDate.toISOString();
+
+      // Fetch orders containing this product (processing, completed, on-hold)
+      const orderStatuses = ["processing", "completed", "on-hold"];
+      let allOrders: any[] = [];
+      let page = 1;
+      let hasMore = true;
+      while (hasMore) {
+        const ordersResponse = await wcApi.get("/orders", {
+          params: {
+            product: id,
+            per_page: 100,
+            page,
+            after: afterStr,
+            before: beforeStr,
+            status: orderStatuses.join(","),
+          },
+        });
+        const batch = ordersResponse.data as any[];
+        allOrders = allOrders.concat(batch);
+        hasMore = batch.length === 100;
+        page++;
+        if (page > 5) break; // Safety limit: max 500 orders
+      }
+
+      const orders = allOrders;
+      for (const order of orders) {
+        for (const li of (order.line_items || [])) {
+          if (String(li.product_id) !== String(id)) continue;
+          const liMeta = li.meta_data || [];
+          const bookingDate = liMeta.find((m: any) => m.key === "_phive_booking_date")?.value || "";
+          const bookingTime = liMeta.find((m: any) => m.key === "_phive_booking_time")?.value || "";
+          const persons = parseInt(liMeta.find((m: any) => m.key === "_phive_booking_persons")?.value || li.quantity || "1", 10);
+          if (bookingDate && bookingTime) {
+            const slotKey = `${bookingDate}|${bookingTime}`;
+            bookingCounts[slotKey] = (bookingCounts[slotKey] || 0) + persons;
+          }
+        }
+      }
+    } catch (orderErr) {
+      // If order query fails, continue with default capacity (graceful degradation)
+      console.warn("Failed to fetch orders for capacity calculation:", orderErr);
+    }
+
     interface SlotInfo {
       date: string;
       time: string;
@@ -199,12 +249,17 @@ router.get("/products/:id/booking-slots", async (req, res) => {
         const isPast = day.toDateString() === new Date().toDateString() &&
           slotStart.getTime() < Date.now();
 
+        // Calculate remaining capacity from real order data
+        const slotKey = `${dateStr}|${slotTime}`;
+        const booked = bookingCounts[slotKey] || 0;
+        const remaining = Math.max(0, allowedPerSlot - booked);
+
         slots.push({
           date: dateStr,
           time: slotTime,
           endTime,
-          available: !isBlocked && !isPast,
-          remainingCapacity: isBlocked || isPast ? 0 : allowedPerSlot,
+          available: !isBlocked && !isPast && remaining > 0,
+          remainingCapacity: isBlocked || isPast ? 0 : remaining,
         });
 
         currentMin = nextMin;
