@@ -2125,6 +2125,7 @@ function HomePage({
   user,
   onGoToSound,
   onNavigate,
+  gridItems,
 }: {
   records: HealingRecord[];
   onCheckIn: (emotion: EmotionKey, level: EmotionLevel, subEmotion: string) => void;
@@ -2135,6 +2136,7 @@ function HomePage({
   user: User | null;
   onGoToSound?: () => void;
   onNavigate?: (p: PageType) => void;
+  gridItems: { icon: string; label: string; page: PageType; color: string }[];
 }) {
   const todayRecord = records.find(r => r.date === getToday());
   const streak = getStreak(records);
@@ -2169,23 +2171,7 @@ function HomePage({
 
   const recommendedSound = getRecommendedSound();
 
-  const HOME_GRID_ITEMS: { icon: string; label: string; page: PageType; color: string }[] = [
-    { icon: '/icons/療癒配方.png', label: '療癒配方', page: 'recipe', color: '#D2B4A1' },
-    { icon: '/icons/電子書.png', label: '電子書', page: 'ebook', color: '#C9A96E' },
-    { icon: '/icons/心理測驗.png', label: '心理測驗', page: 'healer', color: '#9B7EC8' },
-    { icon: '/icons/水晶能量.png', label: '水晶能量', page: 'crystal-energy', color: '#7EC8C8' },
-    { icon: '/icons/植栽照顧.png', label: '植栽照顧', page: 'plant-care', color: '#6B8F5E' },
-    { icon: '/icons/精油百科.png', label: '精油百科', page: 'oil-wiki', color: '#A8B876' },
-    { icon: '/icons/課後照顧.png', label: '課後照顧', page: 'library', color: '#8C7B72' },
-    { icon: '/icons/社群.png', label: '社群', page: 'community', color: '#E8A8A8' },
-    { icon: '/icons/我的作品.png', label: '我的作品集', page: 'my-works', color: '#C88ED8' },
-    { icon: '/icons/聆聽.png', label: '聆聽', page: 'sound', color: '#6B6B9B' },
-    { icon: '/icons/療癒商城.png', label: '療癒商城', page: 'shop', color: '#5E8FA8' },
-    { icon: '/icons/XIA幣任務.png', label: 'XIA幣任務', page: 'xia-tasks', color: '#E8B735' },
-    { icon: '/icons/日記.png', label: '日記', page: 'journal', color: '#C4A882' },
-    { icon: '/icons/收藏.png', label: '收藏', page: 'collections', color: '#E0A8A8' },
-    { icon: '/icons/智能客服.png', label: '智能客服', page: 'ai-cs', color: '#5EAAB8' },
-  ];
+  const HOME_GRID_ITEMS = gridItems;
 
   const getTimeGreeting = () => {
     if (currentHour >= 5 && currentHour < 12) return '嗨！早安';
@@ -4691,7 +4677,7 @@ function ProductDetailView({ product, onBack, onAddToCart, onNavigateCart, cartC
       {product.stock_status === 'outofstock' || (product.manage_stock && product.stock_quantity !== null && product.stock_quantity <= 0) ? (
         <motion.a
           whileTap={{ scale: 0.96 }}
-          href="https://page.line.me/296yrpvh?openQrModal=true"
+          href={LINE_DEEP_LINK} onClick={(e) => { e.preventDefault(); openLine(); }}
           target="_blank"
           rel="noopener noreferrer"
           className="block w-full py-3 rounded-xl font-bold text-white text-center transition-all"
@@ -5791,7 +5777,7 @@ function MemberPage({ records, onNavigate }: { records: HealingRecord[]; onNavig
         <div className="flex gap-2 pt-2">
           <motion.a
             whileTap={{ scale: 0.96 }}
-            href="https://page.line.me/296yrpvh?openQrModal=true"
+            href={LINE_DEEP_LINK} onClick={(e) => { e.preventDefault(); openLine(); }}
             target="_blank"
             rel="noopener noreferrer"
             className="flex-1 py-2.5 rounded-xl text-xs font-medium text-center"
@@ -14410,7 +14396,7 @@ function ServiceHallPage({ onNavigate }: { onNavigate: (p: PageType) => void }) 
                                     )}
                                     <motion.a
                                       whileTap={{ scale: 0.95 }}
-                                      href="https://page.line.me/296yrpvh?openQrModal=true"
+                                      href={LINE_DEEP_LINK} onClick={(e) => { e.preventDefault(); openLine(); }}
                                       target="_blank"
                                       rel="noopener noreferrer"
                                       className="px-3 py-1 rounded-full text-[10px]"
@@ -14446,7 +14432,7 @@ function ServiceHallPage({ onNavigate }: { onNavigate: (p: PageType) => void }) 
       <div className="space-y-2 pt-2">
         <motion.a
           whileTap={{ scale: 0.97 }}
-          href="https://page.line.me/296yrpvh?openQrModal=true"
+          href={LINE_DEEP_LINK} onClick={(e) => { e.preventDefault(); openLine(); }}
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl text-sm font-bold"
@@ -15006,6 +14992,10 @@ const HEALING_TESTS: HealingTest[] = [
 // ===================== PAGE: AI CUSTOMER SERVICE =====================
 
 const CS_LINE_URL = 'https://page.line.me/296yrpvh?openQrModal=true';
+const LINE_DEEP_LINK = 'https://line.me/R/ti/p/@296yrpvh';
+function openLine() {
+  window.location.href = LINE_DEEP_LINK;
+}
 
 interface CSCta {
   label: string;
@@ -15113,7 +15103,7 @@ function CustomerServicePage({ onNavigate, onOpenProduct }: { onNavigate: (page:
   useEffect(() => { scrollToBottom(); }, [messages, scrollToBottom]);
 
   const handleCtaClick = useCallback((cta: CSCta) => {
-    if (cta.type === 'line') window.open(CS_LINE_URL, '_blank');
+    if (cta.type === 'line') { openLine(); return; }
     else if (cta.type === 'product' && cta.productId && onOpenProduct) onOpenProduct(cta.productId);
     else onNavigate('shop');
   }, [onNavigate, onOpenProduct]);
@@ -15258,6 +15248,40 @@ export default function HealingApp() {
   const [morningFlowLevel, setMorningFlowLevel] = useState<EmotionLevel>('L1');
   const [showMilestone, setShowMilestone] = useState<number | null>(null);
   const [isBedtimeFullscreen, setIsBedtimeFullscreen] = useState(false);
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const [showGridCustomizer, setShowGridCustomizer] = useState(false);
+
+  const ALL_GRID_ITEMS: { icon: string; label: string; page: PageType; color: string }[] = [
+    { icon: '/icons/療癒配方.png', label: '療癒配方', page: 'recipe', color: '#D2B4A1' },
+    { icon: '/icons/電子書.png', label: '電子書', page: 'ebook', color: '#C9A96E' },
+    { icon: '/icons/心理測驗.png', label: '心理測驗', page: 'healer', color: '#9B7EC8' },
+    { icon: '/icons/水晶能量.png', label: '水晶能量', page: 'crystal-energy', color: '#7EC8C8' },
+    { icon: '/icons/植栽照顧.png', label: '植栽照顧', page: 'plant-care', color: '#6B8F5E' },
+    { icon: '/icons/精油百科.png', label: '精油百科', page: 'oil-wiki', color: '#A8B876' },
+    { icon: '/icons/課後照顧.png', label: '課後照顧', page: 'library', color: '#8C7B72' },
+    { icon: '/icons/社群.png', label: '社群', page: 'community', color: '#E8A8A8' },
+    { icon: '/icons/我的作品.png', label: '我的作品集', page: 'my-works', color: '#C88ED8' },
+    { icon: '/icons/聆聽.png', label: '聆聽', page: 'sound', color: '#6B6B9B' },
+    { icon: '/icons/療癒商城.png', label: '療癒商城', page: 'shop', color: '#5E8FA8' },
+    { icon: '/icons/XIA幣任務.png', label: 'XIA幣任務', page: 'xia-tasks', color: '#E8B735' },
+    { icon: '/icons/日記.png', label: '日記', page: 'journal', color: '#C4A882' },
+    { icon: '/icons/收藏.png', label: '收藏', page: 'collections', color: '#E0A8A8' },
+    { icon: '/icons/智能客服.png', label: '智能客服', page: 'ai-cs', color: '#5EAAB8' },
+  ];
+
+  const [hiddenFeatures, setHiddenFeatures] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem('hidden_features') || '[]'); } catch { return []; }
+  });
+
+  const visibleGridItems = ALL_GRID_ITEMS.filter(item => !hiddenFeatures.includes(item.label));
+
+  const toggleFeature = (label: string) => {
+    setHiddenFeatures(prev => {
+      const updated = prev.includes(label) ? prev.filter(l => l !== label) : [...prev, label];
+      localStorage.setItem('hidden_features', JSON.stringify(updated));
+      return updated;
+    });
+  };
 
   // Initialize native app features (StatusBar, SplashScreen)
   useEffect(() => {
@@ -15456,6 +15480,111 @@ export default function HealingApp() {
         </div>
       )}
 
+      {/* Settings Menu (⋯) — top right on home page */}
+      {page === 'home' && (
+        <div className="fixed top-0 left-0 right-0 z-50" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+          <div className="max-w-md mx-auto px-4 pt-3 flex justify-end">
+            <button
+              onClick={() => setShowSettingsMenu(!showSettingsMenu)}
+              className="w-9 h-9 rounded-full flex items-center justify-center"
+              style={{ backgroundColor: 'rgba(255,254,249,0.9)', backdropFilter: 'blur(8px)', border: '1px solid #F0EDE8', color: '#3D3530', fontSize: 20, fontWeight: 'bold', letterSpacing: 2 }}
+            >
+              ⋯
+            </button>
+          </div>
+          <AnimatePresence>
+            {showSettingsMenu && (
+              <>
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 z-40"
+                  onClick={() => setShowSettingsMenu(false)}
+                />
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9, y: -10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.9, y: -10 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute right-4 top-14 z-50 rounded-2xl shadow-lg overflow-hidden"
+                  style={{ backgroundColor: '#FFFEF9', border: '1px solid #F0EDE8', minWidth: 0, width: 120 }}
+                >
+                  <button onClick={() => { setShowSettingsMenu(false); setPage('member'); }} className="w-full px-3 py-3 text-left text-sm flex items-center gap-2 active:bg-gray-50" style={{ color: '#3D3530', borderBottom: '1px solid #F0EDE8' }}>
+                    <span>👤</span> 帳戶管理
+                  </button>
+                  <button onClick={() => { setShowSettingsMenu(false); setShowGridCustomizer(true); }} className="w-full px-3 py-3 text-left text-sm flex items-center gap-2 active:bg-gray-50" style={{ color: '#3D3530', borderBottom: '1px solid #F0EDE8' }}>
+                    <span>🔧</span> 功能列自選
+                  </button>
+                  {user ? (
+                    <button onClick={() => { setShowSettingsMenu(false); signOut(auth); }} className="w-full px-3 py-3 text-left text-sm flex items-center gap-2 active:bg-gray-50" style={{ color: '#3D3530', borderBottom: '1px solid #F0EDE8' }}>
+                      <span>🚪</span> 登出
+                    </button>
+                  ) : (
+                    <button onClick={() => { setShowSettingsMenu(false); signInWithPopup(auth, googleProvider).catch(() => signInWithRedirect(auth, googleProvider)); }} className="w-full px-3 py-3 text-left text-sm flex items-center gap-2 active:bg-gray-50" style={{ color: '#3D3530', borderBottom: '1px solid #F0EDE8' }}>
+                      <span>🔑</span> 登入
+                    </button>
+                  )}
+                  <button onClick={() => { setShowSettingsMenu(false); openLine(); }} className="w-full px-3 py-3 text-left text-sm flex items-center gap-2 active:bg-gray-50" style={{ color: '#3D3530' }}>
+                    <span>💬</span> 聯絡我們
+                  </button>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
+        </div>
+      )}
+
+      {/* Grid Customizer Modal */}
+      <AnimatePresence>
+        {showGridCustomizer && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-end justify-center"
+            onClick={() => setShowGridCustomizer(false)}
+          >
+            <div className="absolute inset-0" style={{ backgroundColor: 'rgba(0,0,0,0.3)' }} />
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="relative w-full max-w-md rounded-t-3xl overflow-hidden"
+              style={{ backgroundColor: '#FFFEF9', maxHeight: '80vh' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-4 pt-4 pb-2 flex items-center justify-between" style={{ borderBottom: '1px solid #F0EDE8' }}>
+                <h2 className="text-sm font-bold" style={{ color: '#3D3530' }}>功能列自選</h2>
+                <button onClick={() => setShowGridCustomizer(false)} className="text-base" style={{ color: '#8C7B72' }}>✕</button>
+              </div>
+              <div className="px-3 py-3 overflow-y-auto" style={{ maxHeight: 'calc(70vh - 60px)', paddingBottom: 'calc(env(safe-area-inset-bottom) + 12px)' }}>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {ALL_GRID_ITEMS.map(item => {
+                    const isVisible = !hiddenFeatures.includes(item.label);
+                    return (
+                      <button
+                        key={item.label}
+                        onClick={() => toggleFeature(item.label)}
+                        className="flex items-center gap-2 px-2.5 py-2 rounded-xl active:bg-gray-50"
+                        style={{ backgroundColor: isVisible ? '#FBF8F2' : '#F5F3F0' }}
+                      >
+                        <img src={item.icon} alt={item.label} style={{ width: 26, height: 26, opacity: isVisible ? 1 : 0.25 }} className="object-contain" />
+                        <span className="flex-1 text-xs text-left font-medium truncate" style={{ color: isVisible ? '#3D3530' : '#C4BEBE' }}>{item.label}</span>
+                        <div className="w-8 h-[18px] rounded-full relative flex-shrink-0" style={{ backgroundColor: isVisible ? '#E8B735' : '#E8E3DC' }}>
+                          <div className="absolute top-[2px] w-[14px] h-[14px] rounded-full bg-white shadow-sm transition-all" style={{ left: isVisible ? 14 : 2 }} />
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <div className="max-w-md mx-auto px-4 pt-4 pb-32">
         <AnimatePresence mode="wait">
           <motion.div
@@ -15476,6 +15605,7 @@ export default function HealingApp() {
                 onGoToSound={goToSound}
                 onNavigate={(p) => setPage(p)}
                 user={user}
+                gridItems={visibleGridItems}
               />
             )}
             {page === 'diary' && <DiaryPage records={records} onCheckIn={handleCheckIn} onUpdateRecord={(rec) => {
@@ -15498,6 +15628,7 @@ export default function HealingApp() {
                 onGoToCustom={() => setPage('custom')}
                 onNavigate={(p) => setPage(p)}
                 user={user}
+                gridItems={visibleGridItems}
               />
             )}
             {page === 'bedtime' && <BedtimeRitualPage records={records} onClose={() => {
@@ -16637,13 +16768,35 @@ function AdminDashboardPage({ onBack }: { onBack: () => void }) {
 // ===================== PAGE: XIA TASKS =====================
 
 function XiaTasksPage({ records, onNavigate }: { records: HealingRecord[]; onNavigate: (p: PageType) => void }) {
+  // Track completed tasks for today in localStorage
+  const todayKey = `xia_tasks_${getToday()}`;
+  const [completedTasks, setCompletedTasks] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem(todayKey) || '[]'); } catch { return []; }
+  });
+
+  const markDone = (key: string) => {
+    if (completedTasks.includes(key)) return;
+    const updated = [...completedTasks, key];
+    setCompletedTasks(updated);
+    localStorage.setItem(todayKey, JSON.stringify(updated));
+  };
+
+  const hasCheckedIn = records.some(r => r.date === getToday());
+
   const tasks = [
-    { key: 'checkin', label: '每日簽到', desc: '每天打開App簽到', reward: 1, icon: '✅', done: records.some(r => r.date === getToday()) },
-    { key: 'card', label: '抽療癒卡', desc: '每日抽一張療癒卡', reward: 1, icon: '🃏', done: false },
-    { key: 'note', label: '寫日記', desc: '記錄今天的心情', reward: 2, icon: '📝', done: false },
-    { key: 'breathe', label: '聽音景5分鐘', desc: '讓自己放鬆一下', reward: 1, icon: '🎧', done: false },
-    { key: 'share', label: '分享作品', desc: '上傳一張手作照片', reward: 3, icon: '📸', done: false },
+    { key: 'checkin', label: '每日簽到', desc: '每天打開App簽到', reward: 1, icon: '✅', page: 'home' as PageType, done: hasCheckedIn || completedTasks.includes('checkin') },
+    { key: 'card', label: '抽療癒卡', desc: '每日抽一張療癒卡', reward: 1, icon: '🃏', page: 'card' as PageType, done: completedTasks.includes('card') },
+    { key: 'note', label: '寫日記', desc: '記錄今天的心情', reward: 2, icon: '📝', page: 'journal' as PageType, done: completedTasks.includes('note') },
+    { key: 'breathe', label: '聽音景5分鐘', desc: '讓自己放鬆一下', reward: 1, icon: '🎧', page: 'sound' as PageType, done: completedTasks.includes('breathe') },
+    { key: 'share', label: '分享作品', desc: '上傳一張手作照片', reward: 3, icon: '📸', page: 'community' as PageType, done: completedTasks.includes('share') },
   ];
+
+  const handleTaskClick = (t: typeof tasks[0]) => {
+    if (t.done) return;
+    markDone(t.key);
+    onNavigate(t.page);
+  };
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="pt-10 space-y-4">
       <div className="text-center py-4">
@@ -16653,22 +16806,27 @@ function XiaTasksPage({ records, onNavigate }: { records: HealingRecord[]; onNav
       </div>
       <div className="space-y-2.5 px-1">
         {tasks.map(t => (
-          <motion.div key={t.key} whileTap={{ scale: 0.98 }}
-            className="rounded-2xl p-4 flex items-center gap-3"
-            style={{ backgroundColor: t.done ? '#F0EDE8' : '#FFFEF9', border: '1px solid #F0EDE8' }}>
-            <span className="text-2xl">{t.icon}</span>
+          <motion.button key={t.key} whileTap={{ scale: t.done ? 1 : 0.98 }}
+            onClick={() => handleTaskClick(t)}
+            className="rounded-2xl p-4 flex items-center gap-3 w-full text-left"
+            style={{
+              backgroundColor: t.done ? '#FFFEF9' : '#F5F3F0',
+              border: t.done ? '1.5px solid #E8B735' : '1px solid #E8E3DC',
+              opacity: t.done ? 1 : 0.75,
+            }}>
+            <span className="text-2xl" style={{ filter: t.done ? 'none' : 'grayscale(100%)' }}>{t.icon}</span>
             <div className="flex-1">
-              <p className="text-sm font-bold" style={{ color: '#3D3530' }}>{t.label}</p>
-              <p className="text-xs" style={{ color: '#8C7B72' }}>{t.desc}</p>
+              <p className="text-sm font-bold" style={{ color: t.done ? '#3D3530' : '#A8A0A0' }}>{t.label}</p>
+              <p className="text-xs" style={{ color: t.done ? '#8C7B72' : '#C4BEBE' }}>{t.desc}</p>
             </div>
             <div className="text-right">
               {t.done ? (
-                <span className="text-xs font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: '#8FA886', color: '#fff' }}>已完成</span>
+                <span className="text-xs font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: '#E8B735', color: '#fff' }}>🪙 已完成</span>
               ) : (
-                <span className="text-xs font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: '#E8B735', color: '#fff' }}>+{t.reward} 🪙</span>
+                <span className="text-xs font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: '#E8E3DC', color: '#A8A0A0' }}>+{t.reward} 🪙</span>
               )}
             </div>
-          </motion.div>
+          </motion.button>
         ))}
       </div>
     </motion.div>
